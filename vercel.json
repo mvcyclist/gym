@@ -1,0 +1,10 @@
+{
+  "rewrites": [
+    { "source": "/gym/assets/(.*)", "destination": "/assets/$1" },
+    { "source": "/gym/favicon.svg", "destination": "/favicon.svg" },
+    { "source": "/gym/icons.svg", "destination": "/icons.svg" },
+    { "source": "/gym", "destination": "/index.html" },
+    { "source": "/gym/", "destination": "/index.html" },
+    { "source": "/gym/(.*)", "destination": "/index.html" }
+  ]
+}
