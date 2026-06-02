@@ -2,6 +2,7 @@ import type { DayActivity } from '../types/training'
 
 interface ActivityHistoryStripProps {
   days: DayActivity[]
+  emptyHint?: string
   onEditDay: (day: DayActivity) => void
 }
 
@@ -12,7 +13,9 @@ function intensityDot(intensity?: string): string {
   return 'bg-zinc-600'
 }
 
-export function ActivityHistoryStrip({ days, onEditDay }: ActivityHistoryStripProps) {
+export function ActivityHistoryStrip({ days, emptyHint, onEditDay }: ActivityHistoryStripProps) {
+  const hasAnyActivity = days.some((day) => day.activities.length > 0)
+
   return (
     <section>
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -21,6 +24,10 @@ export function ActivityHistoryStrip({ days, onEditDay }: ActivityHistoryStripPr
         </p>
         <p className="text-xs text-zinc-600">Tap a day to edit manual activities</p>
       </div>
+
+      {!hasAnyActivity && emptyHint && (
+        <p className="mb-3 text-sm text-zinc-500">{emptyHint}</p>
+      )}
 
       <div className="flex gap-3 overflow-x-auto pb-2">
         {days.map((day) => (

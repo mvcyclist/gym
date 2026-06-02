@@ -6,14 +6,19 @@ import type { WorkoutCategory } from '../types/workout'
 import type { ActivityEntry, DayActivity, WorkoutRecommendation } from '../types/training'
 import { ActivityHistoryStrip } from './ActivityHistoryStrip'
 import { ActionCard } from './ActionCard'
+import { BackfillRecentActivityModal } from './BackfillRecentActivityModal'
 import { EditActivityModal } from './EditActivityModal'
+import { GettingStartedCard } from './GettingStartedCard'
 import { TodayRecommendationCard } from './TodayRecommendationCard'
 import { WorkoutCard } from './WorkoutCard'
 
 interface WorkoutSelectorProps {
   activityHistory: DayActivity[]
-  recommendation: WorkoutRecommendation
+  activeDaysCount: number
+  recommendationReady: boolean
+  recommendation: WorkoutRecommendation | null
   onUpdateDayActivities: (date: string, activities: ActivityEntry[]) => void
+  onSaveBackfill: (rows: import('./BackfillRecentActivityModal').BackfillRow[]) => void
   onStartRecommendation: () => void
   onSelectWorkout: (workoutId: WorkoutCategory) => void
   onSelectTimer: () => void
@@ -22,8 +27,11 @@ interface WorkoutSelectorProps {
 
 export function WorkoutSelector({
   activityHistory,
+  activeDaysCount,
+  recommendationReady,
   recommendation,
   onUpdateDayActivities,
+  onSaveBackfill,
   onStartRecommendation,
   onSelectWorkout,
   onSelectTimer,
@@ -31,6 +39,7 @@ export function WorkoutSelector({
 }: WorkoutSelectorProps) {
   const workoutSectionRef = useRef<HTMLDivElement>(null)
   const [editingDay, setEditingDay] = useState<DayActivity | null>(null)
+  const [backfillOpen, setBackfillOpen] = useState(false)
 
   const strengthWorkouts = workouts.filter((workout) =>
     ['push', 'pull', 'leg', 'core'].includes(workout.id),
@@ -53,16 +62,25 @@ export function WorkoutSelector({
         </div>
 
         <div className="mb-8">
-          <TodayRecommendationCard
-            recommendation={recommendation}
-            onStart={onStartRecommendation}
-            onChooseAnother={scrollToWorkouts}
-          />
+          {recommendationReady && recommendation ? (
+            <TodayRecommendationCard
+              recommendation={recommendation}
+              onStart={onStartRecommendation}
+              onChooseAnother={scrollToWorkouts}
+            />
+          ) : (
+            <GettingStartedCard
+              activeDaysCount={activeDaysCount}
+              onStartWorkout={scrollToWorkouts}
+              onLogRecentDays={() => setBackfillOpen(true)}
+            />
+          )}
         </div>
 
         <div className="mb-10">
           <ActivityHistoryStrip
             days={activityHistory}
+            emptyHint="No activity yet — complete a workout or log recent days."
             onEditDay={(day) =>
               setEditingDay({
                 ...day,
@@ -103,6 +121,12 @@ export function WorkoutSelector({
         day={editingDay}
         onClose={() => setEditingDay(null)}
         onSave={onUpdateDayActivities}
+      />
+
+      <BackfillRecentActivityModal
+        open={backfillOpen}
+        onClose={() => setBackfillOpen(false)}
+        onSave={onSaveBackfill}
       />
     </>
   )

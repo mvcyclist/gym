@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { getWorkoutById } from './data/workouts'
 import { MobilityView } from './components/MobilityView'
 import { SaveProgressDialog } from './components/SaveProgressDialog'
@@ -12,6 +12,7 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useWorkoutLog } from './hooks/useWorkoutLog'
 import { countCompletedSets } from './utils/sessionMetrics'
 import { getRecommendationNavigation } from './utils/recommendationNavigation'
+import { scrollToTop } from './utils/scrollToTop'
 import type { WorkoutCategory } from './types/workout'
 
 type AppScreen = 'home' | 'workout' | 'timer-only' | 'mobility'
@@ -23,7 +24,15 @@ function App() {
   const [muted, setMuted] = useState(false)
   const [saveProgressOpen, setSaveProgressOpen] = useState(false)
 
-  const { activityHistory, recommendation, updateDayActivities, refresh } = useActivityHistory()
+  const {
+    activityHistory,
+    activeDaysCount,
+    recommendationReady,
+    recommendation,
+    updateDayActivities,
+    saveBackfill,
+    refresh,
+  } = useActivityHistory()
 
   const {
     session,
@@ -54,6 +63,12 @@ function App() {
   const showTimer = screen === 'workout' || screen === 'timer-only'
   const completedSetsInSession = session ? countCompletedSets(session) : 0
 
+  useEffect(() => {
+    scrollToTop()
+    const frame = requestAnimationFrame(scrollToTop)
+    return () => cancelAnimationFrame(frame)
+  }, [screen])
+
   const goHome = useCallback(() => {
     setScreen('home')
     setSelectedWorkoutType(null)
@@ -77,6 +92,7 @@ function App() {
 
   const handleSelectWorkout = useCallback(
     (workoutId: WorkoutCategory) => {
+      scrollToTop()
       startSession(workoutId)
       setSelectedWorkoutType(workoutId)
       setCurrentExerciseIndex(0)
@@ -87,15 +103,18 @@ function App() {
   )
 
   const handleSelectTimer = useCallback(() => {
+    scrollToTop()
     setScreen('timer-only')
     reset()
   }, [reset])
 
   const handleSelectMobility = useCallback(() => {
+    scrollToTop()
     setScreen('mobility')
   }, [])
 
   const handleStartRecommendation = useCallback(() => {
+    if (!recommendation) return
     const navigation = getRecommendationNavigation(recommendation)
     if (navigation.action === 'workout' && navigation.workoutId) {
       handleSelectWorkout(navigation.workoutId)
@@ -247,8 +266,11 @@ function App() {
         {screen === 'home' && (
           <WorkoutSelector
             activityHistory={activityHistory}
+            activeDaysCount={activeDaysCount}
+            recommendationReady={recommendationReady}
             recommendation={recommendation}
             onUpdateDayActivities={updateDayActivities}
+            onSaveBackfill={saveBackfill}
             onStartRecommendation={handleStartRecommendation}
             onSelectWorkout={handleSelectWorkout}
             onSelectTimer={handleSelectTimer}

@@ -1,10 +1,16 @@
 import { useCallback, useMemo, useState } from 'react'
 import { getWorkoutRecommendation } from '../services/recommendationService'
 import {
+  hasEnoughHistoryForRecommendation,
+  countDaysWithActivity,
+} from '../services/recommendationReadiness'
+import {
   getLastSevenDays,
+  saveBackfillDays,
   updateManualActivities,
 } from '../services/trainingLedgerService'
-import type { ActivityEntry, DayActivity } from '../types/training'
+import type { BackfillRow } from '../components/BackfillRecentActivityModal'
+import type { ActivityEntry, DayActivity, WorkoutRecommendation } from '../types/training'
 
 export function useActivityHistory() {
   const [revision, setRevision] = useState(0)
@@ -18,10 +24,20 @@ export function useActivityHistory() {
     return getLastSevenDays()
   }, [revision])
 
-  const recommendation = useMemo(
-    () => getWorkoutRecommendation(activityHistory),
+  const activeDaysCount = useMemo(
+    () => countDaysWithActivity(activityHistory),
     [activityHistory],
   )
+
+  const recommendationReady = useMemo(
+    () => hasEnoughHistoryForRecommendation(activityHistory),
+    [activityHistory],
+  )
+
+  const recommendation = useMemo((): WorkoutRecommendation | null => {
+    if (!recommendationReady) return null
+    return getWorkoutRecommendation(activityHistory)
+  }, [activityHistory, recommendationReady])
 
   const updateDayActivities = useCallback(
     (date: string, activities: ActivityEntry[]) => {
@@ -31,10 +47,33 @@ export function useActivityHistory() {
     [refresh],
   )
 
+  const saveBackfill = useCallback(
+    (rows: BackfillRow[]) => {
+      const today = new Date()
+      const payload = rows
+        .filter((row) => row.enabled && row.type)
+        .map((row) => {
+          const date = new Date(today)
+          date.setDate(today.getDate() - row.offset)
+          return {
+            date: date.toISOString().slice(0, 10),
+            activities: [{ type: row.type!, intensity: row.intensity }],
+          }
+        })
+
+      saveBackfillDays(payload)
+      refresh()
+    },
+    [refresh],
+  )
+
   return {
     activityHistory,
+    activeDaysCount,
+    recommendationReady,
     recommendation,
     updateDayActivities,
+    saveBackfill,
     refresh,
   }
 }

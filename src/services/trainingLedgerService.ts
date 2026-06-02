@@ -1,39 +1,13 @@
 import { loadLedger, saveLedger } from '../adapters/localLedgerStorage'
 import type { ActivityEntry, DayActivity } from '../types/training'
 import type { WorkoutSession } from '../types/workout'
-import { buildLastSevenDays, createActivityEntry, createInitialActivityHistory } from '../utils/activityHistory'
+import { buildLastSevenDays, createActivityEntry } from '../utils/activityHistory'
 import { getSessionCalendarDate } from '../utils/sessionMetrics'
 import { sessionToActivityEntry } from '../utils/sessionToActivity'
 
 // Phase 2: swap LocalLedgerStorage for SupabaseAdapter + sync queue.
 
-function ledgerHasHistory(): boolean {
-  const ledger = loadLedger()
-  const hasSessions = ledger.sessions.some(
-    (session) => session.status === 'completed' || session.status === 'partial',
-  )
-  const hasManual = Object.values(ledger.manualByDate).some((entries) => entries.length > 0)
-  return hasSessions || hasManual
-}
-
-function seedManualHistoryIfEmpty(): void {
-  if (ledgerHasHistory()) return
-
-  const ledger = loadLedger()
-  const seedDays = createInitialActivityHistory()
-
-  seedDays.forEach((day) => {
-    ledger.manualByDate[day.date] = day.activities.map((activity) => ({
-      ...activity,
-      source: 'manual' as const,
-    }))
-  })
-
-  saveLedger(ledger)
-}
-
 function buildActivitiesByDate(): Record<string, ActivityEntry[]> {
-  seedManualHistoryIfEmpty()
   const ledger = loadLedger()
   const byDate: Record<string, ActivityEntry[]> = {}
 
@@ -65,8 +39,28 @@ export function getLastSevenDays(): DayActivity[] {
   return buildLastSevenDays(buildActivitiesByDate())
 }
 
+export function saveBackfillDays(
+  days: Array<{
+    date: string
+    activities: Array<{ type: ActivityEntry['type']; intensity?: ActivityEntry['intensity'] }>
+  }>,
+): void {
+  const ledger = loadLedger()
+
+  days.forEach(({ date, activities }) => {
+    if (activities.length === 0) return
+    ledger.manualByDate[date] = activities.map((activity) =>
+      createActivityEntry(date, activity.type, {
+        intensity: activity.intensity ?? 'Moderate',
+        source: 'manual',
+      }),
+    )
+  })
+
+  saveLedger(ledger)
+}
+
 export function getManualActivitiesForDate(date: string): ActivityEntry[] {
-  seedManualHistoryIfEmpty()
   const ledger = loadLedger()
   return (ledger.manualByDate[date] ?? []).map((entry) => ({
     ...entry,
