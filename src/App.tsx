@@ -1,6 +1,8 @@
 import { useCallback, useState } from 'react'
 import { getWorkoutById } from './data/workouts'
+import { MobilityView } from './components/MobilityView'
 import { TimerBar } from './components/TimerBar'
+import { TimerOnlyView } from './components/TimerOnlyView'
 import { WorkoutDeck } from './components/WorkoutDeck'
 import { WorkoutSelector } from './components/WorkoutSelector'
 import { useAccurateTimer } from './hooks/useAccurateTimer'
@@ -8,7 +10,10 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useWorkoutLog } from './hooks/useWorkoutLog'
 import type { WorkoutCategory } from './types/workout'
 
+type AppScreen = 'home' | 'workout' | 'timer-only' | 'mobility'
+
 function App() {
+  const [screen, setScreen] = useState<AppScreen>('home')
   const [selectedWorkoutType, setSelectedWorkoutType] = useState<WorkoutCategory | null>(null)
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0)
   const [muted, setMuted] = useState(false)
@@ -38,6 +43,16 @@ function App() {
     adjustRemaining,
   } = useAccurateTimer({ muted })
 
+  const showTimer = screen === 'workout' || screen === 'timer-only'
+
+  const goHome = useCallback(() => {
+    setScreen('home')
+    setSelectedWorkoutType(null)
+    setCurrentExerciseIndex(0)
+    clearSession()
+    reset()
+  }, [clearSession, reset])
+
   const startRestForExercise = useCallback(
     (exerciseIndex: number) => {
       if (!selectedWorkoutType) return
@@ -54,18 +69,25 @@ function App() {
       startSession(workoutId)
       setSelectedWorkoutType(workoutId)
       setCurrentExerciseIndex(0)
+      setScreen('workout')
       reset()
     },
     [reset, startSession],
   )
 
-  const handleBack = useCallback(() => {
-    abandonSession()
-    setSelectedWorkoutType(null)
-    setCurrentExerciseIndex(0)
-    clearSession()
+  const handleSelectTimer = useCallback(() => {
+    setScreen('timer-only')
     reset()
-  }, [abandonSession, clearSession, reset])
+  }, [reset])
+
+  const handleSelectMobility = useCallback(() => {
+    setScreen('mobility')
+  }, [])
+
+  const handleBackFromWorkout = useCallback(() => {
+    abandonSession()
+    goHome()
+  }, [abandonSession, goHome])
 
   const handlePrevious = useCallback(() => {
     setCurrentExerciseIndex((index) => Math.max(0, index - 1))
@@ -99,11 +121,8 @@ function App() {
     if (!allSetsComplete) return
 
     completeSession()
-    setSelectedWorkoutType(null)
-    setCurrentExerciseIndex(0)
-    clearSession()
-    reset()
-  }, [clearSession, completeSession, currentExerciseIndex, getExerciseLog, reset, selectedWorkoutType])
+    goHome()
+  }, [completeSession, currentExerciseIndex, getExerciseLog, goHome, selectedWorkoutType])
 
   const handleUpdateSet = useCallback(
     (
@@ -152,30 +171,40 @@ function App() {
   }, [pause, start, timerStatus])
 
   useKeyboardShortcuts({
-    enabled: selectedWorkoutType !== null,
-    onPrevious: handlePrevious,
-    onNext: handleNext,
+    enabled: screen === 'workout' || screen === 'timer-only',
+    onPrevious: screen === 'workout' ? handlePrevious : undefined,
+    onNext: screen === 'workout' ? handleNext : undefined,
     onToggleTimer: handleToggleTimer,
     onResetTimer: reset,
   })
 
   return (
     <div className="flex min-h-full flex-col">
-      <TimerBar
-        remaining={timerRemaining}
-        duration={timerDuration}
-        status={timerStatus}
-        muted={muted}
-        onStart={start}
-        onPause={pause}
-        onReset={reset}
-        onAdjust={adjustRemaining}
-        onSetDuration={setDuration}
-        onToggleMute={() => setMuted((value) => !value)}
-      />
+      {showTimer && (
+        <TimerBar
+          remaining={timerRemaining}
+          duration={timerDuration}
+          status={timerStatus}
+          muted={muted}
+          onStart={start}
+          onPause={pause}
+          onReset={reset}
+          onAdjust={adjustRemaining}
+          onSetDuration={setDuration}
+          onToggleMute={() => setMuted((value) => !value)}
+        />
+      )}
 
       <main className="flex-1">
-        {selectedWorkoutType && session ? (
+        {screen === 'home' && (
+          <WorkoutSelector
+            onSelectWorkout={handleSelectWorkout}
+            onSelectTimer={handleSelectTimer}
+            onSelectMobility={handleSelectMobility}
+          />
+        )}
+
+        {screen === 'workout' && selectedWorkoutType && session && (
           <WorkoutDeck
             workoutId={selectedWorkoutType}
             currentExerciseIndex={currentExerciseIndex}
@@ -186,12 +215,14 @@ function App() {
             onDeleteSet={handleDeleteSet}
             onPrevious={handlePrevious}
             onNext={handleNext}
-            onBack={handleBack}
+            onBack={handleBackFromWorkout}
             onFinish={handleFinish}
           />
-        ) : (
-          <WorkoutSelector onSelect={handleSelectWorkout} />
         )}
+
+        {screen === 'timer-only' && <TimerOnlyView onBack={goHome} />}
+
+        {screen === 'mobility' && <MobilityView onBack={goHome} />}
       </main>
     </div>
   )
