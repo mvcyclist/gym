@@ -1,6 +1,12 @@
 import { useCallback, useState } from 'react'
 import { getWorkoutById } from '../data/workouts'
-import { getSessionById, saveSession } from '../utils/storage'
+import {
+  getSessionById,
+  recordCompletedWorkout,
+  recordPartialWorkout,
+  removeSession,
+  upsertSession,
+} from '../services/trainingLedgerService'
 import type { ExerciseLog, SetLog, WorkoutCategory, WorkoutSession } from '../types/workout'
 
 const DEFAULT_SET_COUNT = 3
@@ -64,8 +70,9 @@ interface UseWorkoutLogReturn {
   addSet: (exerciseId: string) => void
   deleteSet: (exerciseId: string, setNumber: number) => void
   getExerciseLog: (exerciseId: string) => ExerciseLog | undefined
-  completeSession: () => void
-  abandonSession: () => void
+  finishWorkout: () => WorkoutSession | null
+  savePartialWorkout: () => WorkoutSession | null
+  discardActiveWorkout: () => void
   clearSession: () => void
 }
 
@@ -77,7 +84,7 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
       ...nextSession,
       updatedAt: new Date().toISOString(),
     }
-    saveSession(updatedSession)
+    upsertSession(updatedSession)
     setSession(updatedSession)
     return updatedSession
   }, [])
@@ -85,7 +92,7 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
   const startSession = useCallback(
     (workoutType: WorkoutCategory) => {
       const nextSession = createSession(workoutType)
-      saveSession(nextSession)
+      upsertSession(nextSession)
       setSession(nextSession)
       return nextSession
     },
@@ -213,24 +220,33 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
     [session],
   )
 
-  const completeSession = useCallback(() => {
-    if (!session) return
-
-    persistSession({
+  const finishWorkout = useCallback(() => {
+    if (!session) return null
+    const updated = persistSession({
       ...session,
       status: 'completed',
       completedAt: new Date().toISOString(),
     })
+    recordCompletedWorkout(updated)
+    return updated
   }, [persistSession, session])
 
-  const abandonSession = useCallback(() => {
-    if (!session) return
-
-    persistSession({
+  const savePartialWorkout = useCallback(() => {
+    if (!session) return null
+    const updated = persistSession({
       ...session,
-      status: 'abandoned',
+      status: 'partial',
+      completedAt: new Date().toISOString(),
     })
+    recordPartialWorkout(updated)
+    return updated
   }, [persistSession, session])
+
+  const discardActiveWorkout = useCallback(() => {
+    if (!session) return
+    removeSession(session.id)
+    setSession(null)
+  }, [session])
 
   const clearSession = useCallback(() => {
     setSession(null)
@@ -245,8 +261,9 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
     addSet,
     deleteSet,
     getExerciseLog,
-    completeSession,
-    abandonSession,
+    finishWorkout,
+    savePartialWorkout,
+    discardActiveWorkout,
     clearSession,
   }
 }

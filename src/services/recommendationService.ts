@@ -30,6 +30,17 @@ export function getWorkoutRecommendation(activityHistory: DayActivity[]): Workou
     )
   }
 
+  if (yesterday && dayHadPartialStrength(yesterday)) {
+    warnings.push('Partial strength session yesterday — consider recovery or a lighter day.')
+    return buildRecommendation(
+      pickAlternate(['Mobility', 'Push'], findMostRecentStrength(sortedDays)),
+      'Recovery or light strength',
+      'You cut a strength session short yesterday. Mobility or a lighter workout may fit better today.',
+      warnings,
+      'Lite',
+    )
+  }
+
   if (yesterday && hadHardBike(yesterday)) {
     warnings.push('Hard cycling yesterday — leg day is deprioritized.')
     return buildRecommendation(
@@ -126,6 +137,13 @@ function isRecoveryDay(day: DayActivity): boolean {
   )
 }
 
+function dayHadPartialStrength(day: DayActivity): boolean {
+  return day.activities.some(
+    (activity) =>
+      STRENGTH_TYPES.includes(activity.type) && activity.sessionStatus === 'partial',
+  )
+}
+
 function hadHardBike(day: DayActivity): boolean {
   return day.activities.some(
     (activity) => activity.type === 'Bike' && activity.intensity === 'Hard',
@@ -138,6 +156,7 @@ function dayIncludesType(day: DayActivity, type: ActivityType): boolean {
 
 function isHardActivity(activity: ActivityEntry): boolean {
   if (activity.intensity === 'Hard') return true
+  if (activity.sessionStatus === 'partial' && activity.intensity === 'Easy') return false
   if (activity.type === 'Walk' || activity.type === 'Rest') return false
   if (activity.type === 'Mobility' && activity.intensity === 'Easy') return false
 

@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import { getWorkoutById } from './data/workouts'
 import { MobilityView } from './components/MobilityView'
+import { SaveProgressDialog } from './components/SaveProgressDialog'
 import { TimerBar } from './components/TimerBar'
 import { TimerOnlyView } from './components/TimerOnlyView'
 import { WorkoutDeck } from './components/WorkoutDeck'
@@ -9,6 +10,7 @@ import { useAccurateTimer } from './hooks/useAccurateTimer'
 import { useActivityHistory } from './hooks/useActivityHistory'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useWorkoutLog } from './hooks/useWorkoutLog'
+import { countCompletedSets } from './utils/sessionMetrics'
 import { getRecommendationNavigation } from './utils/recommendationNavigation'
 import type { WorkoutCategory } from './types/workout'
 
@@ -19,8 +21,9 @@ function App() {
   const [selectedWorkoutType, setSelectedWorkoutType] = useState<WorkoutCategory | null>(null)
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0)
   const [muted, setMuted] = useState(false)
+  const [saveProgressOpen, setSaveProgressOpen] = useState(false)
 
-  const { activityHistory, recommendation, updateDayActivities } = useActivityHistory()
+  const { activityHistory, recommendation, updateDayActivities, refresh } = useActivityHistory()
 
   const {
     session,
@@ -30,8 +33,9 @@ function App() {
     addSet,
     deleteSet,
     getExerciseLog,
-    completeSession,
-    abandonSession,
+    finishWorkout,
+    savePartialWorkout,
+    discardActiveWorkout,
     clearSession,
   } = useWorkoutLog()
 
@@ -48,14 +52,17 @@ function App() {
   } = useAccurateTimer({ muted })
 
   const showTimer = screen === 'workout' || screen === 'timer-only'
+  const completedSetsInSession = session ? countCompletedSets(session) : 0
 
   const goHome = useCallback(() => {
     setScreen('home')
     setSelectedWorkoutType(null)
     setCurrentExerciseIndex(0)
+    setSaveProgressOpen(false)
     clearSession()
     reset()
-  }, [clearSession, reset])
+    refresh()
+  }, [clearSession, refresh, reset])
 
   const startRestForExercise = useCallback(
     (exerciseIndex: number) => {
@@ -100,9 +107,26 @@ function App() {
   }, [handleSelectMobility, handleSelectWorkout, recommendation])
 
   const handleBackFromWorkout = useCallback(() => {
-    abandonSession()
+    if (!session) return
+
+    if (completedSetsInSession === 0) {
+      discardActiveWorkout()
+      goHome()
+      return
+    }
+
+    setSaveProgressOpen(true)
+  }, [completedSetsInSession, discardActiveWorkout, goHome, session])
+
+  const handleSaveProgress = useCallback(() => {
+    savePartialWorkout()
     goHome()
-  }, [abandonSession, goHome])
+  }, [goHome, savePartialWorkout])
+
+  const handleDiscardProgress = useCallback(() => {
+    discardActiveWorkout()
+    goHome()
+  }, [discardActiveWorkout, goHome])
 
   const handlePrevious = useCallback(() => {
     setCurrentExerciseIndex((index) => Math.max(0, index - 1))
@@ -126,7 +150,7 @@ function App() {
   }, [currentExerciseIndex, getExerciseLog, selectedWorkoutType, startRestForExercise])
 
   const handleFinish = useCallback(() => {
-    if (!selectedWorkoutType) return
+    if (!selectedWorkoutType || !session) return
     const workout = getWorkoutById(selectedWorkoutType)
     if (!workout) return
 
@@ -135,9 +159,18 @@ function App() {
     const allSetsComplete = exerciseLog?.sets.every((set) => set.completed) ?? false
     if (!allSetsComplete) return
 
-    completeSession()
+    if (countCompletedSets(session) === 0) return
+
+    finishWorkout()
     goHome()
-  }, [completeSession, currentExerciseIndex, getExerciseLog, goHome, selectedWorkoutType])
+  }, [
+    currentExerciseIndex,
+    finishWorkout,
+    getExerciseLog,
+    goHome,
+    selectedWorkoutType,
+    session,
+  ])
 
   const handleUpdateSet = useCallback(
     (
@@ -243,6 +276,14 @@ function App() {
 
         {screen === 'mobility' && <MobilityView onBack={goHome} />}
       </main>
+
+      <SaveProgressDialog
+        open={saveProgressOpen}
+        completedSets={completedSetsInSession}
+        onSave={handleSaveProgress}
+        onDiscard={handleDiscardProgress}
+        onCancel={() => setSaveProgressOpen(false)}
+      />
     </div>
   )
 }

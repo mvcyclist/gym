@@ -19,7 +19,7 @@ export function ActivityHistoryStrip({ days, onEditDay }: ActivityHistoryStripPr
         <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
           Last 7 days
         </p>
-        <p className="text-xs text-zinc-600">Tap a day to edit</p>
+        <p className="text-xs text-zinc-600">Tap a day to edit manual activities</p>
       </div>
 
       <div className="flex gap-3 overflow-x-auto pb-2">
@@ -48,6 +48,9 @@ export function ActivityHistoryStrip({ days, onEditDay }: ActivityHistoryStripPr
                       aria-hidden
                     />
                     {activity.type}
+                    {activity.sessionStatus === 'partial' && (
+                      <span className="text-[10px] text-amber-400/90">· partial</span>
+                    )}
                   </span>
                 ))
               )}

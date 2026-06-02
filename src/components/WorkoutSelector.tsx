@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { getManualActivitiesForDate } from '../services/trainingLedgerService'
 import { mobilityExercises } from '../data/mobility'
 import { workouts } from '../data/workouts'
 import type { WorkoutCategory } from '../types/workout'
@@ -60,7 +61,15 @@ export function WorkoutSelector({
         </div>
 
         <div className="mb-10">
-          <ActivityHistoryStrip days={activityHistory} onEditDay={setEditingDay} />
+          <ActivityHistoryStrip
+            days={activityHistory}
+            onEditDay={(day) =>
+              setEditingDay({
+                ...day,
+                activities: getManualActivitiesForDate(day.date),
+              })
+            }
+          />
         </div>
 
         <div ref={workoutSectionRef} className="mb-4">

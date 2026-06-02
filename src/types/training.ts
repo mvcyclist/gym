@@ -23,6 +23,9 @@ export interface ActivityEntry {
   intensity?: Intensity
   durationMinutes?: number
   notes?: string
+  source?: 'workout' | 'manual'
+  sessionId?: string
+  sessionStatus?: 'completed' | 'partial'
 }
 
 export interface DayActivity {

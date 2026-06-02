@@ -1,29 +1,40 @@
 import { useCallback, useMemo, useState } from 'react'
 import { getWorkoutRecommendation } from '../services/recommendationService'
-import { buildLastSevenDays, createInitialActivityHistory } from '../utils/activityHistory'
+import {
+  getLastSevenDays,
+  updateManualActivities,
+} from '../services/trainingLedgerService'
 import type { ActivityEntry, DayActivity } from '../types/training'
 
 export function useActivityHistory() {
-  const [activityHistory, setActivityHistory] = useState<DayActivity[]>(createInitialActivityHistory)
+  const [revision, setRevision] = useState(0)
+
+  const refresh = useCallback(() => {
+    setRevision((value) => value + 1)
+  }, [])
+
+  const activityHistory = useMemo((): DayActivity[] => {
+    void revision
+    return getLastSevenDays()
+  }, [revision])
 
   const recommendation = useMemo(
     () => getWorkoutRecommendation(activityHistory),
     [activityHistory],
   )
 
-  const updateDayActivities = useCallback((date: string, activities: ActivityEntry[]) => {
-    setActivityHistory((current) => {
-      const seed = Object.fromEntries(
-        current.map((day) => [day.date, day.activities]),
-      ) as Record<string, ActivityEntry[]>
-      seed[date] = activities
-      return buildLastSevenDays(seed)
-    })
-  }, [])
+  const updateDayActivities = useCallback(
+    (date: string, activities: ActivityEntry[]) => {
+      updateManualActivities(date, activities)
+      refresh()
+    },
+    [refresh],
+  )
 
   return {
     activityHistory,
     recommendation,
     updateDayActivities,
+    refresh,
   }
 }

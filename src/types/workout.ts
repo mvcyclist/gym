@@ -2,7 +2,7 @@ export type WorkoutCategory = 'push' | 'pull' | 'leg' | 'core'
 
 export type TimerStatus = 'idle' | 'running' | 'paused' | 'complete'
 
-export type SessionStatus = 'active' | 'completed' | 'abandoned'
+export type SessionStatus = 'active' | 'completed' | 'partial' | 'abandoned'
 
 export interface Exercise {
   id: string
