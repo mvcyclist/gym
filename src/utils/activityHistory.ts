@@ -46,6 +46,27 @@ export function buildLastSevenDays(activitiesByDate: Record<string, ActivityEntr
   return days
 }
 
+/**
+ * Re-key manualByDate buckets saved with old `toISOString().slice(0, 10)` (UTC).
+ * One-time when upgrading the ledger to v3.
+ */
+export function migrateManualDateKeysFromUtcStorageKeys(
+  manualByDate: Record<string, ActivityEntry[]>,
+): Record<string, ActivityEntry[]> {
+  const merged: Record<string, ActivityEntry[]> = {}
+
+  for (const [storedKey, entries] of Object.entries(manualByDate)) {
+    const localKey = toDateString(new Date(`${storedKey}T00:00:00Z`))
+
+    for (const entry of entries) {
+      const normalized = { ...entry, date: localKey }
+      merged[localKey] = [...(merged[localKey] ?? []), normalized]
+    }
+  }
+
+  return merged
+}
+
 export function createInitialActivityHistory(): DayActivity[] {
   const today = new Date()
   const seed: Record<string, ActivityEntry[]> = {}

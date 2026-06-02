@@ -1,10 +1,11 @@
 import type { TrainingLedger } from '../types/ledger'
 import type { WorkoutSession } from '../types/workout'
+import { migrateManualDateKeysFromUtcStorageKeys } from '../utils/activityHistory'
 
 const LEDGER_KEY = 'workout-deck-ledger'
 const LEGACY_SESSIONS_KEY = 'workout-deck-sessions'
 
-const LEDGER_VERSION = 2
+const LEDGER_VERSION = 3
 
 function emptyLedger(): TrainingLedger {
   return { version: LEDGER_VERSION, sessions: [], manualByDate: {} }
@@ -20,8 +21,13 @@ function normalizeLedger(parsed: Partial<TrainingLedger>): TrainingLedger {
   const manualDayCount = Object.values(manualByDate).filter((entries) => entries.length > 0).length
 
   // Drop legacy demo seed (v1) when the user has no real workout sessions.
-  const manualByDateCleaned =
+  let manualByDateCleaned =
     parsed.version === 1 && !hasLoggedWorkouts && manualDayCount >= 5 ? {} : manualByDate
+
+  const incomingVersion = parsed.version ?? 1
+  if (incomingVersion < LEDGER_VERSION && manualDayCount > 0) {
+    manualByDateCleaned = migrateManualDateKeysFromUtcStorageKeys(manualByDateCleaned)
+  }
 
   return {
     version: LEDGER_VERSION,
@@ -64,7 +70,10 @@ export function loadLedger(): TrainingLedger {
     const ledger = normalizeLedger(parsed)
 
     const migrated = migrateLegacySessions(ledger)
-    if (migrated.sessions.length !== ledger.sessions.length) {
+    const shouldPersist =
+      (parsed.version ?? 1) < LEDGER_VERSION || migrated.sessions.length !== ledger.sessions.length
+
+    if (shouldPersist) {
       saveLedger(migrated)
     }
 
