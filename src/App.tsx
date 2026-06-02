@@ -6,8 +6,10 @@ import { TimerOnlyView } from './components/TimerOnlyView'
 import { WorkoutDeck } from './components/WorkoutDeck'
 import { WorkoutSelector } from './components/WorkoutSelector'
 import { useAccurateTimer } from './hooks/useAccurateTimer'
+import { useActivityHistory } from './hooks/useActivityHistory'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useWorkoutLog } from './hooks/useWorkoutLog'
+import { getRecommendationNavigation } from './utils/recommendationNavigation'
 import type { WorkoutCategory } from './types/workout'
 
 type AppScreen = 'home' | 'workout' | 'timer-only' | 'mobility'
@@ -17,6 +19,8 @@ function App() {
   const [selectedWorkoutType, setSelectedWorkoutType] = useState<WorkoutCategory | null>(null)
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0)
   const [muted, setMuted] = useState(false)
+
+  const { activityHistory, recommendation, updateDayActivities } = useActivityHistory()
 
   const {
     session,
@@ -83,6 +87,17 @@ function App() {
   const handleSelectMobility = useCallback(() => {
     setScreen('mobility')
   }, [])
+
+  const handleStartRecommendation = useCallback(() => {
+    const navigation = getRecommendationNavigation(recommendation)
+    if (navigation.action === 'workout' && navigation.workoutId) {
+      handleSelectWorkout(navigation.workoutId)
+      return
+    }
+    if (navigation.action === 'mobility') {
+      handleSelectMobility()
+    }
+  }, [handleSelectMobility, handleSelectWorkout, recommendation])
 
   const handleBackFromWorkout = useCallback(() => {
     abandonSession()
@@ -198,6 +213,10 @@ function App() {
       <main className="flex-1">
         {screen === 'home' && (
           <WorkoutSelector
+            activityHistory={activityHistory}
+            recommendation={recommendation}
+            onUpdateDayActivities={updateDayActivities}
+            onStartRecommendation={handleStartRecommendation}
             onSelectWorkout={handleSelectWorkout}
             onSelectTimer={handleSelectTimer}
             onSelectMobility={handleSelectMobility}
