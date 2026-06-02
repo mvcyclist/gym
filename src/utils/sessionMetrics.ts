@@ -1,5 +1,6 @@
 import type { Intensity } from '../types/training'
 import type { WorkoutSession } from '../types/workout'
+import { toDateString } from './activityHistory'
 
 export function countCompletedSets(session: WorkoutSession): number {
   return session.exercises.reduce(
@@ -20,7 +21,7 @@ export function countExercisesWithCompletedSets(session: WorkoutSession): number
 
 export function getSessionCalendarDate(session: WorkoutSession): string {
   const timestamp = session.completedAt ?? session.updatedAt ?? session.startedAt
-  return timestamp.slice(0, 10)
+  return toDateString(new Date(timestamp))
 }
 
 export function deriveSessionIntensity(session: WorkoutSession): Intensity {

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getWorkoutRecommendation } from '../services/recommendationService'
 import {
   hasEnoughHistoryForRecommendation,
@@ -11,6 +11,7 @@ import {
 } from '../services/trainingLedgerService'
 import type { BackfillRow } from '../components/BackfillRecentActivityModal'
 import type { ActivityEntry, DayActivity, WorkoutRecommendation } from '../types/training'
+import { toDateString } from '../utils/activityHistory'
 
 export function useActivityHistory() {
   const [revision, setRevision] = useState(0)
@@ -18,6 +19,18 @@ export function useActivityHistory() {
   const refresh = useCallback(() => {
     setRevision((value) => value + 1)
   }, [])
+
+  useEffect(() => {
+    const refreshIfVisible = () => {
+      if (document.visibilityState === 'visible') refresh()
+    }
+    window.addEventListener('focus', refreshIfVisible)
+    document.addEventListener('visibilitychange', refreshIfVisible)
+    return () => {
+      window.removeEventListener('focus', refreshIfVisible)
+      document.removeEventListener('visibilitychange', refreshIfVisible)
+    }
+  }, [refresh])
 
   const activityHistory = useMemo((): DayActivity[] => {
     void revision
@@ -56,7 +69,7 @@ export function useActivityHistory() {
           const date = new Date(today)
           date.setDate(today.getDate() - row.offset)
           return {
-            date: date.toISOString().slice(0, 10),
+            date: toDateString(date),
             activities: [{ type: row.type!, intensity: row.intensity }],
           }
         })
