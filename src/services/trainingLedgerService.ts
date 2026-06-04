@@ -1,7 +1,11 @@
 import { loadLedger, saveLedger } from '../adapters/localLedgerStorage'
 import type { ActivityEntry, DayActivity } from '../types/training'
 import type { WorkoutSession } from '../types/workout'
-import { buildLastSevenDays, createActivityEntry } from '../utils/activityHistory'
+import {
+  buildLastSevenDays,
+  createActivityEntry,
+  resolveManualStorageKey,
+} from '../utils/activityHistory'
 import { getSessionCalendarDate } from '../utils/sessionMetrics'
 import { sessionToActivityEntry } from '../utils/sessionToActivity'
 
@@ -22,11 +26,14 @@ function buildActivitiesByDate(): Record<string, ActivityEntry[]> {
       addEntry(sessionToActivityEntry(session))
     })
 
-  Object.entries(ledger.manualByDate).forEach(([date, entries]) => {
+  Object.entries(ledger.manualByDate).forEach(([storedKey, entries]) => {
+    const dateKey =
+      ledger.version >= 3 ? storedKey : resolveManualStorageKey(storedKey)
+
     entries.forEach((entry) => {
       addEntry({
         ...entry,
-        date,
+        date: dateKey,
         source: 'manual',
       })
     })

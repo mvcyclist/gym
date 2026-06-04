@@ -47,16 +47,32 @@ export function buildLastSevenDays(activitiesByDate: Record<string, ActivityEntr
 }
 
 /**
- * Re-key manualByDate buckets saved with old `toISOString().slice(0, 10)` (UTC).
- * One-time when upgrading the ledger to v3.
+ * Legacy manual/backfill rows used `toISOString().slice(0, 10)`, so yesterday evening
+ * in US timezones was often stored under today's date key (e.g. 2026-06-02 → meant 2026-06-01).
  */
+export function resolveManualStorageKey(
+  storedKey: string,
+  todayKey = toDateString(new Date()),
+): string {
+  const localFromUtcMidnight = toDateString(new Date(`${storedKey}T00:00:00Z`))
+  if (localFromUtcMidnight === storedKey) return storedKey
+
+  if (storedKey === todayKey && localFromUtcMidnight < storedKey) {
+    return localFromUtcMidnight
+  }
+
+  return storedKey
+}
+
+/** One-time when upgrading the ledger to v3. */
 export function migrateManualDateKeysFromUtcStorageKeys(
   manualByDate: Record<string, ActivityEntry[]>,
 ): Record<string, ActivityEntry[]> {
+  const todayKey = toDateString(new Date())
   const merged: Record<string, ActivityEntry[]> = {}
 
   for (const [storedKey, entries] of Object.entries(manualByDate)) {
-    const localKey = toDateString(new Date(`${storedKey}T00:00:00Z`))
+    const localKey = resolveManualStorageKey(storedKey, todayKey)
 
     for (const entry of entries) {
       const normalized = { ...entry, date: localKey }

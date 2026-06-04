@@ -65,12 +65,12 @@ export const workouts: WorkoutType[] = [
     description: 'Quads, hamstrings, glutes, and calves.',
     estimatedDuration: '50–60 min',
     exercises: [
-      createExercise('leg-1', 'Squat', ['Quads', 'Glutes'], 'Barbell or dumbbells', '4', '6–10', 120),
-      createExercise('leg-2', 'Romanian Deadlift', ['Hamstrings', 'Glutes'], 'Barbell or dumbbells', '3', '8–12', 90),
-      createExercise('leg-3', 'Dumbbell Lunge', ['Quads', 'Glutes'], 'Dumbbells', '3', '10 each leg', 90),
-      createExercise('leg-4', 'Hip Thrust', ['Glutes'], 'Bench, barbell or dumbbell', '3', '10–15', 90),
-      createExercise('leg-5', 'Calf Raise', ['Calves'], 'Bodyweight or dumbbells', '3', '15–20', 60),
-      createExercise('leg-6', 'Wall Sit', ['Quads'], 'Bodyweight', '3', '30–45 sec', 60),
+      createExercise('leg-1', 'Barbell Back Squat', ['Quads', 'Glutes', 'Core'], 'Barbell', '4', '8-10', 180),
+      createExercise('leg-2', 'Barbell Hip Thrust', ['Glutes', 'Hamstrings'], 'Barbell, bench', '3', '8-10', 120),
+      createExercise('leg-3', 'TRX Weighted Lunge', ['Quads', 'Glutes', 'Balance'], 'TRX, Dumbbells', '3', '10 each leg', 90),
+      createExercise('leg-4', 'TRX Hamstring Curl', ['Hamstrings'], 'TRX', '2', '10-12', 75),
+      createExercise('leg-5', 'Standing Calf Raise', ['Calves'], 'Dumbbells', '3', '10-15', 60),
+      createExercise('leg-6', 'TRX Side Tuck', ['Core', 'Obliques'], 'TRX', '3', '10 each side', 60),
     ],
   },
   {
