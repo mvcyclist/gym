@@ -57,12 +57,12 @@ function migrateLegacySessions(ledger: TrainingLedger): TrainingLedger {
   }
 }
 
-export function loadLedger(): TrainingLedger {
+export function loadLocalLedger(): TrainingLedger {
   try {
     const raw = localStorage.getItem(LEDGER_KEY)
     if (!raw) {
       const migrated = migrateLegacySessions(emptyLedger())
-      saveLedger(migrated)
+      saveLocalLedger(migrated)
       return migrated
     }
 
@@ -74,18 +74,18 @@ export function loadLedger(): TrainingLedger {
       (parsed.version ?? 1) < LEDGER_VERSION || migrated.sessions.length !== ledger.sessions.length
 
     if (shouldPersist) {
-      saveLedger(migrated)
+      saveLocalLedger(migrated)
     }
 
     return migrated
   } catch {
     const ledger = emptyLedger()
-    saveLedger(ledger)
+    saveLocalLedger(ledger)
     return ledger
   }
 }
 
-export function saveLedger(ledger: TrainingLedger): void {
+export function saveLocalLedger(ledger: TrainingLedger): void {
   localStorage.setItem(LEDGER_KEY, JSON.stringify(ledger))
 }
 

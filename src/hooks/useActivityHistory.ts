@@ -10,10 +10,12 @@ import {
   updateManualActivities,
 } from '../services/trainingLedgerService'
 import type { BackfillRow } from '../components/BackfillRecentActivityModal'
+import { useAuth } from './useAuth'
 import type { ActivityEntry, DayActivity, WorkoutRecommendation } from '../types/training'
 import { toDateString } from '../utils/activityHistory'
 
 export function useActivityHistory() {
+  const { ledgerVersion } = useAuth()
   const [revision, setRevision] = useState(0)
 
   const refresh = useCallback(() => {
@@ -34,8 +36,9 @@ export function useActivityHistory() {
 
   const activityHistory = useMemo((): DayActivity[] => {
     void revision
+    void ledgerVersion
     return getLastSevenDays()
-  }, [revision])
+  }, [ledgerVersion, revision])
 
   const activeDaysCount = useMemo(
     () => countDaysWithActivity(activityHistory),

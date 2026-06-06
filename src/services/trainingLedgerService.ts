@@ -1,4 +1,9 @@
-import { loadLedger, saveLedger } from '../adapters/localLedgerStorage'
+import {
+  loadLedger,
+  removeSession as removeSessionFromLedger,
+  replaceManualActivities,
+  upsertSession,
+} from './ledgerRepository'
 import type { ActivityEntry, DayActivity } from '../types/training'
 import type { WorkoutSession } from '../types/workout'
 import {
@@ -8,8 +13,6 @@ import {
 } from '../utils/activityHistory'
 import { getSessionCalendarDate } from '../utils/sessionMetrics'
 import { sessionToActivityEntry } from '../utils/sessionToActivity'
-
-// Phase 2: swap LocalLedgerStorage for SupabaseAdapter + sync queue.
 
 function buildActivitiesByDate(): Record<string, ActivityEntry[]> {
   const ledger = loadLedger()
@@ -52,19 +55,18 @@ export function saveBackfillDays(
     activities: Array<{ type: ActivityEntry['type']; intensity?: ActivityEntry['intensity'] }>
   }>,
 ): void {
-  const ledger = loadLedger()
-
   days.forEach(({ date, activities }) => {
     if (activities.length === 0) return
-    ledger.manualByDate[date] = activities.map((activity) =>
-      createActivityEntry(date, activity.type, {
-        intensity: activity.intensity ?? 'Moderate',
-        source: 'manual',
-      }),
+    replaceManualActivities(
+      date,
+      activities.map((activity) =>
+        createActivityEntry(date, activity.type, {
+          intensity: activity.intensity ?? 'Moderate',
+          source: 'manual',
+        }),
+      ),
     )
   })
-
-  saveLedger(ledger)
 }
 
 export function getManualActivitiesForDate(date: string): ActivityEntry[] {
@@ -76,23 +78,10 @@ export function getManualActivitiesForDate(date: string): ActivityEntry[] {
   }))
 }
 
-export function upsertSession(session: WorkoutSession): void {
-  const ledger = loadLedger()
-  const index = ledger.sessions.findIndex((item) => item.id === session.id)
-
-  if (index >= 0) {
-    ledger.sessions[index] = session
-  } else {
-    ledger.sessions.unshift(session)
-  }
-
-  saveLedger(ledger)
-}
+export { upsertSession }
 
 export function removeSession(sessionId: string): void {
-  const ledger = loadLedger()
-  ledger.sessions = ledger.sessions.filter((session) => session.id !== sessionId)
-  saveLedger(ledger)
+  removeSessionFromLedger(sessionId)
 }
 
 export function recordCompletedWorkout(session: WorkoutSession): void {
@@ -116,16 +105,17 @@ export function recordPartialWorkout(session: WorkoutSession): void {
 }
 
 export function updateManualActivities(date: string, activities: ActivityEntry[]): void {
-  const ledger = loadLedger()
-  ledger.manualByDate[date] = activities.map((activity) =>
-    createActivityEntry(date, activity.type, {
-      intensity: activity.intensity,
-      durationMinutes: activity.durationMinutes,
-      notes: activity.notes,
-      source: 'manual',
-    }),
+  replaceManualActivities(
+    date,
+    activities.map((activity) =>
+      createActivityEntry(date, activity.type, {
+        intensity: activity.intensity,
+        durationMinutes: activity.durationMinutes,
+        notes: activity.notes,
+        source: 'manual',
+      }),
+    ),
   )
-  saveLedger(ledger)
 }
 
 export function getSessionById(sessionId: string): WorkoutSession | undefined {

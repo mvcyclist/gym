@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
+import { AuthGate } from './components/AuthGate'
+import { UserMenu } from './components/UserMenu'
+import { useAuth } from './hooks/useAuth'
 import { getWorkoutById } from './data/workouts'
 import { MobilityView } from './components/MobilityView'
 import { SaveProgressDialog } from './components/SaveProgressDialog'
@@ -17,7 +20,8 @@ import type { WorkoutCategory } from './types/workout'
 
 type AppScreen = 'home' | 'workout' | 'timer-only' | 'mobility'
 
-function App() {
+function WorkoutApp() {
+  const { configured, user, signOut } = useAuth()
   const [screen, setScreen] = useState<AppScreen>('home')
   const [selectedWorkoutType, setSelectedWorkoutType] = useState<WorkoutCategory | null>(null)
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0)
@@ -247,6 +251,8 @@ function App() {
 
   return (
     <div className="flex min-h-full flex-col">
+      {configured && user && <UserMenu email={user.email} onSignOut={() => void signOut()} />}
+
       {showTimer && (
         <TimerBar
           remaining={timerRemaining}
@@ -307,6 +313,14 @@ function App() {
         onCancel={() => setSaveProgressOpen(false)}
       />
     </div>
+  )
+}
+
+function App() {
+  return (
+    <AuthGate>
+      <WorkoutApp />
+    </AuthGate>
   )
 }
 
