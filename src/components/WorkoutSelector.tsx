@@ -9,17 +9,23 @@ import { ActionCard } from './ActionCard'
 import { BackfillRecentActivityModal } from './BackfillRecentActivityModal'
 import { EditActivityModal } from './EditActivityModal'
 import { GettingStartedCard } from './GettingStartedCard'
+import { PostWorkoutInsights } from './PostWorkoutInsights'
 import { TodayRecommendationCard } from './TodayRecommendationCard'
 import { WorkoutCard } from './WorkoutCard'
+import type { TodaySummary } from '../utils/workoutSummary'
 
 interface WorkoutSelectorProps {
   activityHistory: DayActivity[]
   activeDaysCount: number
   recommendationReady: boolean
   recommendation: WorkoutRecommendation | null
+  todayLogged: boolean
+  todaySummary: TodaySummary | null
+  tomorrowRecommendation: WorkoutRecommendation | null
   onUpdateDayActivities: (date: string, activities: ActivityEntry[]) => void
   onSaveBackfill: (rows: import('./BackfillRecentActivityModal').BackfillRow[]) => void
   onStartRecommendation: () => void
+  onStartTomorrowRecommendation: () => void
   onSelectWorkout: (workoutId: WorkoutCategory) => void
   onSelectTimer: () => void
   onSelectMobility: () => void
@@ -30,9 +36,13 @@ export function WorkoutSelector({
   activeDaysCount,
   recommendationReady,
   recommendation,
+  todayLogged,
+  todaySummary,
+  tomorrowRecommendation,
   onUpdateDayActivities,
   onSaveBackfill,
   onStartRecommendation,
+  onStartTomorrowRecommendation,
   onSelectWorkout,
   onSelectTimer,
   onSelectMobility,
@@ -62,7 +72,13 @@ export function WorkoutSelector({
         </div>
 
         <div className="mb-8">
-          {recommendationReady && recommendation ? (
+          {todayLogged && todaySummary && tomorrowRecommendation ? (
+            <PostWorkoutInsights
+              todaySummary={todaySummary}
+              tomorrowRecommendation={tomorrowRecommendation}
+              onStartTomorrow={onStartTomorrowRecommendation}
+            />
+          ) : recommendationReady && recommendation ? (
             <TodayRecommendationCard
               recommendation={recommendation}
               onStart={onStartRecommendation}

@@ -5,6 +5,7 @@ import { useAuth } from './hooks/useAuth'
 import { getWorkoutById } from './data/workouts'
 import { MobilityView } from './components/MobilityView'
 import { SaveProgressDialog } from './components/SaveProgressDialog'
+import { WorkoutCompleteSummaryDialog } from './components/WorkoutCompleteSummaryDialog'
 import { TimerBar } from './components/TimerBar'
 import { TimerOnlyView } from './components/TimerOnlyView'
 import { WorkoutDeck } from './components/WorkoutDeck'
@@ -13,10 +14,15 @@ import { useAccurateTimer } from './hooks/useAccurateTimer'
 import { useActivityHistory } from './hooks/useActivityHistory'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useWorkoutLog } from './hooks/useWorkoutLog'
+import { getTomorrowWorkoutRecommendation } from './services/recommendationService'
+import { getLastSevenDays } from './services/trainingLedgerService'
 import { countCompletedSets } from './utils/sessionMetrics'
 import { getRecommendationNavigation } from './utils/recommendationNavigation'
+import { buildWorkoutSessionSummary } from './utils/workoutSummary'
 import { scrollToTop } from './utils/scrollToTop'
-import type { WorkoutCategory } from './types/workout'
+import type { WorkoutRecommendation } from './types/training'
+import type { WorkoutCategory, WorkoutSession } from './types/workout'
+import type { TodaySummary } from './utils/workoutSummary'
 
 type AppScreen = 'home' | 'workout' | 'timer-only' | 'mobility'
 
@@ -27,12 +33,20 @@ function WorkoutApp() {
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0)
   const [muted, setMuted] = useState(false)
   const [saveProgressOpen, setSaveProgressOpen] = useState(false)
+  const [workoutCompleteOpen, setWorkoutCompleteOpen] = useState(false)
+  const [workoutCompleteData, setWorkoutCompleteData] = useState<{
+    todaySummary: TodaySummary
+    tomorrowRecommendation: WorkoutRecommendation
+  } | null>(null)
 
   const {
     activityHistory,
     activeDaysCount,
     recommendationReady,
     recommendation,
+    todayLogged,
+    todaySummary,
+    tomorrowRecommendation,
     updateDayActivities,
     saveBackfill,
     refresh,
@@ -117,17 +131,48 @@ function WorkoutApp() {
     setScreen('mobility')
   }, [])
 
+  const startFromRecommendation = useCallback(
+    (target: WorkoutRecommendation) => {
+      const navigation = getRecommendationNavigation(target)
+      if (navigation.action === 'workout' && navigation.workoutId) {
+        handleSelectWorkout(navigation.workoutId)
+        return
+      }
+      if (navigation.action === 'mobility') {
+        handleSelectMobility()
+      }
+    },
+    [handleSelectMobility, handleSelectWorkout],
+  )
+
   const handleStartRecommendation = useCallback(() => {
     if (!recommendation) return
-    const navigation = getRecommendationNavigation(recommendation)
-    if (navigation.action === 'workout' && navigation.workoutId) {
-      handleSelectWorkout(navigation.workoutId)
-      return
-    }
-    if (navigation.action === 'mobility') {
-      handleSelectMobility()
-    }
-  }, [handleSelectMobility, handleSelectWorkout, recommendation])
+    startFromRecommendation(recommendation)
+  }, [recommendation, startFromRecommendation])
+
+  const handleStartTomorrowRecommendation = useCallback(() => {
+    if (!tomorrowRecommendation) return
+    startFromRecommendation(tomorrowRecommendation)
+  }, [startFromRecommendation, tomorrowRecommendation])
+
+  const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
+    refresh()
+    const tomorrow = getTomorrowWorkoutRecommendation(getLastSevenDays())
+    if (!tomorrow) return false
+
+    setWorkoutCompleteData({
+      todaySummary: buildWorkoutSessionSummary(completed),
+      tomorrowRecommendation: tomorrow,
+    })
+    setWorkoutCompleteOpen(true)
+    return true
+  }, [refresh])
+
+  const handleDismissWorkoutComplete = useCallback(() => {
+    setWorkoutCompleteOpen(false)
+    setWorkoutCompleteData(null)
+    goHome()
+  }, [goHome])
 
   const handleBackFromWorkout = useCallback(() => {
     if (!session) return
@@ -143,9 +188,14 @@ function WorkoutApp() {
 
   const handleSaveProgress = useCallback(() => {
     void savePartialWorkout()
-      .then(() => goHome())
+      .then((partial) => {
+        if (!partial) return
+        if (!showWorkoutCompleteSummary(partial)) {
+          goHome()
+        }
+      })
       .catch((error) => console.error('[workout] failed to save progress', error))
-  }, [goHome, savePartialWorkout])
+  }, [goHome, savePartialWorkout, showWorkoutCompleteSummary])
 
   const handleDiscardProgress = useCallback(() => {
     discardActiveWorkout()
@@ -186,7 +236,12 @@ function WorkoutApp() {
     if (countCompletedSets(session) === 0) return
 
     void finishWorkout()
-      .then(() => goHome())
+      .then((completed) => {
+        if (!completed) return
+        if (!showWorkoutCompleteSummary(completed)) {
+          goHome()
+        }
+      })
       .catch((error) => console.error('[workout] failed to finish workout', error))
   }, [
     currentExerciseIndex,
@@ -195,6 +250,7 @@ function WorkoutApp() {
     goHome,
     selectedWorkoutType,
     session,
+    showWorkoutCompleteSummary,
   ])
 
   const handleUpdateSet = useCallback(
@@ -277,9 +333,13 @@ function WorkoutApp() {
             activeDaysCount={activeDaysCount}
             recommendationReady={recommendationReady}
             recommendation={recommendation}
+            todayLogged={todayLogged}
+            todaySummary={todaySummary}
+            tomorrowRecommendation={tomorrowRecommendation}
             onUpdateDayActivities={updateDayActivities}
             onSaveBackfill={saveBackfill}
             onStartRecommendation={handleStartRecommendation}
+            onStartTomorrowRecommendation={handleStartTomorrowRecommendation}
             onSelectWorkout={handleSelectWorkout}
             onSelectTimer={handleSelectTimer}
             onSelectMobility={handleSelectMobility}
@@ -314,6 +374,24 @@ function WorkoutApp() {
         onDiscard={handleDiscardProgress}
         onCancel={() => setSaveProgressOpen(false)}
       />
+
+      {workoutCompleteData && (
+        <WorkoutCompleteSummaryDialog
+          open={workoutCompleteOpen}
+          todaySummary={workoutCompleteData.todaySummary}
+          tomorrowRecommendation={workoutCompleteData.tomorrowRecommendation}
+          onDismiss={handleDismissWorkoutComplete}
+          onStartTomorrow={() => {
+            const target = workoutCompleteData.tomorrowRecommendation
+            setWorkoutCompleteOpen(false)
+            setWorkoutCompleteData(null)
+            clearSession()
+            reset()
+            refresh()
+            startFromRecommendation(target)
+          }}
+        />
+      )}
     </div>
   )
 }

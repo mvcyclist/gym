@@ -5,6 +5,7 @@ import type {
   RecommendedWorkoutType,
   WorkoutRecommendation,
 } from '../types/training'
+import { formatDayLabel, toDateString } from '../utils/activityHistory'
 
 const STRENGTH_TYPES: ActivityType[] = ['Push', 'Pull', 'Leg', 'Core']
 
@@ -99,6 +100,26 @@ export function getWorkoutRecommendation(activityHistory: DayActivity[]): Workou
   }
 
   return buildRecommendation('Push', 'Push day', 'Based on your recent training mix, push is a good default for today.', warnings)
+}
+
+/** Recommendation for the day after the latest entry in history (requires today to be logged). */
+export function getTomorrowWorkoutRecommendation(
+  activityHistory: DayActivity[],
+): WorkoutRecommendation | null {
+  const sortedDays = [...activityHistory].sort((a, b) => a.date.localeCompare(b.date))
+  const today = sortedDays.at(-1)
+  if (!today || today.activities.length === 0) return null
+
+  const tomorrowDate = new Date()
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1)
+
+  const tomorrowDay: DayActivity = {
+    date: toDateString(tomorrowDate),
+    dayLabel: formatDayLabel(tomorrowDate),
+    activities: [],
+  }
+
+  return getWorkoutRecommendation([...sortedDays, tomorrowDay])
 }
 
 function buildRecommendation(
