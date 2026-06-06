@@ -15,6 +15,7 @@ import {
   countManualActivities,
   countSyncedSessions,
   hasMeaningfulLedger,
+  mergeLedgers,
   shouldPreferLocalLedger,
 } from '../utils/ledgerStats'
 
@@ -41,14 +42,18 @@ export function bindLedgerToUser(userId: string | null): void {
   memoryLedger = null
 }
 
-export async function hydrateLedgerFromCloud(userId: string): Promise<TrainingLedger> {
+export async function refreshMergedLedgerFromCloud(userId: string): Promise<TrainingLedger> {
   const cloud = await fetchLedgerFromCloud(userId)
   const local = loadLocalLedger()
-  const ledger = shouldPreferLocalLedger(local, cloud) ? local : cloud
+  const ledger = mergeLedgers(local, cloud)
 
   memoryLedger = ledger
   saveLocalLedger(ledger)
   return ledger
+}
+
+export async function hydrateLedgerFromCloud(userId: string): Promise<TrainingLedger> {
+  return refreshMergedLedgerFromCloud(userId)
 }
 
 export function getDeviceLedgerSummary(): {
@@ -93,7 +98,7 @@ export function saveLedger(ledger: TrainingLedger): void {
   persistLedger(ledger)
 }
 
-export function upsertSession(session: WorkoutSession): void {
+export async function upsertSession(session: WorkoutSession): Promise<void> {
   const ledger = loadLedger()
   const index = ledger.sessions.findIndex((item) => item.id === session.id)
 
@@ -106,9 +111,12 @@ export function upsertSession(session: WorkoutSession): void {
   persistLedger(ledger)
 
   if (syncUserId) {
-    void upsertSessionToCloud(session, syncUserId).catch((error) => {
+    try {
+      await upsertSessionToCloud(session, syncUserId)
+    } catch (error) {
       console.error('[ledger] failed to sync session', error)
-    })
+      throw error
+    }
   }
 }
 

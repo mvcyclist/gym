@@ -7,6 +7,7 @@ import {
   hydrateLedgerFromCloud,
   pullLedgerFromCloud,
   pushDeviceHistoryToCloud,
+  refreshMergedLedgerFromCloud,
   resetLedgerRepository,
   shouldOfferLocalImport,
   skipLocalImport,
@@ -84,6 +85,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       subscription.unsubscribe()
     }
   }, [configured, handleSignedIn, handleSignedOut])
+
+  useEffect(() => {
+    if (!configured || !session?.user || !ledgerReady) return
+
+    const syncOnFocus = () => {
+      if (document.visibilityState !== 'visible') return
+      void refreshMergedLedgerFromCloud(session.user.id)
+        .then(() => setLedgerVersion((value) => value + 1))
+        .catch((error) => console.error('[auth] failed to refresh from cloud', error))
+    }
+
+    window.addEventListener('focus', syncOnFocus)
+    document.addEventListener('visibilitychange', syncOnFocus)
+    return () => {
+      window.removeEventListener('focus', syncOnFocus)
+      document.removeEventListener('visibilitychange', syncOnFocus)
+    }
+  }, [configured, ledgerReady, session?.user])
 
   const signInWithGoogle = useCallback(async () => {
     const supabase = getSupabase()

@@ -142,8 +142,9 @@ function WorkoutApp() {
   }, [completedSetsInSession, discardActiveWorkout, goHome, session])
 
   const handleSaveProgress = useCallback(() => {
-    savePartialWorkout()
-    goHome()
+    void savePartialWorkout()
+      .then(() => goHome())
+      .catch((error) => console.error('[workout] failed to save progress', error))
   }, [goHome, savePartialWorkout])
 
   const handleDiscardProgress = useCallback(() => {
@@ -184,8 +185,9 @@ function WorkoutApp() {
 
     if (countCompletedSets(session) === 0) return
 
-    finishWorkout()
-    goHome()
+    void finishWorkout()
+      .then(() => goHome())
+      .catch((error) => console.error('[workout] failed to finish workout', error))
   }, [
     currentExerciseIndex,
     finishWorkout,

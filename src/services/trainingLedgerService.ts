@@ -84,24 +84,24 @@ export function removeSession(sessionId: string): void {
   removeSessionFromLedger(sessionId)
 }
 
-export function recordCompletedWorkout(session: WorkoutSession): void {
+export async function recordCompletedWorkout(session: WorkoutSession): Promise<void> {
   const completed: WorkoutSession = {
     ...session,
     status: 'completed',
     completedAt: session.completedAt ?? new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }
-  upsertSession(completed)
+  await upsertSession(completed)
 }
 
-export function recordPartialWorkout(session: WorkoutSession): void {
+export async function recordPartialWorkout(session: WorkoutSession): Promise<void> {
   const partial: WorkoutSession = {
     ...session,
     status: 'partial',
     completedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }
-  upsertSession(partial)
+  await upsertSession(partial)
 }
 
 export function updateManualActivities(date: string, activities: ActivityEntry[]): void {

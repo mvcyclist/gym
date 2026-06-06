@@ -70,8 +70,8 @@ interface UseWorkoutLogReturn {
   addSet: (exerciseId: string) => void
   deleteSet: (exerciseId: string, setNumber: number) => void
   getExerciseLog: (exerciseId: string) => ExerciseLog | undefined
-  finishWorkout: () => WorkoutSession | null
-  savePartialWorkout: () => WorkoutSession | null
+  finishWorkout: () => Promise<WorkoutSession | null>
+  savePartialWorkout: () => Promise<WorkoutSession | null>
   discardActiveWorkout: () => void
   clearSession: () => void
 }
@@ -84,7 +84,9 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
       ...nextSession,
       updatedAt: new Date().toISOString(),
     }
-    upsertSession(updatedSession)
+    void upsertSession(updatedSession).catch((error) => {
+      console.error('[workout] failed to sync session', error)
+    })
     setSession(updatedSession)
     return updatedSession
   }, [])
@@ -92,7 +94,9 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
   const startSession = useCallback(
     (workoutType: WorkoutCategory) => {
       const nextSession = createSession(workoutType)
-      upsertSession(nextSession)
+      void upsertSession(nextSession).catch((error) => {
+        console.error('[workout] failed to sync session', error)
+      })
       setSession(nextSession)
       return nextSession
     },
@@ -220,27 +224,31 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
     [session],
   )
 
-  const finishWorkout = useCallback(() => {
+  const finishWorkout = useCallback(async () => {
     if (!session) return null
-    const updated = persistSession({
+    const completed: WorkoutSession = {
       ...session,
       status: 'completed',
       completedAt: new Date().toISOString(),
-    })
-    recordCompletedWorkout(updated)
-    return updated
-  }, [persistSession, session])
+      updatedAt: new Date().toISOString(),
+    }
+    await recordCompletedWorkout(completed)
+    setSession(completed)
+    return completed
+  }, [session])
 
-  const savePartialWorkout = useCallback(() => {
+  const savePartialWorkout = useCallback(async () => {
     if (!session) return null
-    const updated = persistSession({
+    const partial: WorkoutSession = {
       ...session,
       status: 'partial',
       completedAt: new Date().toISOString(),
-    })
-    recordPartialWorkout(updated)
-    return updated
-  }, [persistSession, session])
+      updatedAt: new Date().toISOString(),
+    }
+    await recordPartialWorkout(partial)
+    setSession(partial)
+    return partial
+  }, [session])
 
   const discardActiveWorkout = useCallback(() => {
     if (!session) return

@@ -1,4 +1,6 @@
 import type { TrainingLedger } from '../types/ledger'
+import type { WorkoutSession } from '../types/workout'
+import type { ActivityEntry } from '../types/training'
 
 export function countSyncedSessions(ledger: TrainingLedger): number {
   return ledger.sessions.filter(
@@ -24,4 +26,35 @@ export function shouldPreferLocalLedger(local: TrainingLedger, cloud: TrainingLe
   if (localScore === 0) return false
   if (cloudScore === 0) return true
   return localScore > cloudScore
+}
+
+export function mergeLedgers(local: TrainingLedger, cloud: TrainingLedger): TrainingLedger {
+  const sessionsById = new Map<string, WorkoutSession>()
+
+  for (const session of [...local.sessions, ...cloud.sessions]) {
+    const existing = sessionsById.get(session.id)
+    if (!existing || session.updatedAt.localeCompare(existing.updatedAt) > 0) {
+      sessionsById.set(session.id, session)
+    }
+  }
+
+  const sessions = [...sessionsById.values()].sort((a, b) =>
+    b.updatedAt.localeCompare(a.updatedAt),
+  )
+
+  const manualByDate: Record<string, ActivityEntry[]> = {}
+
+  for (const [date, entries] of Object.entries(cloud.manualByDate)) {
+    manualByDate[date] = [...entries]
+  }
+
+  for (const [date, entries] of Object.entries(local.manualByDate)) {
+    const merged = new Map((manualByDate[date] ?? []).map((entry) => [entry.id, entry]))
+    for (const entry of entries) {
+      merged.set(entry.id, entry)
+    }
+    manualByDate[date] = [...merged.values()]
+  }
+
+  return { version: 3, sessions, manualByDate }
 }
