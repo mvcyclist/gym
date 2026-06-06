@@ -15,12 +15,14 @@ export function UserMenu({ email, onSignOut }: UserMenuProps) {
   } = useAuth()
   const [syncMode, setSyncMode] = useState<'push' | 'pull' | null>(null)
   const [busy, setBusy] = useState(false)
+  const [syncError, setSyncError] = useState<string | null>(null)
 
   if (!email) return null
 
   const handleConfirm = async () => {
     if (!syncMode) return
     setBusy(true)
+    setSyncError(null)
     try {
       if (syncMode === 'push') {
         await pushDeviceHistoryToCloud()
@@ -28,6 +30,10 @@ export function UserMenu({ email, onSignOut }: UserMenuProps) {
         await pullLedgerFromCloud()
       }
       setSyncMode(null)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Sync failed'
+      setSyncError(message)
+      console.error('[sync]', error)
     } finally {
       setBusy(false)
     }
@@ -35,7 +41,13 @@ export function UserMenu({ email, onSignOut }: UserMenuProps) {
 
   return (
     <>
-      <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-end gap-2 px-4 pt-4 sm:gap-3 sm:px-6">
+      <div className="mx-auto w-full max-w-5xl px-4 pt-4 sm:px-6">
+        {syncError && (
+          <p className="mb-2 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+            Sync failed: {syncError}
+          </p>
+        )}
+        <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
         <span className="truncate text-xs text-zinc-500">{email}</span>
         <button
           type="button"
@@ -58,6 +70,7 @@ export function UserMenu({ email, onSignOut }: UserMenuProps) {
         >
           Sign out
         </button>
+        </div>
       </div>
 
       <SyncHistoryModal

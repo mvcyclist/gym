@@ -122,7 +122,9 @@ export async function isCloudLedgerEmpty(userId: string): Promise<boolean> {
 
 export async function upsertSessionToCloud(session: WorkoutSession, userId: string): Promise<void> {
   const supabase = getSupabase()
-  const { error } = await supabase.from('workout_sessions').upsert(sessionToRow(session, userId))
+  const { error } = await supabase
+    .from('workout_sessions')
+    .upsert(sessionToRow(session, userId), { onConflict: 'id' })
   if (error) throw error
 }
 
@@ -163,7 +165,9 @@ export async function importLedgerToCloud(userId: string, ledger: TrainingLedger
 
   if (ledger.sessions.length > 0) {
     const rows = ledger.sessions.map((session) => sessionToRow(session, userId))
-    const { error } = await supabase.from('workout_sessions').upsert(rows)
+    const { error } = await supabase
+      .from('workout_sessions')
+      .upsert(rows, { onConflict: 'id' })
     if (error) throw error
   }
 
@@ -172,7 +176,9 @@ export async function importLedgerToCloud(userId: string, ledger: TrainingLedger
   )
 
   if (manualRows.length > 0) {
-    const { error } = await supabase.from('manual_activities').upsert(manualRows)
+    const { error } = await supabase
+      .from('manual_activities')
+      .upsert(manualRows, { onConflict: 'id' })
     if (error) throw error
   }
 }
