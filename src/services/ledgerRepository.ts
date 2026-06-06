@@ -2,7 +2,7 @@ import {
   deleteSessionFromCloud,
   fetchLedgerFromCloud,
   importLedgerToCloud,
-  isCloudLedgerEmpty,
+  replaceCloudLedgerWithLocal,
   replaceManualDayOnCloud,
   upsertSessionToCloud,
 } from '../adapters/supabaseLedgerStorage'
@@ -11,6 +11,12 @@ import { isSupabaseConfigured } from '../lib/supabase'
 import type { ActivityEntry } from '../types/training'
 import type { TrainingLedger } from '../types/ledger'
 import type { WorkoutSession } from '../types/workout'
+import {
+  countManualActivities,
+  countSyncedSessions,
+  hasMeaningfulLedger,
+  shouldPreferLocalLedger,
+} from '../utils/ledgerStats'
 
 const IMPORT_PROMPT_KEY = 'workout-deck-import-prompted'
 
@@ -36,10 +42,40 @@ export function bindLedgerToUser(userId: string | null): void {
 }
 
 export async function hydrateLedgerFromCloud(userId: string): Promise<TrainingLedger> {
-  const ledger = await fetchLedgerFromCloud(userId)
+  const cloud = await fetchLedgerFromCloud(userId)
+  const local = loadLocalLedger()
+  const ledger = shouldPreferLocalLedger(local, cloud) ? local : cloud
+
   memoryLedger = ledger
   saveLocalLedger(ledger)
   return ledger
+}
+
+export function getDeviceLedgerSummary(): {
+  sessions: number
+  manualActivities: number
+} {
+  const ledger = loadLocalLedger()
+  return {
+    sessions: countSyncedSessions(ledger),
+    manualActivities: countManualActivities(ledger),
+  }
+}
+
+export async function pushDeviceHistoryToCloud(userId: string): Promise<TrainingLedger> {
+  const local = loadLocalLedger()
+  await replaceCloudLedgerWithLocal(userId, local)
+  markImportPromptShown(userId)
+  memoryLedger = local
+  saveLocalLedger(local)
+  return local
+}
+
+export async function pullLedgerFromCloud(userId: string): Promise<TrainingLedger> {
+  const cloud = await fetchLedgerFromCloud(userId)
+  memoryLedger = cloud
+  saveLocalLedger(cloud)
+  return cloud
 }
 
 export function loadLedger(): TrainingLedger {
@@ -101,12 +137,7 @@ export function replaceManualActivities(date: string, activities: ActivityEntry[
 }
 
 export function hasMeaningfulLocalLedger(): boolean {
-  const ledger = loadLocalLedger()
-  const hasSessions = ledger.sessions.some(
-    (session) => session.status === 'completed' || session.status === 'partial',
-  )
-  const hasManual = Object.values(ledger.manualByDate).some((entries) => entries.length > 0)
-  return hasSessions || hasManual
+  return hasMeaningfulLedger(loadLocalLedger())
 }
 
 export function wasImportPromptShown(userId: string): boolean {
@@ -137,7 +168,12 @@ export async function shouldOfferLocalImport(userId: string): Promise<boolean> {
   if (!isSupabaseConfigured()) return false
   if (wasImportPromptShown(userId)) return false
   if (!hasMeaningfulLocalLedger()) return false
-  return isCloudLedgerEmpty(userId)
+
+  const cloud = await fetchLedgerFromCloud(userId)
+  const local = loadLocalLedger()
+  if (!shouldPreferLocalLedger(local, cloud)) return false
+
+  return !hasMeaningfulLedger(cloud)
 }
 
 export async function importLocalLedgerToCloud(userId: string): Promise<TrainingLedger> {

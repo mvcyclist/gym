@@ -13,6 +13,9 @@ export interface AuthContextValue {
   importLocalHistory: () => Promise<void>
   dismissImportOffer: () => void
   refreshLedger: () => Promise<void>
+  pushDeviceHistoryToCloud: () => Promise<void>
+  pullLedgerFromCloud: () => Promise<void>
+  deviceLedgerSummary: { sessions: number; manualActivities: number }
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)

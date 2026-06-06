@@ -3,8 +3,10 @@ import type { Session } from '@supabase/supabase-js'
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase'
 import {
   bindLedgerToUser,
+  getDeviceLedgerSummary,
   hydrateLedgerFromCloud,
-  importLocalLedgerToCloud,
+  pullLedgerFromCloud,
+  pushDeviceHistoryToCloud,
   resetLedgerRepository,
   shouldOfferLocalImport,
   skipLocalImport,
@@ -110,10 +112,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await handleSignedIn(userId)
   }, [handleSignedIn, session])
 
+  const pushDeviceHistory = useCallback(async () => {
+    const userId = session?.user?.id
+    if (!userId) return
+    setLedgerReady(false)
+    try {
+      await pushDeviceHistoryToCloud(userId)
+      setLedgerVersion((value) => value + 1)
+    } finally {
+      setLedgerReady(true)
+    }
+  }, [session])
+
+  const pullDeviceHistory = useCallback(async () => {
+    const userId = session?.user?.id
+    if (!userId) return
+    setLedgerReady(false)
+    try {
+      await pullLedgerFromCloud(userId)
+      setLedgerVersion((value) => value + 1)
+    } finally {
+      setLedgerReady(true)
+    }
+  }, [session])
+
   const importLocalHistory = useCallback(async () => {
     const userId = session?.user?.id
     if (!userId) return
-    await importLocalLedgerToCloud(userId)
+    await pushDeviceHistoryToCloud(userId)
     setImportOfferOpen(false)
     setLedgerVersion((value) => value + 1)
   }, [session])
@@ -137,6 +163,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       importLocalHistory,
       dismissImportOffer,
       refreshLedger,
+      pushDeviceHistoryToCloud: pushDeviceHistory,
+      pullLedgerFromCloud: pullDeviceHistory,
+      deviceLedgerSummary: getDeviceLedgerSummary(),
     }),
     [
       authLoading,
@@ -147,6 +176,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ledgerReady,
       ledgerVersion,
       refreshLedger,
+      pushDeviceHistory,
+      pullDeviceHistory,
       session,
       signInWithGoogle,
       signOut,

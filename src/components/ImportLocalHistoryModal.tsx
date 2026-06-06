@@ -18,8 +18,8 @@ export function ImportLocalHistoryModal({ open, onImport, onSkip }: ImportLocalH
           Import workout history?
         </h2>
         <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-          This browser has workout history saved locally. Import it to your account so it syncs
-          across devices?
+          This device has workout history that is not in the cloud yet. Sync it to your account so
+          other devices match?
         </p>
 
         <div className="mt-6 grid grid-cols-2 gap-3">
@@ -35,7 +35,7 @@ export function ImportLocalHistoryModal({ open, onImport, onSkip }: ImportLocalH
             onClick={onImport}
             className="rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-500"
           >
-            Import
+            Sync to cloud
           </button>
         </div>
       </div>

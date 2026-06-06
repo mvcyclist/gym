@@ -176,3 +176,23 @@ export async function importLedgerToCloud(userId: string, ledger: TrainingLedger
     if (error) throw error
   }
 }
+
+export async function clearCloudLedgerForUser(userId: string): Promise<void> {
+  const supabase = getSupabase()
+
+  const [sessionsError, manualError] = await Promise.all([
+    supabase.from('workout_sessions').delete().eq('user_id', userId).then((r) => r.error),
+    supabase.from('manual_activities').delete().eq('user_id', userId).then((r) => r.error),
+  ])
+
+  if (sessionsError) throw sessionsError
+  if (manualError) throw manualError
+}
+
+export async function replaceCloudLedgerWithLocal(
+  userId: string,
+  ledger: TrainingLedger,
+): Promise<void> {
+  await clearCloudLedgerForUser(userId)
+  await importLedgerToCloud(userId, ledger)
+}
