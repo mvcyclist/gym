@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase'
 import {
@@ -29,25 +29,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [authLoading, setAuthLoading] = useState(configured)
   const [ledgerReady, setLedgerReady] = useState(!configured)
+  const [initialLedgerLoaded, setInitialLedgerLoaded] = useState(!configured)
   const [ledgerVersion, setLedgerVersion] = useState(0)
   const [importOfferOpen, setImportOfferOpen] = useState(false)
+  const hydratedUserIdRef = useRef<string | null>(null)
+  const initialLedgerLoadedRef = useRef(!configured)
 
   const handleSignedOut = useCallback(() => {
     resetLedgerRepository()
-    setLedgerReady(true)
+    hydratedUserIdRef.current = null
+    initialLedgerLoadedRef.current = !configured
+    setInitialLedgerLoaded(!configured)
+    setLedgerReady(!configured)
     setImportOfferOpen(false)
-  }, [])
+  }, [configured])
 
   const handleSignedIn = useCallback(async (userId: string) => {
-    setLedgerReady(false)
+    const isFirstLoadForUser = hydratedUserIdRef.current !== userId
+    if (isFirstLoadForUser && !initialLedgerLoadedRef.current) {
+      setLedgerReady(false)
+    }
     try {
       const offerImport = await loadLedgerForUser(userId)
+      hydratedUserIdRef.current = userId
+      initialLedgerLoadedRef.current = true
       setLedgerReady(true)
+      setInitialLedgerLoaded(true)
       setLedgerVersion((value) => value + 1)
       setImportOfferOpen(offerImport)
     } catch (error) {
       console.error('[auth] failed to load cloud ledger', error)
       setLedgerReady(true)
+      if (hydratedUserIdRef.current === userId) {
+        initialLedgerLoadedRef.current = true
+        setInitialLedgerLoaded(true)
+      }
     }
   }, [])
 
@@ -67,7 +83,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      void handleSignedIn(nextSession.user.id)
+      const userId = nextSession.user.id
+      if (hydratedUserIdRef.current === userId && initialLedgerLoadedRef.current) {
+        return
+      }
+
+      void handleSignedIn(userId)
     }
 
     supabase.auth.getSession().then(({ data }) => {
@@ -128,8 +149,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshLedger = useCallback(async () => {
     const userId = session?.user?.id
     if (!userId) return
-    await handleSignedIn(userId)
-  }, [handleSignedIn, session])
+    bindLedgerToUser(userId)
+    await refreshMergedLedgerFromCloud(userId)
+    setLedgerVersion((value) => value + 1)
+  }, [session])
 
   const pushDeviceHistory = useCallback(async () => {
     const userId = session?.user?.id
@@ -172,7 +195,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     (): AuthContextValue => ({
       configured,
-      loading: authLoading || (configured && !!session?.user && !ledgerReady),
+      loading:
+        authLoading ||
+        (configured && !!session?.user && !ledgerReady && !initialLedgerLoaded),
       user: session?.user ?? null,
       ledgerReady: !configured || ledgerReady,
       ledgerVersion,
@@ -192,6 +217,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       dismissImportOffer,
       importLocalHistory,
       importOfferOpen,
+      initialLedgerLoaded,
       ledgerReady,
       ledgerVersion,
       refreshLedger,

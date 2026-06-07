@@ -19,6 +19,7 @@ import { getLastSevenDays } from './services/trainingLedgerService'
 import { countCompletedSets } from './utils/sessionMetrics'
 import { getRecommendationNavigation } from './utils/recommendationNavigation'
 import { buildWorkoutSessionSummary } from './utils/workoutSummary'
+import { findResumeExerciseIndex, findTodaysActiveSession } from './utils/workoutResume'
 import { scrollToTop } from './utils/scrollToTop'
 import type { WorkoutRecommendation } from './types/training'
 import type { WorkoutCategory, WorkoutSession } from './types/workout'
@@ -27,8 +28,9 @@ import type { TodaySummary } from './utils/workoutSummary'
 type AppScreen = 'home' | 'workout' | 'timer-only' | 'mobility'
 
 function WorkoutApp() {
-  const { configured, user, signOut } = useAuth()
+  const { configured, user, signOut, ledgerReady } = useAuth()
   const [screen, setScreen] = useState<AppScreen>('home')
+  const [resumeChecked, setResumeChecked] = useState(false)
   const [selectedWorkoutType, setSelectedWorkoutType] = useState<WorkoutCategory | null>(null)
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0)
   const [muted, setMuted] = useState(false)
@@ -64,6 +66,7 @@ function WorkoutApp() {
     savePartialWorkout,
     discardActiveWorkout,
     clearSession,
+    resumeSession,
   } = useWorkoutLog()
 
   const {
@@ -80,6 +83,21 @@ function WorkoutApp() {
 
   const showTimer = screen === 'workout' || screen === 'timer-only'
   const completedSetsInSession = session ? countCompletedSets(session) : 0
+
+  useEffect(() => {
+    if (!ledgerReady || resumeChecked) return
+
+    const active = findTodaysActiveSession()
+    setResumeChecked(true)
+    if (!active) return
+
+    const resumed = resumeSession(active.id)
+    if (!resumed) return
+
+    setSelectedWorkoutType(resumed.workoutType)
+    setCurrentExerciseIndex(findResumeExerciseIndex(resumed))
+    setScreen('workout')
+  }, [ledgerReady, resumeChecked, resumeSession])
 
   useEffect(() => {
     scrollToTop()
