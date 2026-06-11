@@ -4,23 +4,27 @@ import { UserMenu } from './components/UserMenu'
 import { useAuth } from './hooks/useAuth'
 import { getWorkoutById } from './data/workouts'
 import { MobilityView } from './components/MobilityView'
-import { SaveProgressDialog } from './components/SaveProgressDialog'
+import { LeaveWorkoutDialog } from './components/LeaveWorkoutDialog'
 import { WorkoutCompleteSummaryDialog } from './components/WorkoutCompleteSummaryDialog'
 import { TimerBar } from './components/TimerBar'
 import { TimerOnlyView } from './components/TimerOnlyView'
 import { WorkoutDeck } from './components/WorkoutDeck'
+import { WorkoutElapsedBar } from './components/WorkoutElapsedBar'
 import { WorkoutSelector } from './components/WorkoutSelector'
+import { WorkoutStartView } from './components/WorkoutStartView'
 import { useAccurateTimer } from './hooks/useAccurateTimer'
 import { useActivityHistory } from './hooks/useActivityHistory'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
+import { useWorkoutElapsedTimer } from './hooks/useWorkoutElapsedTimer'
 import { useWorkoutLog } from './hooks/useWorkoutLog'
 import { getTomorrowWorkoutRecommendation } from './services/recommendationService'
 import { getLastSevenDays } from './services/trainingLedgerService'
 import { countCompletedSets } from './utils/sessionMetrics'
 import { getRecommendationNavigation } from './utils/recommendationNavigation'
 import { buildWorkoutSessionSummary } from './utils/workoutSummary'
-import { findResumeExerciseIndex, findTodaysActiveSession } from './utils/workoutResume'
-import { scrollToTop } from './utils/scrollToTop'
+import { isWorkoutInProgress } from './utils/workoutTimer'
+import { findResumeExerciseIndex, findTodaysResumableSession } from './utils/workoutResume'
+import { scrollToTop, scrollToTopAfterLayout } from './utils/scrollToTop'
 import type { WorkoutRecommendation } from './types/training'
 import type { WorkoutCategory, WorkoutSession } from './types/workout'
 import type { TodaySummary } from './utils/workoutSummary'
@@ -34,7 +38,8 @@ function WorkoutApp() {
   const [selectedWorkoutType, setSelectedWorkoutType] = useState<WorkoutCategory | null>(null)
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0)
   const [muted, setMuted] = useState(false)
-  const [saveProgressOpen, setSaveProgressOpen] = useState(false)
+  const [leaveWorkoutOpen, setLeaveWorkoutOpen] = useState(false)
+  const [pendingWorkoutId, setPendingWorkoutId] = useState<WorkoutCategory | null>(null)
   const [workoutCompleteOpen, setWorkoutCompleteOpen] = useState(false)
   const [workoutCompleteData, setWorkoutCompleteData] = useState<{
     todaySummary: TodaySummary
@@ -61,9 +66,12 @@ function WorkoutApp() {
     completeSet,
     addSet,
     deleteSet,
+    skipExercise,
     getExerciseLog,
+    isExerciseLogged,
     finishWorkout,
     savePartialWorkout,
+    pauseWorkout,
     discardActiveWorkout,
     clearSession,
     resumeSession,
@@ -81,39 +89,64 @@ function WorkoutApp() {
     adjustRemaining,
   } = useAccurateTimer({ muted })
 
-  const showTimer = screen === 'workout' || screen === 'timer-only'
+  const workoutStarted = isWorkoutInProgress(session)
+  const workoutElapsedSeconds = useWorkoutElapsedTimer(session)
+  const showWorkoutTimers = screen === 'workout' && workoutStarted
+  const showRestTimerOnly = screen === 'timer-only'
   const completedSetsInSession = session ? countCompletedSets(session) : 0
+
+  useEffect(() => {
+    scrollToTopAfterLayout()
+  }, [screen, workoutStarted])
+
+  const goHome = useCallback(() => {
+    setScreen('home')
+    setSelectedWorkoutType(null)
+    setCurrentExerciseIndex(0)
+    setLeaveWorkoutOpen(false)
+    setPendingWorkoutId(null)
+    clearSession()
+    reset()
+    refresh()
+  }, [clearSession, refresh, reset])
+
+  const openWorkoutPreview = useCallback(
+    (workoutId: WorkoutCategory) => {
+      scrollToTop()
+      clearSession()
+      setSelectedWorkoutType(workoutId)
+      setCurrentExerciseIndex(0)
+      setScreen('workout')
+      reset()
+    },
+    [clearSession, reset],
+  )
+
+  const resumeWorkoutScreen = useCallback(
+    (resumed: WorkoutSession) => {
+      scrollToTop()
+      setSelectedWorkoutType(resumed.workoutType)
+      const workout = getWorkoutById(resumed.workoutType)
+      const templateExerciseIds = workout?.exercises.map((item) => item.id) ?? []
+      setCurrentExerciseIndex(findResumeExerciseIndex(resumed, templateExerciseIds))
+      setScreen('workout')
+      reset()
+    },
+    [reset],
+  )
 
   useEffect(() => {
     if (!ledgerReady || resumeChecked) return
 
-    const active = findTodaysActiveSession()
+    const active = findTodaysResumableSession()
     setResumeChecked(true)
     if (!active) return
 
     const resumed = resumeSession(active.id)
     if (!resumed) return
 
-    setSelectedWorkoutType(resumed.workoutType)
-    setCurrentExerciseIndex(findResumeExerciseIndex(resumed))
-    setScreen('workout')
-  }, [ledgerReady, resumeChecked, resumeSession])
-
-  useEffect(() => {
-    scrollToTop()
-    const frame = requestAnimationFrame(scrollToTop)
-    return () => cancelAnimationFrame(frame)
-  }, [screen])
-
-  const goHome = useCallback(() => {
-    setScreen('home')
-    setSelectedWorkoutType(null)
-    setCurrentExerciseIndex(0)
-    setSaveProgressOpen(false)
-    clearSession()
-    reset()
-    refresh()
-  }, [clearSession, refresh, reset])
+    resumeWorkoutScreen(resumed)
+  }, [ledgerReady, resumeChecked, resumeSession, resumeWorkoutScreen])
 
   const startRestForExercise = useCallback(
     (exerciseIndex: number) => {
@@ -128,15 +161,32 @@ function WorkoutApp() {
 
   const handleSelectWorkout = useCallback(
     (workoutId: WorkoutCategory) => {
-      scrollToTop()
-      startSession(workoutId)
-      setSelectedWorkoutType(workoutId)
-      setCurrentExerciseIndex(0)
-      setScreen('workout')
-      reset()
+      const existing = findTodaysResumableSession()
+
+      if (existing && existing.workoutType !== workoutId) {
+        resumeSession(existing.id, { activate: false })
+        setPendingWorkoutId(workoutId)
+        setLeaveWorkoutOpen(true)
+        return
+      }
+
+      if (existing && existing.workoutType === workoutId) {
+        const resumed = resumeSession(existing.id)
+        if (resumed) resumeWorkoutScreen(resumed)
+        return
+      }
+
+      openWorkoutPreview(workoutId)
     },
-    [reset, startSession],
+    [openWorkoutPreview, resumeSession, resumeWorkoutScreen],
   )
+
+  const handleStartWorkout = useCallback(() => {
+    if (!selectedWorkoutType) return
+    startSession(selectedWorkoutType)
+    reset()
+    scrollToTopAfterLayout()
+  }, [reset, selectedWorkoutType, startSession])
 
   const handleSelectTimer = useCallback(() => {
     scrollToTop()
@@ -192,37 +242,102 @@ function WorkoutApp() {
     goHome()
   }, [goHome])
 
-  const handleBackFromWorkout = useCallback(() => {
-    if (!session) return
+  const navigateAfterLeave = useCallback(() => {
+    const nextWorkout = pendingWorkoutId
+    setPendingWorkoutId(null)
+    setLeaveWorkoutOpen(false)
+    clearSession()
+    reset()
 
-    if (completedSetsInSession === 0) {
-      discardActiveWorkout()
+    if (nextWorkout) {
+      openWorkoutPreview(nextWorkout)
+      return
+    }
+
+    setScreen('home')
+    setSelectedWorkoutType(null)
+    setCurrentExerciseIndex(0)
+    refresh()
+  }, [clearSession, openWorkoutPreview, pendingWorkoutId, refresh, reset])
+
+  const handleBackFromWorkoutPreview = useCallback(() => {
+    goHome()
+  }, [goHome])
+
+  const handleBackFromWorkout = useCallback(() => {
+    if (!workoutStarted) {
       goHome()
       return
     }
 
-    setSaveProgressOpen(true)
-  }, [completedSetsInSession, discardActiveWorkout, goHome, session])
+    setLeaveWorkoutOpen(true)
+  }, [goHome, workoutStarted])
 
-  const handleSaveProgress = useCallback(() => {
-    void savePartialWorkout()
-      .then((partial) => {
-        if (!partial) return
-        if (!showWorkoutCompleteSummary(partial)) {
-          goHome()
-        }
-      })
-      .catch((error) => console.error('[workout] failed to save progress', error))
-  }, [goHome, savePartialWorkout, showWorkoutCompleteSummary])
+  const handlePauseAndResumeLater = useCallback(() => {
+    pauseWorkout()
+    setLeaveWorkoutOpen(false)
+    setPendingWorkoutId(null)
+    clearSession()
+    setScreen('home')
+    setSelectedWorkoutType(null)
+    setCurrentExerciseIndex(0)
+    reset()
+  }, [clearSession, pauseWorkout, reset])
 
-  const handleDiscardProgress = useCallback(() => {
+  const handleEndWorkout = useCallback(() => {
+    if (completedSetsInSession > 0) {
+      void savePartialWorkout()
+        .then((partial) => {
+          if (!partial) return
+          const nextWorkout = pendingWorkoutId
+          setPendingWorkoutId(null)
+          setLeaveWorkoutOpen(false)
+          clearSession()
+          reset()
+
+          if (nextWorkout) {
+            openWorkoutPreview(nextWorkout)
+            return
+          }
+
+          if (!showWorkoutCompleteSummary(partial)) {
+            setScreen('home')
+            setSelectedWorkoutType(null)
+            setCurrentExerciseIndex(0)
+            refresh()
+          }
+        })
+        .catch((error) => console.error('[workout] failed to save progress', error))
+      return
+    }
+
     discardActiveWorkout()
-    goHome()
-  }, [discardActiveWorkout, goHome])
+    navigateAfterLeave()
+  }, [
+    completedSetsInSession,
+    clearSession,
+    discardActiveWorkout,
+    navigateAfterLeave,
+    openWorkoutPreview,
+    pendingWorkoutId,
+    refresh,
+    reset,
+    savePartialWorkout,
+    showWorkoutCompleteSummary,
+  ])
 
   const handlePrevious = useCallback(() => {
-    setCurrentExerciseIndex((index) => Math.max(0, index - 1))
-  }, [])
+    if (!selectedWorkoutType) return
+    const workout = getWorkoutById(selectedWorkoutType)
+    if (!workout) return
+
+    for (let index = currentExerciseIndex - 1; index >= 0; index -= 1) {
+      if (isExerciseLogged(workout.exercises[index].id)) {
+        setCurrentExerciseIndex(index)
+        return
+      }
+    }
+  }, [currentExerciseIndex, isExerciseLogged, selectedWorkoutType])
 
   const handleNext = useCallback(() => {
     if (!selectedWorkoutType) return
@@ -309,6 +424,48 @@ function WorkoutApp() {
     [deleteSet],
   )
 
+  const handleSkipExercise = useCallback(
+    (exerciseId: string) => {
+      if (!selectedWorkoutType) return
+      const workout = getWorkoutById(selectedWorkoutType)
+      if (!workout) return
+
+      const updated = skipExercise(exerciseId)
+      if (!updated) return
+
+      const isLast = currentExerciseIndex >= workout.exercises.length - 1
+
+      if (isLast) {
+        if (countCompletedSets(updated) === 0) {
+          discardActiveWorkout()
+          goHome()
+          return
+        }
+
+        void finishWorkout(updated)
+          .then((completed) => {
+            if (!completed) return
+            if (!showWorkoutCompleteSummary(completed)) {
+              goHome()
+            }
+          })
+          .catch((error) => console.error('[workout] failed to finish workout', error))
+        return
+      }
+
+      setCurrentExerciseIndex((index) => Math.min(workout.exercises.length - 1, index + 1))
+    },
+    [
+      currentExerciseIndex,
+      discardActiveWorkout,
+      finishWorkout,
+      goHome,
+      selectedWorkoutType,
+      showWorkoutCompleteSummary,
+      skipExercise,
+    ],
+  )
+
   const handleToggleTimer = useCallback(() => {
     if (timerStatus === 'running') {
       pause()
@@ -329,7 +486,26 @@ function WorkoutApp() {
     <div className="flex min-h-full flex-col">
       {configured && user && <UserMenu email={user.email} onSignOut={() => void signOut()} />}
 
-      {showTimer && (
+      {showWorkoutTimers && (
+        <div className="sticky top-0 z-50 bg-black/95 backdrop-blur-sm">
+          <WorkoutElapsedBar elapsedSeconds={workoutElapsedSeconds} />
+          <TimerBar
+            remaining={timerRemaining}
+            duration={timerDuration}
+            status={timerStatus}
+            muted={muted}
+            embedded
+            onStart={start}
+            onPause={pause}
+            onReset={reset}
+            onAdjust={adjustRemaining}
+            onSetDuration={setDuration}
+            onToggleMute={() => setMuted((value) => !value)}
+          />
+        </div>
+      )}
+
+      {showRestTimerOnly && (
         <TimerBar
           remaining={timerRemaining}
           duration={timerDuration}
@@ -364,7 +540,7 @@ function WorkoutApp() {
           />
         )}
 
-        {screen === 'workout' && selectedWorkoutType && session && (
+        {screen === 'workout' && selectedWorkoutType && workoutStarted && (
           <WorkoutDeck
             workoutId={selectedWorkoutType}
             currentExerciseIndex={currentExerciseIndex}
@@ -373,10 +549,20 @@ function WorkoutApp() {
             onCompleteSet={handleCompleteSet}
             onAddSet={handleAddSet}
             onDeleteSet={handleDeleteSet}
+            onSkipExercise={handleSkipExercise}
+            isExerciseLogged={isExerciseLogged}
             onPrevious={handlePrevious}
             onNext={handleNext}
             onBack={handleBackFromWorkout}
             onFinish={handleFinish}
+          />
+        )}
+
+        {screen === 'workout' && selectedWorkoutType && !workoutStarted && (
+          <WorkoutStartView
+            workoutId={selectedWorkoutType}
+            onStart={handleStartWorkout}
+            onBack={handleBackFromWorkoutPreview}
           />
         )}
 
@@ -385,12 +571,16 @@ function WorkoutApp() {
         {screen === 'mobility' && <MobilityView onBack={goHome} />}
       </main>
 
-      <SaveProgressDialog
-        open={saveProgressOpen}
+      <LeaveWorkoutDialog
+        open={leaveWorkoutOpen}
         completedSets={completedSetsInSession}
-        onSave={handleSaveProgress}
-        onDiscard={handleDiscardProgress}
-        onCancel={() => setSaveProgressOpen(false)}
+        onPauseAndResume={handlePauseAndResumeLater}
+        onEndWorkout={handleEndWorkout}
+        onCancel={() => {
+          setLeaveWorkoutOpen(false)
+          setPendingWorkoutId(null)
+          clearSession()
+        }}
       />
 
       {workoutCompleteData && (

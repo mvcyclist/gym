@@ -14,6 +14,8 @@ interface WorkoutDeckProps {
   onCompleteSet: (exerciseId: string, setNumber: number) => void
   onAddSet: (exerciseId: string) => void
   onDeleteSet: (exerciseId: string, setNumber: number) => void
+  onSkipExercise: (exerciseId: string) => void
+  isExerciseLogged: (exerciseId: string) => boolean
   onPrevious: () => void
   onNext: () => void
   onBack: () => void
@@ -28,6 +30,8 @@ export function WorkoutDeck({
   onCompleteSet,
   onAddSet,
   onDeleteSet,
+  onSkipExercise,
+  isExerciseLogged,
   onPrevious,
   onNext,
   onBack,
@@ -55,6 +59,8 @@ export function WorkoutDeck({
       onCompleteSet={onCompleteSet}
       onAddSet={onAddSet}
       onDeleteSet={onDeleteSet}
+      onSkipExercise={onSkipExercise}
+      isExerciseLogged={isExerciseLogged}
       onPrevious={onPrevious}
       onNext={onNext}
       onBack={onBack}

@@ -36,46 +36,6 @@ export function ExerciseCard({
           onDeleteSet={onDeleteSet}
         />
       )}
-
-      <div className="grid gap-4 px-5 py-5 sm:grid-cols-2 sm:px-6">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-            Primary muscles
-          </p>
-          <p className="mt-1 text-sm text-zinc-200">{exercise.primaryMuscles.join(', ')}</p>
-        </div>
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Equipment</p>
-          <p className="mt-1 text-sm text-zinc-200">{exercise.equipment}</p>
-        </div>
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-            Rest suggestion
-          </p>
-          <p className="mt-1 text-sm text-zinc-200">{exercise.suggestedRestSeconds}s</p>
-        </div>
-      </div>
-
-      <div className="space-y-4 border-t border-zinc-800 px-5 py-5 sm:px-6">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-            Instructions
-          </p>
-          <p className="mt-1 text-sm leading-relaxed text-zinc-300">{exercise.instructions}</p>
-        </div>
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-            Coaching cue
-          </p>
-          <p className="mt-1 text-sm leading-relaxed text-zinc-300">{exercise.cues}</p>
-        </div>
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-            Common mistake
-          </p>
-          <p className="mt-1 text-sm leading-relaxed text-zinc-300">{exercise.commonMistakes}</p>
-        </div>
-      </div>
     </article>
   )
 }

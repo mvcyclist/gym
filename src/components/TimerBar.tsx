@@ -7,6 +7,7 @@ interface TimerBarProps {
   duration: number
   status: TimerStatus
   muted: boolean
+  embedded?: boolean
   onStart: () => void
   onPause: () => void
   onReset: () => void
@@ -20,6 +21,7 @@ export function TimerBar({
   duration,
   status,
   muted,
+  embedded = false,
   onStart,
   onPause,
   onReset,
@@ -31,7 +33,11 @@ export function TimerBar({
   const isComplete = status === 'complete'
 
   return (
-    <header className="sticky top-0 z-50 border-b border-zinc-800 bg-black/95 backdrop-blur-sm">
+    <header
+      className={`border-b border-zinc-800 bg-black/95 backdrop-blur-sm ${
+        embedded ? '' : 'sticky top-0 z-50'
+      }`}
+    >
       <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-4 sm:px-6">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">

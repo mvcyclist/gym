@@ -2,7 +2,7 @@ export type WorkoutCategory = 'push' | 'pull' | 'leg' | 'core'
 
 export type TimerStatus = 'idle' | 'running' | 'paused' | 'complete'
 
-export type SessionStatus = 'active' | 'completed' | 'partial' | 'abandoned'
+export type SessionStatus = 'active' | 'paused' | 'completed' | 'partial' | 'abandoned'
 
 export interface Exercise {
   id: string
@@ -46,6 +46,10 @@ export interface WorkoutSession {
   startedAt: string
   updatedAt: string
   completedAt: string | null
+  /** Accumulated workout time (ms) before the current running segment. */
+  workoutElapsedMs?: number
+  /** ISO timestamp when the elapsed timer last started/resumed; null while paused. */
+  workoutTimerStartedAt?: string | null
   exercises: ExerciseLog[]
 }
 

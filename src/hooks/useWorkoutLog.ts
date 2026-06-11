@@ -7,6 +7,7 @@ import {
   removeSession,
   upsertSession,
 } from '../services/trainingLedgerService'
+import { getWorkoutElapsedMs } from '../utils/workoutTimer'
 import type { ExerciseLog, SetLog, WorkoutCategory, WorkoutSession } from '../types/workout'
 
 const DEFAULT_SET_COUNT = 3
@@ -53,6 +54,8 @@ function createSession(workoutType: WorkoutCategory): WorkoutSession {
     startedAt: now,
     updatedAt: now,
     completedAt: null,
+    workoutElapsedMs: 0,
+    workoutTimerStartedAt: now,
     exercises: createExerciseLogs(workoutType),
   }
 }
@@ -60,7 +63,7 @@ function createSession(workoutType: WorkoutCategory): WorkoutSession {
 interface UseWorkoutLogReturn {
   session: WorkoutSession | null
   startSession: (workoutType: WorkoutCategory) => WorkoutSession
-  resumeSession: (sessionId: string) => WorkoutSession | null
+  resumeSession: (sessionId: string, options?: { activate?: boolean }) => WorkoutSession | null
   updateSet: (
     exerciseId: string,
     setNumber: number,
@@ -69,9 +72,12 @@ interface UseWorkoutLogReturn {
   completeSet: (exerciseId: string, setNumber: number) => void
   addSet: (exerciseId: string) => void
   deleteSet: (exerciseId: string, setNumber: number) => void
+  skipExercise: (exerciseId: string) => WorkoutSession | null
   getExerciseLog: (exerciseId: string) => ExerciseLog | undefined
-  finishWorkout: () => Promise<WorkoutSession | null>
+  isExerciseLogged: (exerciseId: string) => boolean
+  finishWorkout: (sessionOverride?: WorkoutSession) => Promise<WorkoutSession | null>
   savePartialWorkout: () => Promise<WorkoutSession | null>
+  pauseWorkout: () => WorkoutSession | null
   discardActiveWorkout: () => void
   clearSession: () => void
 }
@@ -103,12 +109,32 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
     [],
   )
 
-  const resumeSession = useCallback((sessionId: string) => {
-    const existing = getSessionById(sessionId)
-    if (!existing) return null
-    setSession(existing)
-    return existing
-  }, [])
+  const resumeSession = useCallback(
+    (sessionId: string, options?: { activate?: boolean }) => {
+      const existing = getSessionById(sessionId)
+      if (!existing) return null
+
+      const shouldActivate = options?.activate ?? true
+      if (
+        !shouldActivate ||
+        (existing.status !== 'active' && existing.status !== 'paused')
+      ) {
+        setSession(existing)
+        return existing
+      }
+
+      const now = new Date().toISOString()
+      const activated: WorkoutSession = {
+        ...existing,
+        status: 'active',
+        workoutElapsedMs: existing.workoutElapsedMs ?? 0,
+        workoutTimerStartedAt: now,
+      }
+
+      return persistSession(activated)
+    },
+    [persistSession],
+  )
 
   const updateSet = useCallback(
     (
@@ -219,18 +245,40 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
     [persistSession, session],
   )
 
+  const skipExercise = useCallback(
+    (exerciseId: string) => {
+      if (!session) return null
+
+      const nextSession: WorkoutSession = {
+        ...session,
+        exercises: session.exercises.filter((log) => log.exerciseId !== exerciseId),
+      }
+
+      return persistSession(nextSession)
+    },
+    [persistSession, session],
+  )
+
   const getExerciseLog = useCallback(
     (exerciseId: string) => session?.exercises.find((log) => log.exerciseId === exerciseId),
     [session],
   )
 
-  const finishWorkout = useCallback(async () => {
-    if (!session) return null
+  const isExerciseLogged = useCallback(
+    (exerciseId: string) => session?.exercises.some((log) => log.exerciseId === exerciseId) ?? false,
+    [session],
+  )
+
+  const finishWorkout = useCallback(async (sessionOverride?: WorkoutSession) => {
+    const source = sessionOverride ?? session
+    if (!source) return null
     const completed: WorkoutSession = {
-      ...session,
+      ...source,
       status: 'completed',
       completedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      workoutElapsedMs: getWorkoutElapsedMs(source),
+      workoutTimerStartedAt: null,
     }
     await recordCompletedWorkout(completed)
     setSession(completed)
@@ -244,11 +292,27 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
       status: 'partial',
       completedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      workoutElapsedMs: getWorkoutElapsedMs(session),
+      workoutTimerStartedAt: null,
     }
     await recordPartialWorkout(partial)
     setSession(partial)
     return partial
   }, [session])
+
+  const pauseWorkout = useCallback(() => {
+    if (!session) return null
+    if (session.status !== 'active') return session
+
+    const paused: WorkoutSession = {
+      ...session,
+      status: 'paused',
+      workoutElapsedMs: getWorkoutElapsedMs(session),
+      workoutTimerStartedAt: null,
+    }
+
+    return persistSession(paused)
+  }, [persistSession, session])
 
   const discardActiveWorkout = useCallback(() => {
     if (!session) return
@@ -268,9 +332,12 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
     completeSet,
     addSet,
     deleteSet,
+    skipExercise,
     getExerciseLog,
+    isExerciseLogged,
     finishWorkout,
     savePartialWorkout,
+    pauseWorkout,
     discardActiveWorkout,
     clearSession,
   }

@@ -1,5 +1,5 @@
 import type { SetLog } from '../types/workout'
-import { sanitizeWeightInput } from '../utils/weightInput'
+import { sanitizeRepsInput, sanitizeWeightInput } from '../utils/weightInput'
 
 interface SetLoggerProps {
   sets: SetLog[]
@@ -106,7 +106,9 @@ export function SetLogger({
                   step="1"
                   value={set.reps}
                   disabled={set.completed}
-                  onChange={(event) => onUpdateSet(set.setNumber, { reps: event.target.value })}
+                  onChange={(event) =>
+                    onUpdateSet(set.setNumber, { reps: sanitizeRepsInput(event.target.value) })
+                  }
                   placeholder="0"
                   className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-base text-white placeholder:text-zinc-600 focus:border-red-500 focus:outline-none disabled:opacity-60"
                 />

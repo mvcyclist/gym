@@ -4,3 +4,12 @@ export function scrollToTop(): void {
   document.documentElement.scrollTop = 0
   document.body.scrollTop = 0
 }
+
+/** Scroll after layout — use when new header/content mounts above the viewport (scroll anchoring). */
+export function scrollToTopAfterLayout(): void {
+  scrollToTop()
+  requestAnimationFrame(() => {
+    scrollToTop()
+    requestAnimationFrame(scrollToTop)
+  })
+}
