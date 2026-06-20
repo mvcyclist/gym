@@ -1,6 +1,4 @@
 import { useCallback, useState } from 'react'
-import { mobilityExercises } from '../data/mobility'
-import { workouts } from '../data/workouts'
 import type { WorkoutCategory } from '../types/workout'
 import type { ActivityEntry, DayActivity, WorkoutRecommendation } from '../types/training'
 import { BackfillRecentActivityModal } from './BackfillRecentActivityModal'
