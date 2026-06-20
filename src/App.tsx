@@ -67,6 +67,7 @@ function WorkoutApp() {
     todaySummary,
     tomorrowRecommendation,
     updateDayActivities,
+    deleteWorkoutSession,
     saveBackfill,
     refresh,
   } = useActivityHistory()
@@ -603,6 +604,7 @@ function WorkoutApp() {
             todaySummary={todaySummary}
             tomorrowRecommendation={tomorrowRecommendation}
             onUpdateDayActivities={updateDayActivities}
+            onDeleteWorkoutSession={deleteWorkoutSession}
             onSaveBackfill={saveBackfill}
             onStartRecommendation={handleStartRecommendation}
             onStartTomorrowRecommendation={handleStartTomorrowRecommendation}

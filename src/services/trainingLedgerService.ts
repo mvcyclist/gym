@@ -83,6 +83,11 @@ export function removeSession(sessionId: string): void {
   removeSessionFromLedger(sessionId)
 }
 
+/** Remove a confirmed history session from ledger and cloud. */
+export function deleteCompletedSession(sessionId: string): void {
+  removeSessionFromLedger(sessionId)
+}
+
 export async function recordCompletedWorkout(session: WorkoutSession): Promise<void> {
   const completed: WorkoutSession = {
     ...session,

@@ -1,5 +1,4 @@
-import { useRef, useState } from 'react'
-import { getManualActivitiesForDate } from '../services/trainingLedgerService'
+import { useCallback, useRef, useState } from 'react'
 import { mobilityExercises } from '../data/mobility'
 import { workouts } from '../data/workouts'
 import type { WorkoutCategory } from '../types/workout'
@@ -23,6 +22,7 @@ interface WorkoutSelectorProps {
   todaySummary: TodaySummary | null
   tomorrowRecommendation: WorkoutRecommendation | null
   onUpdateDayActivities: (date: string, activities: ActivityEntry[]) => void
+  onDeleteWorkoutSession: (sessionId: string) => void
   onSaveBackfill: (rows: import('./BackfillRecentActivityModal').BackfillRow[]) => void
   onStartRecommendation: () => void
   onStartTomorrowRecommendation: () => void
@@ -40,6 +40,7 @@ export function WorkoutSelector({
   todaySummary,
   tomorrowRecommendation,
   onUpdateDayActivities,
+  onDeleteWorkoutSession,
   onSaveBackfill,
   onStartRecommendation,
   onStartTomorrowRecommendation,
@@ -53,6 +54,20 @@ export function WorkoutSelector({
 
   const strengthWorkouts = workouts.filter((workout) =>
     ['push', 'pull', 'leg', 'core'].includes(workout.id),
+  )
+
+  const handleDeleteWorkoutSession = useCallback(
+    (sessionId: string) => {
+      onDeleteWorkoutSession(sessionId)
+      setEditingDay((current) => {
+        if (!current) return null
+        return {
+          ...current,
+          activities: current.activities.filter((activity) => activity.sessionId !== sessionId),
+        }
+      })
+    },
+    [onDeleteWorkoutSession],
   )
 
   const scrollToWorkouts = () => {
@@ -97,12 +112,7 @@ export function WorkoutSelector({
           <ActivityHistoryStrip
             days={activityHistory}
             emptyHint="No activity yet — complete a workout or log recent days."
-            onEditDay={(day) =>
-              setEditingDay({
-                ...day,
-                activities: getManualActivitiesForDate(day.date),
-              })
-            }
+            onEditDay={(day) => setEditingDay(day)}
           />
         </div>
 
@@ -137,6 +147,7 @@ export function WorkoutSelector({
         day={editingDay}
         onClose={() => setEditingDay(null)}
         onSave={onUpdateDayActivities}
+        onDeleteWorkout={handleDeleteWorkoutSession}
       />
 
       <BackfillRecentActivityModal

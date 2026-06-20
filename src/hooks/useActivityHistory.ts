@@ -12,6 +12,7 @@ import {
   getSessionsForDate,
   saveBackfillDays,
   updateManualActivities,
+  deleteCompletedSession,
 } from '../services/trainingLedgerService'
 import type { BackfillRow } from '../components/BackfillRecentActivityModal'
 import { useAuth } from './useAuth'
@@ -99,6 +100,14 @@ export function useActivityHistory() {
     [refresh],
   )
 
+  const deleteWorkoutSession = useCallback(
+    (sessionId: string) => {
+      deleteCompletedSession(sessionId)
+      refresh()
+    },
+    [refresh],
+  )
+
   const saveBackfill = useCallback(
     (rows: BackfillRow[]) => {
       const today = new Date()
@@ -128,6 +137,7 @@ export function useActivityHistory() {
     todaySummary,
     tomorrowRecommendation,
     updateDayActivities,
+    deleteWorkoutSession,
     saveBackfill,
     refresh,
   }

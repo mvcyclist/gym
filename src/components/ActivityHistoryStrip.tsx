@@ -22,7 +22,7 @@ export function ActivityHistoryStrip({ days, emptyHint, onEditDay }: ActivityHis
         <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
           Last 7 days
         </p>
-        <p className="text-xs text-zinc-600">Tap a day to edit manual activities</p>
+        <p className="text-xs text-zinc-600">Tap a day to edit or delete activities</p>
       </div>
 
       {!hasAnyActivity && emptyHint && (
