@@ -1,18 +1,16 @@
-import { useCallback, useRef, useState } from 'react'
-import { WeeklyPlanView } from './WeeklyPlanView'
+import { useCallback, useState } from 'react'
 import { mobilityExercises } from '../data/mobility'
 import { workouts } from '../data/workouts'
 import type { WorkoutCategory } from '../types/workout'
 import type { ActivityEntry, DayActivity, WorkoutRecommendation } from '../types/training'
-import { ActivityHistoryStrip } from './ActivityHistoryStrip'
-import { ActionCard } from './ActionCard'
 import { BackfillRecentActivityModal } from './BackfillRecentActivityModal'
+import { ChooseAnotherModal } from './ChooseAnotherModal'
 import { EditActivityModal } from './EditActivityModal'
 import { GettingStartedCard } from './GettingStartedCard'
-import { PostWorkoutInsights } from './PostWorkoutInsights'
-import { TodayRecommendationCard } from './TodayRecommendationCard'
-import { WorkoutCard } from './WorkoutCard'
+import { SnakeDayTile } from './SnakeDayTile'
+import { TodayFocusCard } from './TodayFocusCard'
 import type { TodaySummary } from '../utils/workoutSummary'
+import type { WeeklyPlanDay } from '../services/recommendationService'
 
 interface WorkoutSelectorProps {
   activityHistory: DayActivity[]
@@ -22,7 +20,7 @@ interface WorkoutSelectorProps {
   todayLogged: boolean
   todaySummary: TodaySummary | null
   tomorrowRecommendation: WorkoutRecommendation | null
-  weeklyPlan: import('../services/recommendationService').WeeklyPlanDay[]
+  weeklyPlan: WeeklyPlanDay[]
   onUpdateDayActivities: (date: string, activities: ActivityEntry[]) => void
   onDeleteWorkoutSession: (sessionId: string) => void
   onSaveBackfill: (rows: import('./BackfillRecentActivityModal').BackfillRow[]) => void
@@ -51,14 +49,14 @@ export function WorkoutSelector({
   onSelectTimer,
   onSelectMobility,
 }: WorkoutSelectorProps) {
-  const workoutSectionRef = useRef<HTMLDivElement>(null)
   const [editingDay, setEditingDay] = useState<DayActivity | null>(null)
   const [backfillOpen, setBackfillOpen] = useState(false)
+  const [chooseOpen, setChooseOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const [planOpen, setPlanOpen] = useState(false)
 
-  const strengthWorkouts = workouts.filter((workout) =>
-    ['push', 'pull', 'leg', 'core'].includes(workout.id),
-  )
+  const pastDays = activityHistory.slice(0, -1)
+  const futureDays = weeklyPlan.slice(1)
 
   const handleDeleteWorkoutSession = useCallback(
     (sessionId: string) => {
@@ -67,99 +65,124 @@ export function WorkoutSelector({
         if (!current) return null
         return {
           ...current,
-          activities: current.activities.filter((activity) => activity.sessionId !== sessionId),
+          activities: current.activities.filter((a) => a.sessionId !== sessionId),
         }
       })
     },
     [onDeleteWorkoutSession],
   )
 
-  const scrollToWorkouts = () => {
-    workoutSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
+  const showSnake = recommendationReady && (recommendation || todayLogged)
 
   return (
     <>
-      <section className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-12">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            What do you want to work on today?
-          </h1>
-          <p className="mt-3 text-base text-zinc-400 sm:text-lg">
-            Choose a workout, start a timer, or do mobility work.
-          </p>
-        </div>
+      <section className="mx-auto w-full max-w-lg px-4 py-10 sm:px-6 sm:py-12">
 
-        <div className="mb-8">
-          {todayLogged && todaySummary && tomorrowRecommendation ? (
-            <PostWorkoutInsights
-              todaySummary={todaySummary}
-              tomorrowRecommendation={tomorrowRecommendation}
-              onStartTomorrow={onStartTomorrowRecommendation}
-            />
-          ) : recommendationReady && recommendation ? (
-            <TodayRecommendationCard
-              recommendation={recommendation}
-              onStart={onStartRecommendation}
-              onChooseAnother={scrollToWorkouts}
-            />
-          ) : (
-            <GettingStartedCard
-              activeDaysCount={activeDaysCount}
-              onStartWorkout={scrollToWorkouts}
-              onLogRecentDays={() => setBackfillOpen(true)}
-            />
-          )}
-        </div>
+        {showSnake ? (
+          <div className="flex flex-col gap-3">
 
-        {recommendationReady && weeklyPlan.length > 0 && (
-          <div className="mb-6">
             <button
               type="button"
-              onClick={() => setPlanOpen((o) => !o)}
-              className="flex items-center gap-1.5 text-sm font-medium text-zinc-400 transition hover:text-zinc-200"
+              onClick={() => setHistoryOpen((o) => !o)}
+              className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500 transition hover:text-zinc-300"
             >
-              <span>{planOpen ? '▾' : '▸'}</span>
-              {planOpen ? 'Hide' : 'See'} this week's plan
+              <span className="transition-transform duration-200" style={{ display: 'inline-block', transform: historyOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                ▴
+              </span>
+              Last 7 days
+              <span className="ml-auto text-zinc-600">
+                {pastDays.slice(-5).map(d => d.dayLabel.slice(0, 3)).join(' · ')}
+              </span>
             </button>
-            {planOpen && <WeeklyPlanView plan={weeklyPlan} />}
+
+            {historyOpen && (
+              <div className="grid grid-cols-5 gap-2">
+                {pastDays.slice(-5).map((day) => (
+                  <SnakeDayTile
+                    key={day.date}
+                    day={day}
+                    variant="past"
+                    onClick={() => setEditingDay(day)}
+                  />
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-zinc-800" />
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">
+                today
+              </span>
+              <div className="h-px flex-1 bg-zinc-800" />
+            </div>
+
+            <TodayFocusCard
+              recommendation={recommendation}
+              todayLogged={todayLogged}
+              todaySummary={todaySummary}
+              tomorrowRecommendation={tomorrowRecommendation}
+              onStart={onStartRecommendation}
+              onChooseAnother={() => setChooseOpen(true)}
+              onStartTomorrow={onStartTomorrowRecommendation}
+            />
+
+            {weeklyPlan.length > 1 && (
+              <>
+                <div className="flex items-center gap-3">
+                  <div className="h-px flex-1 bg-zinc-800" />
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">
+                    plan
+                  </span>
+                  <div className="h-px flex-1 bg-zinc-800" />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setPlanOpen((o) => !o)}
+                  className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500 transition hover:text-zinc-300"
+                >
+                  <span className="transition-transform duration-200" style={{ display: 'inline-block', transform: planOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                    ▾
+                  </span>
+                  Next 7 days
+                  <span className="ml-auto text-zinc-600">
+                    {futureDays.slice(0, 5).map(d => d.dayLabel.slice(0, 3)).join(' · ')}
+                  </span>
+                </button>
+
+                {planOpen && (
+                  <div className="grid grid-cols-5 gap-2">
+                    {futureDays.slice(0, 5).map((planDay) => (
+                      <SnakeDayTile
+                        key={planDay.date}
+                        day={{ date: planDay.date, dayLabel: planDay.dayLabel, activities: [] }}
+                        variant="future"
+                        displayType={planDay.displayType}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
           </div>
+        ) : (
+          <GettingStartedCard
+            activeDaysCount={activeDaysCount}
+            onStartWorkout={() => setChooseOpen(true)}
+            onLogRecentDays={() => setBackfillOpen(true)}
+          />
         )}
 
-        <div className="mb-10">
-          <ActivityHistoryStrip
-            days={activityHistory}
-            emptyHint="No activity yet — complete a workout or log recent days."
-            onEditDay={(day) => setEditingDay(day)}
-          />
-        </div>
-
-        <div ref={workoutSectionRef} className="mb-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Workouts</p>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {strengthWorkouts.map((workout) => (
-            <WorkoutCard key={workout.id} workout={workout} onSelect={onSelectWorkout} />
-          ))}
-        </div>
-
-        <div className="mb-4 mt-10">
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">More</p>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <ActionCard
-            title="Mobility"
-            description="Stretching, warm-ups, recovery, and movement prep."
-            meta={`${mobilityExercises.length} moves`}
-            onClick={onSelectMobility}
-          />
-          <ActionCard
-            title="Timer Only"
-            description="Use the rest timer without logging a workout."
-            onClick={onSelectTimer}
-          />
-        </div>
       </section>
+
+      <ChooseAnotherModal
+        open={chooseOpen}
+        onClose={() => setChooseOpen(false)}
+        onSelectWorkout={onSelectWorkout}
+        onSelectMobility={onSelectMobility}
+        onSelectTimer={onSelectTimer}
+      />
 
       <EditActivityModal
         day={editingDay}
