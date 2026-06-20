@@ -1,35 +1,53 @@
-import type { WorkoutRecommendation } from '../types/training'
+import type { RecommendationResult, QualityBucket } from '../types/training'
 import { isSessionSummary, type TodaySummary } from '../utils/workoutSummary'
 
+const BUCKET_STYLES: Record<QualityBucket, string> = {
+  Best:     'bg-emerald-500/20 text-emerald-400',
+  Good:     'bg-sky-500/20 text-sky-400',
+  Marginal: 'bg-amber-500/20 text-amber-400',
+  Skip:     'bg-zinc-500/20 text-zinc-400',
+}
+
 interface PreWorkoutProps {
-  recommendation: WorkoutRecommendation
+  recommendation: RecommendationResult
   onStart: () => void
   onChooseAnother: () => void
 }
 
 function PreWorkoutState({ recommendation, onStart, onChooseAnother }: PreWorkoutProps) {
+  const { primary, addon } = recommendation
+
   return (
     <>
-      <h2 className="text-2xl font-bold text-white">{recommendation.title}</h2>
-      <div className="mt-3 rounded-xl bg-zinc-800/60 px-4 py-3">
-        <p className="text-sm leading-relaxed text-zinc-300">{recommendation.reason}</p>
-        {recommendation.warnings && recommendation.warnings.length > 0 && (
-          <ul className="mt-2 space-y-1">
-            {recommendation.warnings.map((w) => (
-              <li key={w} className="text-xs text-amber-300/90 before:mr-2 before:content-['•']">
-                {w}
-              </li>
-            ))}
-          </ul>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-2xl font-bold text-white">{primary.type}</h2>
+        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${BUCKET_STYLES[primary.bucket]}`}>
+          {primary.bucket}
+        </span>
+      </div>
+
+      <div className="rounded-xl bg-zinc-800/60 px-4 py-3 space-y-2">
+        <p className="text-sm leading-relaxed text-zinc-300">{primary.reason}</p>
+        {primary.warning && (
+          <p className="text-xs text-amber-300/90 before:mr-2 before:content-['•']">
+            {primary.warning}
+          </p>
+        )}
+        {addon && (
+          <p className="text-xs text-zinc-400 border-t border-zinc-700 pt-2">
+            <span className="text-zinc-300 font-medium">+ {addon.type}</span>
+            {' — '}{addon.reason}
+          </p>
         )}
       </div>
+
       <div className="mt-4 flex gap-3">
         <button
           type="button"
           onClick={onStart}
           className="rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-500"
         >
-          {recommendation.workoutType === 'Rest' ? 'Start recovery' : 'Start workout'}
+          {['Rest', 'Mobility', 'Walk'].includes(primary.type) ? 'Start recovery' : 'Start workout'}
         </button>
         <button
           type="button"
@@ -45,7 +63,7 @@ function PreWorkoutState({ recommendation, onStart, onChooseAnother }: PreWorkou
 
 interface PostWorkoutProps {
   todaySummary: TodaySummary
-  tomorrowRecommendation: WorkoutRecommendation
+  tomorrowRecommendation: import('../types/training').WorkoutRecommendation
   onStartTomorrow?: () => void
 }
 
@@ -86,10 +104,10 @@ function PostWorkoutState({ todaySummary, tomorrowRecommendation, onStartTomorro
 }
 
 interface TodayFocusCardProps {
-  recommendation: WorkoutRecommendation | null
+  recommendation: RecommendationResult | null
   todayLogged: boolean
   todaySummary: TodaySummary | null
-  tomorrowRecommendation: WorkoutRecommendation | null
+  tomorrowRecommendation: import('../types/training').WorkoutRecommendation | null
   onStart: () => void
   onChooseAnother: () => void
   onStartTomorrow?: () => void

@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import type { WorkoutCategory } from '../types/workout'
-import type { ActivityEntry, DayActivity, WorkoutRecommendation } from '../types/training'
+import type { ActivityEntry, DayActivity, RecommendationResult, WorkoutRecommendation, WorkoutType } from '../types/training'
 import { BackfillRecentActivityModal } from './BackfillRecentActivityModal'
 import { ChooseAnotherModal } from './ChooseAnotherModal'
 import { EditActivityModal } from './EditActivityModal'
@@ -14,7 +14,7 @@ interface WorkoutSelectorProps {
   activityHistory: DayActivity[]
   activeDaysCount: number
   recommendationReady: boolean
-  recommendation: WorkoutRecommendation | null
+  recommendation: RecommendationResult | null
   todayLogged: boolean
   todaySummary: TodaySummary | null
   tomorrowRecommendation: WorkoutRecommendation | null
@@ -25,6 +25,7 @@ interface WorkoutSelectorProps {
   onStartRecommendation: () => void
   onStartTomorrowRecommendation: () => void
   onSelectWorkout: (workoutId: WorkoutCategory) => void
+  onSelectCardio: (type: WorkoutType) => void
   onSelectTimer: () => void
   onSelectMobility: () => void
 }
@@ -44,6 +45,7 @@ export function WorkoutSelector({
   onStartRecommendation,
   onStartTomorrowRecommendation,
   onSelectWorkout,
+  onSelectCardio,
   onSelectTimer,
   onSelectMobility,
 }: WorkoutSelectorProps) {
@@ -176,8 +178,10 @@ export function WorkoutSelector({
 
       <ChooseAnotherModal
         open={chooseOpen}
+        alternatives={recommendation?.alternatives ?? []}
         onClose={() => setChooseOpen(false)}
         onSelectWorkout={onSelectWorkout}
+        onSelectCardio={onSelectCardio}
         onSelectMobility={onSelectMobility}
         onSelectTimer={onSelectTimer}
       />

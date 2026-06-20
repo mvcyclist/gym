@@ -122,6 +122,11 @@ export function updateManualActivities(date: string, activities: ActivityEntry[]
   )
 }
 
+export function appendManualActivity(date: string, entry: ActivityEntry): void {
+  const existing = getManualActivitiesForDate(date)
+  replaceManualActivities(date, [...existing, entry])
+}
+
 export function getSessionById(sessionId: string): WorkoutSession | undefined {
   return loadLedger().sessions.find(
     (session) => session.id === sessionId && isHistorySession(session),

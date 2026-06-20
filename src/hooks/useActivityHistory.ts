@@ -2,12 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   getTomorrowWorkoutRecommendation,
   getWeeklyPlan,
-  getWorkoutRecommendation,
 } from '../services/recommendationService'
-import {
-  hasEnoughHistoryForRecommendation,
-  countDaysWithActivity,
-} from '../services/recommendationReadiness'
+import { getRecommendation, getUserPalette } from '../services/recommendationEngine'
+import { countDaysWithActivity } from '../services/recommendationReadiness'
 import {
   getLastSevenDays,
   getSessionsForDate,
@@ -17,7 +14,7 @@ import {
 } from '../services/trainingLedgerService'
 import type { BackfillRow } from '../components/BackfillRecentActivityModal'
 import { useAuth } from './useAuth'
-import type { ActivityEntry, DayActivity, WorkoutRecommendation } from '../types/training'
+import type { ActivityEntry, DayActivity, RecommendationResult, WorkoutRecommendation } from '../types/training'
 import { toDateString } from '../utils/activityHistory'
 import {
   buildTodayActivitySummary,
@@ -56,15 +53,11 @@ export function useActivityHistory() {
     [activityHistory],
   )
 
-  const recommendationReady = useMemo(
-    () => hasEnoughHistoryForRecommendation(activityHistory),
-    [activityHistory],
-  )
+  const recommendation = useMemo((): RecommendationResult | null => {
+    return getRecommendation(activityHistory, getUserPalette())
+  }, [activityHistory])
 
-  const recommendation = useMemo((): WorkoutRecommendation | null => {
-    if (!recommendationReady) return null
-    return getWorkoutRecommendation(activityHistory)
-  }, [activityHistory, recommendationReady])
+  const recommendationReady = recommendation !== null
 
   const todayLogged = useMemo(() => {
     const today = activityHistory.at(-1)
@@ -147,5 +140,5 @@ export function useActivityHistory() {
     deleteWorkoutSession,
     saveBackfill,
     refresh,
-  }
+  } as const
 }
