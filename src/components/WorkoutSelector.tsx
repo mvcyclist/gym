@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
+import { WeeklyPlanView } from './WeeklyPlanView'
 import { mobilityExercises } from '../data/mobility'
 import { workouts } from '../data/workouts'
 import type { WorkoutCategory } from '../types/workout'
@@ -21,6 +22,7 @@ interface WorkoutSelectorProps {
   todayLogged: boolean
   todaySummary: TodaySummary | null
   tomorrowRecommendation: WorkoutRecommendation | null
+  weeklyPlan: import('../services/recommendationService').WeeklyPlanDay[]
   onUpdateDayActivities: (date: string, activities: ActivityEntry[]) => void
   onDeleteWorkoutSession: (sessionId: string) => void
   onSaveBackfill: (rows: import('./BackfillRecentActivityModal').BackfillRow[]) => void
@@ -39,6 +41,7 @@ export function WorkoutSelector({
   todayLogged,
   todaySummary,
   tomorrowRecommendation,
+  weeklyPlan,
   onUpdateDayActivities,
   onDeleteWorkoutSession,
   onSaveBackfill,
@@ -51,6 +54,7 @@ export function WorkoutSelector({
   const workoutSectionRef = useRef<HTMLDivElement>(null)
   const [editingDay, setEditingDay] = useState<DayActivity | null>(null)
   const [backfillOpen, setBackfillOpen] = useState(false)
+  const [planOpen, setPlanOpen] = useState(false)
 
   const strengthWorkouts = workouts.filter((workout) =>
     ['push', 'pull', 'leg', 'core'].includes(workout.id),
@@ -107,6 +111,20 @@ export function WorkoutSelector({
             />
           )}
         </div>
+
+        {recommendationReady && weeklyPlan.length > 0 && (
+          <div className="mb-6">
+            <button
+              type="button"
+              onClick={() => setPlanOpen((o) => !o)}
+              className="flex items-center gap-1.5 text-sm font-medium text-zinc-400 transition hover:text-zinc-200"
+            >
+              <span>{planOpen ? '▾' : '▸'}</span>
+              {planOpen ? 'Hide' : 'See'} this week's plan
+            </button>
+            {planOpen && <WeeklyPlanView plan={weeklyPlan} />}
+          </div>
+        )}
 
         <div className="mb-10">
           <ActivityHistoryStrip

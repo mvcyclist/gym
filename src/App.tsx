@@ -66,6 +66,7 @@ function WorkoutApp() {
     todayLogged,
     todaySummary,
     tomorrowRecommendation,
+    weeklyPlan,
     updateDayActivities,
     deleteWorkoutSession,
     saveBackfill,
@@ -603,6 +604,7 @@ function WorkoutApp() {
             todayLogged={todayLogged}
             todaySummary={todaySummary}
             tomorrowRecommendation={tomorrowRecommendation}
+            weeklyPlan={weeklyPlan}
             onUpdateDayActivities={updateDayActivities}
             onDeleteWorkoutSession={deleteWorkoutSession}
             onSaveBackfill={saveBackfill}

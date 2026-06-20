@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   getTomorrowWorkoutRecommendation,
+  getWeeklyPlan,
   getWorkoutRecommendation,
 } from '../services/recommendationService'
 import {
@@ -92,6 +93,11 @@ export function useActivityHistory() {
     return getTomorrowWorkoutRecommendation(activityHistory)
   }, [activityHistory, todayLogged])
 
+  const weeklyPlan = useMemo(() => {
+    if (!recommendationReady) return []
+    return getWeeklyPlan(activityHistory)
+  }, [activityHistory, recommendationReady])
+
   const updateDayActivities = useCallback(
     (date: string, activities: ActivityEntry[]) => {
       updateManualActivities(date, activities)
@@ -136,6 +142,7 @@ export function useActivityHistory() {
     todayLogged,
     todaySummary,
     tomorrowRecommendation,
+    weeklyPlan,
     updateDayActivities,
     deleteWorkoutSession,
     saveBackfill,
