@@ -1,19 +1,25 @@
 import type { TrainingLedger } from '../types/ledger'
 import type { WorkoutSession } from '../types/workout'
 import { migrateManualDateKeysFromUtcStorageKeys } from '../utils/activityHistory'
+import { isHistorySession } from '../services/historyQueryPolicy'
 
 const LEDGER_KEY = 'workout-deck-ledger'
 const LEGACY_SESSIONS_KEY = 'workout-deck-sessions'
 
-const LEDGER_VERSION = 3
+const LEDGER_VERSION = 4
 
 function emptyLedger(): TrainingLedger {
   return { version: LEDGER_VERSION, sessions: [], manualByDate: {} }
 }
 
 function normalizeLedger(parsed: Partial<TrainingLedger>): TrainingLedger {
-  const sessions = Array.isArray(parsed.sessions) ? parsed.sessions : []
+  const incomingVersion = parsed.version ?? 1
+  const rawSessions = Array.isArray(parsed.sessions) ? parsed.sessions : []
   const manualByDate = parsed.manualByDate ?? {}
+
+  // v4+ ledgers are history-only; older versions may still have in-progress rows for migration.
+  const sessions =
+    incomingVersion >= LEDGER_VERSION ? rawSessions.filter(isHistorySession) : rawSessions
 
   const hasLoggedWorkouts = sessions.some(
     (session) => session.status === 'completed' || session.status === 'partial',
@@ -24,7 +30,6 @@ function normalizeLedger(parsed: Partial<TrainingLedger>): TrainingLedger {
   let manualByDateCleaned =
     parsed.version === 1 && !hasLoggedWorkouts && manualDayCount >= 5 ? {} : manualByDate
 
-  const incomingVersion = parsed.version ?? 1
   if (incomingVersion < LEDGER_VERSION && manualDayCount > 0) {
     manualByDateCleaned = migrateManualDateKeysFromUtcStorageKeys(manualByDateCleaned)
   }

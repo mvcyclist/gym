@@ -1,4 +1,6 @@
+import { loadDraft } from '../adapters/workoutDraftStorage'
 import { loadLedger } from '../services/ledgerRepository'
+import { isDraftableSessionStatus } from '../types/draft'
 import type { WorkoutSession } from '../types/workout'
 import { toDateString } from './activityHistory'
 
@@ -7,10 +9,11 @@ function isSessionFromToday(session: WorkoutSession): boolean {
 }
 
 export function findTodaysResumableSession(): WorkoutSession | undefined {
-  return loadLedger().sessions.find(
-    (session) =>
-      (session.status === 'active' || session.status === 'paused') && isSessionFromToday(session),
-  )
+  loadLedger()
+  const draft = loadDraft()
+  if (!draft || !isDraftableSessionStatus(draft.status)) return undefined
+  if (!isSessionFromToday(draft)) return undefined
+  return draft
 }
 
 /** @deprecated Use findTodaysResumableSession */

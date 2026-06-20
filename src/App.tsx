@@ -5,6 +5,8 @@ import { useAuth } from './hooks/useAuth'
 import { getWorkoutById } from './data/workouts'
 import { MobilityView } from './components/MobilityView'
 import { LeaveWorkoutDialog } from './components/LeaveWorkoutDialog'
+import { PriorDayDraftDialog } from './components/PriorDayDraftDialog'
+import { SaveProgressDialog } from './components/SaveProgressDialog'
 import { WorkoutCompleteSummaryDialog } from './components/WorkoutCompleteSummaryDialog'
 import { TimerBar } from './components/TimerBar'
 import { TimerOnlyView } from './components/TimerOnlyView'
@@ -19,6 +21,13 @@ import { useWorkoutElapsedTimer } from './hooks/useWorkoutElapsedTimer'
 import { useWorkoutLog } from './hooks/useWorkoutLog'
 import { getTomorrowWorkoutRecommendation } from './services/recommendationService'
 import { getLastSevenDays } from './services/trainingLedgerService'
+import {
+  discardDraft,
+  findPriorDayDraft,
+  formatDraftWorkoutDate,
+  promoteDraftToPartial,
+} from './services/workoutDraftService'
+import { toDateString } from './utils/activityHistory'
 import { countCompletedSets } from './utils/sessionMetrics'
 import { getRecommendationNavigation } from './utils/recommendationNavigation'
 import { buildWorkoutSessionSummary } from './utils/workoutSummary'
@@ -39,6 +48,9 @@ function WorkoutApp() {
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0)
   const [muted, setMuted] = useState(false)
   const [leaveWorkoutOpen, setLeaveWorkoutOpen] = useState(false)
+  const [saveProgressOpen, setSaveProgressOpen] = useState(false)
+  const [priorDayDraftOpen, setPriorDayDraftOpen] = useState(false)
+  const [priorDayDraftSession, setPriorDayDraftSession] = useState<WorkoutSession | null>(null)
   const [pendingWorkoutId, setPendingWorkoutId] = useState<WorkoutCategory | null>(null)
   const [workoutCompleteOpen, setWorkoutCompleteOpen] = useState(false)
   const [workoutCompleteData, setWorkoutCompleteData] = useState<{
@@ -104,6 +116,9 @@ function WorkoutApp() {
     setSelectedWorkoutType(null)
     setCurrentExerciseIndex(0)
     setLeaveWorkoutOpen(false)
+    setSaveProgressOpen(false)
+    setPriorDayDraftOpen(false)
+    setPriorDayDraftSession(null)
     setPendingWorkoutId(null)
     clearSession()
     reset()
@@ -138,6 +153,14 @@ function WorkoutApp() {
   useEffect(() => {
     if (!ledgerReady || resumeChecked) return
 
+    const priorDay = findPriorDayDraft()
+    if (priorDay) {
+      setPriorDayDraftSession(priorDay)
+      setPriorDayDraftOpen(true)
+      setResumeChecked(true)
+      return
+    }
+
     const active = findTodaysResumableSession()
     setResumeChecked(true)
     if (!active) return
@@ -147,6 +170,36 @@ function WorkoutApp() {
 
     resumeWorkoutScreen(resumed)
   }, [ledgerReady, resumeChecked, resumeSession, resumeWorkoutScreen])
+
+  const handlePriorDaySave = useCallback(() => {
+    if (!priorDayDraftSession) return
+
+    const calendarDate = toDateString(new Date(priorDayDraftSession.startedAt))
+    void promoteDraftToPartial(priorDayDraftSession, { calendarDate })
+      .then(() => {
+        setPriorDayDraftOpen(false)
+        setPriorDayDraftSession(null)
+        refresh()
+      })
+      .catch((error) => console.error('[workout] failed to save prior-day draft', error))
+  }, [priorDayDraftSession, refresh])
+
+  const handlePriorDayReview = useCallback(() => {
+    if (!priorDayDraftSession) return
+
+    setPriorDayDraftOpen(false)
+    const resumed = resumeSession(priorDayDraftSession.id, { activate: true })
+    setPriorDayDraftSession(null)
+    if (resumed) {
+      resumeWorkoutScreen(resumed)
+    }
+  }, [priorDayDraftSession, resumeSession, resumeWorkoutScreen])
+
+  const handlePriorDayDiscard = useCallback(() => {
+    discardDraft()
+    setPriorDayDraftOpen(false)
+    setPriorDayDraftSession(null)
+  }, [])
 
   const startRestForExercise = useCallback(
     (exerciseIndex: number) => {
@@ -284,47 +337,66 @@ function WorkoutApp() {
     reset()
   }, [clearSession, pauseWorkout, reset])
 
+  const navigateAfterPartialSave = useCallback(
+    (partial: WorkoutSession) => {
+      const nextWorkout = pendingWorkoutId
+      setPendingWorkoutId(null)
+      setLeaveWorkoutOpen(false)
+      setSaveProgressOpen(false)
+      clearSession()
+      reset()
+
+      if (nextWorkout) {
+        openWorkoutPreview(nextWorkout)
+        return
+      }
+
+      if (!showWorkoutCompleteSummary(partial)) {
+        setScreen('home')
+        setSelectedWorkoutType(null)
+        setCurrentExerciseIndex(0)
+        refresh()
+      }
+    },
+    [
+      clearSession,
+      openWorkoutPreview,
+      pendingWorkoutId,
+      refresh,
+      reset,
+      showWorkoutCompleteSummary,
+    ],
+  )
+
   const handleEndWorkout = useCallback(() => {
     if (completedSetsInSession > 0) {
-      void savePartialWorkout()
-        .then((partial) => {
-          if (!partial) return
-          const nextWorkout = pendingWorkoutId
-          setPendingWorkoutId(null)
-          setLeaveWorkoutOpen(false)
-          clearSession()
-          reset()
-
-          if (nextWorkout) {
-            openWorkoutPreview(nextWorkout)
-            return
-          }
-
-          if (!showWorkoutCompleteSummary(partial)) {
-            setScreen('home')
-            setSelectedWorkoutType(null)
-            setCurrentExerciseIndex(0)
-            refresh()
-          }
-        })
-        .catch((error) => console.error('[workout] failed to save progress', error))
+      setLeaveWorkoutOpen(false)
+      setSaveProgressOpen(true)
       return
     }
 
     discardActiveWorkout()
     navigateAfterLeave()
-  }, [
-    completedSetsInSession,
-    clearSession,
-    discardActiveWorkout,
-    navigateAfterLeave,
-    openWorkoutPreview,
-    pendingWorkoutId,
-    refresh,
-    reset,
-    savePartialWorkout,
-    showWorkoutCompleteSummary,
-  ])
+  }, [completedSetsInSession, discardActiveWorkout, navigateAfterLeave])
+
+  const handleSaveProgress = useCallback(() => {
+    void savePartialWorkout()
+      .then((partial) => {
+        if (!partial) return
+        navigateAfterPartialSave(partial)
+      })
+      .catch((error) => console.error('[workout] failed to save progress', error))
+  }, [navigateAfterPartialSave, savePartialWorkout])
+
+  const handleDiscardProgress = useCallback(() => {
+    discardActiveWorkout()
+    setSaveProgressOpen(false)
+    navigateAfterLeave()
+  }, [discardActiveWorkout, navigateAfterLeave])
+
+  const handleCancelSaveProgress = useCallback(() => {
+    setSaveProgressOpen(false)
+  }, [])
 
   const handlePrevious = useCallback(() => {
     if (!selectedWorkoutType) return
@@ -579,9 +651,31 @@ function WorkoutApp() {
         onCancel={() => {
           setLeaveWorkoutOpen(false)
           setPendingWorkoutId(null)
-          clearSession()
         }}
       />
+
+      <SaveProgressDialog
+        open={saveProgressOpen}
+        completedSets={completedSetsInSession}
+        onSave={handleSaveProgress}
+        onDiscard={handleDiscardProgress}
+        onCancel={handleCancelSaveProgress}
+      />
+
+      {priorDayDraftSession && (
+        <PriorDayDraftDialog
+          open={priorDayDraftOpen}
+          workoutDateLabel={formatDraftWorkoutDate(priorDayDraftSession)}
+          workoutTitle={
+            getWorkoutById(priorDayDraftSession.workoutType)?.title ??
+            priorDayDraftSession.workoutType
+          }
+          completedSets={countCompletedSets(priorDayDraftSession)}
+          onSave={handlePriorDaySave}
+          onReview={handlePriorDayReview}
+          onDiscard={handlePriorDayDiscard}
+        />
+      )}
 
       {workoutCompleteData && (
         <WorkoutCompleteSummaryDialog

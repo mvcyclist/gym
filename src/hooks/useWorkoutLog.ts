@@ -1,11 +1,10 @@
 import { useCallback, useState } from 'react'
+import { clearDraft, loadDraft, saveDraft } from '../adapters/workoutDraftStorage'
 import { getWorkoutById } from '../data/workouts'
 import {
-  getSessionById,
   recordCompletedWorkout,
   recordPartialWorkout,
   removeSession,
-  upsertSession,
 } from '../services/trainingLedgerService'
 import { getWorkoutElapsedMs } from '../utils/workoutTimer'
 import type { ExerciseLog, SetLog, WorkoutCategory, WorkoutSession } from '../types/workout'
@@ -40,6 +39,7 @@ function createExerciseLogs(workoutType: WorkoutCategory): ExerciseLog[] {
 
   return workout.exercises.map((exercise) => ({
     exerciseId: exercise.id,
+    catalogExerciseId: exercise.catalogExerciseId,
     exerciseName: exercise.name,
     sets: createDefaultSets(),
   }))
@@ -85,14 +85,12 @@ interface UseWorkoutLogReturn {
 export function useWorkoutLog(): UseWorkoutLogReturn {
   const [session, setSession] = useState<WorkoutSession | null>(null)
 
-  const persistSession = useCallback((nextSession: WorkoutSession) => {
+  const persistDraft = useCallback((nextSession: WorkoutSession) => {
     const updatedSession = {
       ...nextSession,
       updatedAt: new Date().toISOString(),
     }
-    void upsertSession(updatedSession).catch((error) => {
-      console.error('[workout] failed to sync session', error)
-    })
+    saveDraft(updatedSession)
     setSession(updatedSession)
     return updatedSession
   }, [])
@@ -100,9 +98,7 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
   const startSession = useCallback(
     (workoutType: WorkoutCategory) => {
       const nextSession = createSession(workoutType)
-      void upsertSession(nextSession).catch((error) => {
-        console.error('[workout] failed to sync session', error)
-      })
+      saveDraft(nextSession)
       setSession(nextSession)
       return nextSession
     },
@@ -111,8 +107,8 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
 
   const resumeSession = useCallback(
     (sessionId: string, options?: { activate?: boolean }) => {
-      const existing = getSessionById(sessionId)
-      if (!existing) return null
+      const existing = loadDraft()
+      if (!existing || existing.id !== sessionId) return null
 
       const shouldActivate = options?.activate ?? true
       if (
@@ -131,9 +127,9 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
         workoutTimerStartedAt: now,
       }
 
-      return persistSession(activated)
+      return persistDraft(activated)
     },
-    [persistSession],
+    [persistDraft],
   )
 
   const updateSet = useCallback(
@@ -158,9 +154,9 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
         }),
       }
 
-      persistSession(nextSession)
+      persistDraft(nextSession)
     },
-    [persistSession, session],
+    [persistDraft, session],
   )
 
   const completeSet = useCallback(
@@ -187,9 +183,9 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
         }),
       }
 
-      persistSession(nextSession)
+      persistDraft(nextSession)
     },
-    [persistSession, session],
+    [persistDraft, session],
   )
 
   const addSet = useCallback(
@@ -218,9 +214,9 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
         }),
       }
 
-      persistSession(nextSession)
+      persistDraft(nextSession)
     },
-    [persistSession, session],
+    [persistDraft, session],
   )
 
   const deleteSet = useCallback(
@@ -240,9 +236,9 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
         }),
       }
 
-      persistSession(nextSession)
+      persistDraft(nextSession)
     },
-    [persistSession, session],
+    [persistDraft, session],
   )
 
   const skipExercise = useCallback(
@@ -254,9 +250,9 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
         exercises: session.exercises.filter((log) => log.exerciseId !== exerciseId),
       }
 
-      return persistSession(nextSession)
+      return persistDraft(nextSession)
     },
-    [persistSession, session],
+    [persistDraft, session],
   )
 
   const getExerciseLog = useCallback(
@@ -281,6 +277,7 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
       workoutTimerStartedAt: null,
     }
     await recordCompletedWorkout(completed)
+    clearDraft()
     setSession(completed)
     return completed
   }, [session])
@@ -296,6 +293,7 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
       workoutTimerStartedAt: null,
     }
     await recordPartialWorkout(partial)
+    clearDraft()
     setSession(partial)
     return partial
   }, [session])
@@ -311,12 +309,13 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
       workoutTimerStartedAt: null,
     }
 
-    return persistSession(paused)
-  }, [persistSession, session])
+    return persistDraft(paused)
+  }, [persistDraft, session])
 
   const discardActiveWorkout = useCallback(() => {
     if (!session) return
     removeSession(session.id)
+    clearDraft()
     setSession(null)
   }, [session])
 

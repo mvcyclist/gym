@@ -2,11 +2,15 @@ import {
   deleteSessionFromCloud,
   fetchLedgerFromCloud,
   importLedgerToCloud,
+  purgeInProgressSessionsFromCloud,
   replaceCloudLedgerWithLocal,
   replaceManualDayOnCloud,
   upsertSessionToCloud,
 } from '../adapters/supabaseLedgerStorage'
+import { bindDraftStorageUser } from '../adapters/workoutDraftStorage'
 import { loadLocalLedger, saveLocalLedger } from '../adapters/localLedgerStorage'
+import { isDraftableSessionStatus } from '../types/draft'
+import { migrateLedgerInProgressToDraft } from './workoutDraftMigration'
 import { isSupabaseConfigured } from '../lib/supabase'
 import type { ActivityEntry } from '../types/training'
 import type { TrainingLedger } from '../types/ledger'
@@ -35,20 +39,58 @@ export function getSyncUserId(): string | null {
 export function resetLedgerRepository(): void {
   memoryLedger = null
   syncUserId = null
+  bindDraftStorageUser(null)
 }
 
 export function bindLedgerToUser(userId: string | null): void {
   syncUserId = userId
   memoryLedger = null
+  bindDraftStorageUser(userId)
+}
+
+function purgeInProgressFromCloud(sessionIds: string[]): void {
+  if (!syncUserId) return
+
+  for (const sessionId of sessionIds) {
+    void deleteSessionFromCloud(sessionId, syncUserId).catch((error) => {
+      console.error('[ledger] failed to delete in-progress session from cloud', error)
+    })
+  }
+}
+
+async function purgeLegacyInProgressFromCloud(userId: string): Promise<void> {
+  try {
+    const removedIds = await purgeInProgressSessionsFromCloud(userId)
+    if (removedIds.length > 0) {
+      console.info('[ledger] purged legacy in-progress sessions from cloud', removedIds)
+    }
+  } catch (error) {
+    console.error('[ledger] failed to purge in-progress sessions from cloud', error)
+  }
+}
+
+function applyInProgressMigration(ledger: TrainingLedger): TrainingLedger {
+  const { ledger: migrated, removedInProgressIds } = migrateLedgerInProgressToDraft(ledger)
+
+  if (removedInProgressIds.length === 0) {
+    return ledger
+  }
+
+  purgeInProgressFromCloud(removedInProgressIds)
+  const cleaned: TrainingLedger = { ...migrated, version: 4 }
+  persistLedger(cleaned)
+  return cleaned
 }
 
 export async function refreshMergedLedgerFromCloud(userId: string): Promise<TrainingLedger> {
   const cloud = await fetchLedgerFromCloud(userId)
   const local = loadLocalLedger()
-  const ledger = mergeLedgers(local, cloud)
+  const merged = mergeLedgers(local, cloud)
+  const ledger = applyInProgressMigration(merged)
 
   memoryLedger = ledger
   saveLocalLedger(ledger)
+  await purgeLegacyInProgressFromCloud(userId)
   return ledger
 }
 
@@ -68,24 +110,26 @@ export function getDeviceLedgerSummary(): {
 }
 
 export async function pushDeviceHistoryToCloud(userId: string): Promise<TrainingLedger> {
-  const local = loadLocalLedger()
+  const local = applyInProgressMigration(loadLocalLedger())
   await replaceCloudLedgerWithLocal(userId, local)
   markImportPromptShown(userId)
   memoryLedger = local
-  saveLocalLedger(local)
   return local
 }
 
 export async function pullLedgerFromCloud(userId: string): Promise<TrainingLedger> {
   const cloud = await fetchLedgerFromCloud(userId)
-  memoryLedger = cloud
-  saveLocalLedger(cloud)
-  return cloud
+  const ledger = applyInProgressMigration(cloud)
+  memoryLedger = ledger
+  await purgeLegacyInProgressFromCloud(userId)
+  return ledger
 }
 
 export function loadLedger(): TrainingLedger {
   if (memoryLedger) return memoryLedger
-  memoryLedger = loadLocalLedger()
+
+  const local = loadLocalLedger()
+  memoryLedger = applyInProgressMigration(local)
   return memoryLedger
 }
 
@@ -99,6 +143,12 @@ export function saveLedger(ledger: TrainingLedger): void {
 }
 
 export async function upsertSession(session: WorkoutSession): Promise<void> {
+  if (isDraftableSessionStatus(session.status)) {
+    throw new Error(
+      `[ledger] session ${session.id} is ${session.status} — in-progress workouts belong in draft storage`,
+    )
+  }
+
   const ledger = loadLedger()
   const index = ledger.sessions.findIndex((item) => item.id === session.id)
 
@@ -185,11 +235,10 @@ export async function shouldOfferLocalImport(userId: string): Promise<boolean> {
 }
 
 export async function importLocalLedgerToCloud(userId: string): Promise<TrainingLedger> {
-  const local = loadLocalLedger()
+  const local = applyInProgressMigration(loadLocalLedger())
   await importLedgerToCloud(userId, local)
   markImportPromptShown(userId)
   memoryLedger = local
-  saveLocalLedger(local)
   return local
 }
 

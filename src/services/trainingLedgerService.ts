@@ -4,6 +4,7 @@ import {
   replaceManualActivities,
   upsertSession,
 } from './ledgerRepository'
+import { filterCalendarSessions, isHistorySession } from './historyQueryPolicy'
 import type { ActivityEntry, DayActivity } from '../types/training'
 import type { WorkoutSession } from '../types/workout'
 import {
@@ -23,11 +24,9 @@ function buildActivitiesByDate(): Record<string, ActivityEntry[]> {
     byDate[entry.date].push(entry)
   }
 
-  ledger.sessions
-    .filter((session) => session.status === 'completed' || session.status === 'partial')
-    .forEach((session) => {
-      addEntry(sessionToActivityEntry(session))
-    })
+  filterCalendarSessions(ledger.sessions).forEach((session) => {
+    addEntry(sessionToActivityEntry(session))
+  })
 
   Object.entries(ledger.manualByDate).forEach(([storedKey, entries]) => {
     const dateKey =
@@ -119,13 +118,13 @@ export function updateManualActivities(date: string, activities: ActivityEntry[]
 }
 
 export function getSessionById(sessionId: string): WorkoutSession | undefined {
-  return loadLedger().sessions.find((session) => session.id === sessionId)
+  return loadLedger().sessions.find(
+    (session) => session.id === sessionId && isHistorySession(session),
+  )
 }
 
 export function getSessionsForDate(date: string): WorkoutSession[] {
-  return loadLedger().sessions.filter(
-    (session) =>
-      (session.status === 'completed' || session.status === 'partial') &&
-      getSessionCalendarDate(session) === date,
+  return filterCalendarSessions(loadLedger().sessions).filter(
+    (session) => getSessionCalendarDate(session) === date,
   )
 }

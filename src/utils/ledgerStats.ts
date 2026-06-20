@@ -1,11 +1,10 @@
 import type { TrainingLedger } from '../types/ledger'
 import type { WorkoutSession } from '../types/workout'
 import type { ActivityEntry } from '../types/training'
+import { filterCalendarSessions } from '../services/historyQueryPolicy'
 
 export function countSyncedSessions(ledger: TrainingLedger): number {
-  return ledger.sessions.filter(
-    (session) => session.status === 'completed' || session.status === 'partial',
-  ).length
+  return filterCalendarSessions(ledger.sessions).length
 }
 
 export function countManualActivities(ledger: TrainingLedger): number {
@@ -56,5 +55,5 @@ export function mergeLedgers(local: TrainingLedger, cloud: TrainingLedger): Trai
     manualByDate[date] = [...merged.values()]
   }
 
-  return { version: 3, sessions, manualByDate }
+  return { version: 4, sessions, manualByDate }
 }

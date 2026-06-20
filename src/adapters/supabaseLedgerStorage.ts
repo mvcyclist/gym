@@ -1,4 +1,5 @@
 import { getSupabase } from '../lib/supabase'
+import { isDraftableSessionStatus } from '../types/draft'
 import type { ActivityEntry } from '../types/training'
 import type { TrainingLedger } from '../types/ledger'
 import type { WorkoutSession } from '../types/workout'
@@ -81,6 +82,7 @@ export async function fetchLedgerFromCloud(userId: string): Promise<TrainingLedg
       .from('workout_sessions')
       .select('*')
       .eq('user_id', userId)
+      .in('status', ['completed', 'partial'])
       .order('updated_at', { ascending: false }),
     supabase.from('manual_activities').select('*').eq('user_id', userId),
   ])
@@ -97,7 +99,7 @@ export async function fetchLedgerFromCloud(userId: string): Promise<TrainingLedg
     manualByDate[row.activity_date].push(entry)
   }
 
-  return { version: 3, sessions, manualByDate }
+  return { version: 4, sessions, manualByDate }
 }
 
 export async function isCloudLedgerEmpty(userId: string): Promise<boolean> {
@@ -136,6 +138,30 @@ export async function deleteSessionFromCloud(sessionId: string, userId: string):
     .eq('id', sessionId)
     .eq('user_id', userId)
   if (error) throw error
+}
+
+/** Remove legacy in-progress rows that should never live in cloud history. */
+export async function purgeInProgressSessionsFromCloud(userId: string): Promise<string[]> {
+  const supabase = getSupabase()
+
+  const { data, error } = await supabase
+    .from('workout_sessions')
+    .select('id, status')
+    .eq('user_id', userId)
+    .in('status', ['active', 'paused'])
+
+  if (error) throw error
+
+  const rows = data ?? []
+  const removedIds: string[] = []
+
+  for (const row of rows) {
+    if (!isDraftableSessionStatus(row.status as WorkoutSession['status'])) continue
+    await deleteSessionFromCloud(row.id, userId)
+    removedIds.push(row.id)
+  }
+
+  return removedIds
 }
 
 export async function replaceManualDayOnCloud(

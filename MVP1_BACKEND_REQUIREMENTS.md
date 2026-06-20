@@ -2,7 +2,7 @@
 
 Context: MVP1 is **strength-first coaching** (“What did I lift last time for this exercise?”). UI is out of scope here. This document summarizes **what backend/infra exists**, **what must be built**, and **what is only a temporary client-side shortcut** — so readers do not confuse domain helpers with authoritative cloud reads.
 
-Related: [audt_mvp1.md](./audt_mvp1.md) (full prerequisite checklist), [BACKLOG.md](./BACKLOG.md) (security & workout sanctity).
+Related: [LOGGING_LIFECYCLE.md](./LOGGING_LIFECYCLE.md) (**prerequisite** — draft vs history before coaching), [audt_mvp1.md](./audt_mvp1.md) (full prerequisite checklist), [BACKLOG.md](./BACKLOG.md) (security & workout sanctity).
 
 ---
 
@@ -15,14 +15,14 @@ Related: [audt_mvp1.md](./audt_mvp1.md) (full prerequisite checklist), [BACKLOG.
 | **Session model** | `WorkoutSession` with `status`, timestamps, `exercises[]` → sets (weight, reps, completed) |
 | **Cloud sync** | `workout_sessions` JSONB, upsert on save, merge on sign-in / tab focus |
 | **Template slot IDs** | IDs in `workouts.ts` (e.g. `push-1`) — **not** immutable exercise catalog IDs (see §8) |
-| **Write lifecycle** | `active` → start; `completed` → finish; `partial` → save progress; discard → **delete** row |
+| **Write lifecycle** | `active` → start; `completed` → finish; `partial` → save progress; discard → **delete** row — **see gap:** today writes `active`/edits straight to ledger; target is [LOGGING_LIFECYCLE.md](./LOGGING_LIFECYCLE.md) (draft until confirm) |
 | **Calendar input** | `getLastSevenDays()` from `completed` + `partial` only |
 | **Workout-type recommendations** | `recommendationService` (rule-based, last 7 days) |
 | **Manual activities** | Separate `manualByDate`, `source: 'manual'` vs `'workout'` |
 | **Low-level access** | `getSessionById()`, `getSessionsForDate()`, `loadLedger().sessions` |
 | **Authoritative store (cloud)** | Supabase `workout_sessions` per user — source of truth **after sync**, not directly queried for coaching today |
 
-**Verdict:** **Write path + cloud persistence** are ~70% sufficient. **Read path for coaching** is not infra yet — it is a **locally merged cache** (`memoryLedger` → `localStorage` ← merge ← Supabase). Missing: **domain query layer (MVP)**, **authoritative read path (later)**, normalization, lifecycle, sync hardening.
+**Verdict:** **Write path + cloud persistence** are ~70% sufficient for sync, but **history quality is not MVP-ready** — in-progress sessions pollute the ledger (auto-`partial`, eager cloud upserts). **Read path for coaching** is not infra yet — it is a **locally merged cache** (`memoryLedger` → `localStorage` ← merge ← Supabase). Missing: **draft vs history split** ([LOGGING_LIFECYCLE.md](./LOGGING_LIFECYCLE.md)), **domain query layer (MVP)**, **authoritative read path (later)**, normalization, lifecycle, sync hardening.
 
 ---
 
@@ -42,6 +42,20 @@ For **solo use, one account, sync working**, B1 is a pragmatic MVP. For **reliab
 ---
 
 ## Missing backend components
+
+### 0. Draft vs history logging (prerequisite — do first)
+
+In-progress workouts must **not** write to `TrainingLedger.sessions` or Supabase until the user confirms. Partial saves are **opt-in** only; Finish → `completed` (skipped exercises OK). Full spec: [LOGGING_LIFECYCLE.md](./LOGGING_LIFECYCLE.md).
+
+| Today | Target |
+|-------|--------|
+| Start + every set edit → ledger + cloud | Draft store only until Finish or Save progress |
+| End workout → auto `partial` | End → SaveProgressDialog; partial only if user saves |
+| `active`/`paused` in history ledger | Draft layer only; history = `completed` + opt-in `partial` |
+
+Coaching queries must use **`completed` only**; calendar uses `completed` + opt-in `partial`. Implement before §1 history APIs.
+
+---
 
 ### 1. History query layer (highest priority)
 
@@ -261,22 +275,31 @@ Keep `push-1` as `historyExerciseKey` but adopt an explicit **program rule**:
 
 #### Decision required for MVP1 gate
 
-Pick **Option A** or **Option B** before shipping `getLastExercisePerformance(historyExerciseKey)`. The API name stays the same; **implement matching + session persistence** per the chosen row in the table above. Coaching UI can be specified later.
+**Decision (locked): Option A — exercise catalog.**
+
+- `historyExerciseKey` = `catalogExerciseId` (e.g. `barbell_bench_press`)
+- Catalog: [`src/data/exerciseCatalog.ts`](./src/data/exerciseCatalog.ts)
+- Identity: [`src/services/exerciseIdentity.ts`](./src/services/exerciseIdentity.ts)
+- Templates reference `catalogExerciseId` on each [`Exercise`](./src/types/workout.ts)
+- `ExerciseLog.catalogExerciseId` persisted at log time; legacy rows backfill via slot → catalog map
+
+Coaching UI can be specified later.
 
 ---
 
 ## Suggested modules (build order)
 
 ```
-0. exerciseIdentity.ts        — resolve historyExerciseKey ↔ session field; Option A or B policy
-1. setParsing.ts              — weight/reps → numbers, BW, volume helpers
-2. historyQueryPolicy.ts      — which statuses each query uses
-3. exerciseHistoryService.ts  — phase 1: queries over loadLedger() (domain layer)
-4. sessionLifecycle.ts        — update/delete completed; optional abandon
-5. syncQueue.ts               — (optional) offline retry; prerequisite for trusting phase 1
-6. per-user ledger storage    — (security) namespaced local cache
+0. draft vs history split     — ✅ LOGGING_LIFECYCLE.md
+1. exerciseIdentity.ts        — ✅ Option A catalog
+2. setParsing.ts              — ✅ weight/reps → numbers, BW, volume helpers
+3. historyQueryPolicy.ts      — ✅ coaching: completed only
+4. exerciseHistoryService.ts  — ✅ phase 1 queries over loadLedger()
+5. sessionLifecycle.ts        — update/delete completed; optional abandon
+6. syncQueue.ts               — (optional) offline retry; prerequisite for trusting phase 1
+7. per-user ledger storage    — (security) namespaced local cache
 — later —
-7. exerciseHistoryCloud.ts    — phase 2: Supabase RPC or direct authoritative reads
+8. exerciseHistoryCloud.ts    — phase 2: Supabase RPC or direct authoritative reads
 ```
 
 ---
@@ -299,7 +322,8 @@ Pick **Option A** or **Option B** before shipping `getLastExercisePerformance(hi
 
 Acceptable for **single-user / sync-trusted** use:
 
-1. **Exercise identity decided** — Option A or B (see §8); `historyExerciseKey` matching implemented.
+0. **Draft vs history** — [LOGGING_LIFECYCLE.md](./LOGGING_LIFECYCLE.md) implemented; history ledger contains only confirmed `completed` + opt-in `partial`.
+1. **Exercise identity decided** — **Option A (catalog)**; `historyExerciseKey` matching implemented.
 2. `getLastExercisePerformance(historyExerciseKey)` implemented over **`loadLedger()`** with §1 contract (response includes `keyKind`).
 3. **Single history query policy** (completed-only for progression).
 4. Set parsing handles **BW** and numeric weight.
@@ -314,4 +338,4 @@ Additionally required:
 3. **Freshness contract** — when UI uses cloud vs local fallback.
 4. (Recommended) Post-completion edit/delete on sessions.
 
-Until **Gate A (1)–(4)** exist, do not ship coaching product logic. **Gate B** is required before claiming backend supports reliable coaching **across devices** — phase 1 alone is a **temporary application-layer** solution over merged cache.
+Until **Gate A (0)–(5)** exist, do not ship coaching product logic. **Gate B** is required before claiming backend supports reliable coaching **across devices** — phase 1 alone is a **temporary application-layer** solution over merged cache.

@@ -123,6 +123,10 @@ While a workout is `active`:
 
 ### Target architecture (when prioritized)
 
+**Layer 0 — Draft vs history ([LOGGING_LIFECYCLE.md](./LOGGING_LIFECYCLE.md))**  
+- In-progress workouts live in draft storage only — not in `TrainingLedger.sessions` or cloud until Finish or opt-in Save progress.  
+- Reduces merge races and calendar noise; prerequisite before MVP1 coaching.
+
 **Layer 1 — Workout lock (highest impact)**  
 - Derive `isWorkoutActive` from ledger or app state (`status === 'active'`).  
 - While active: skip focus merge, skip auth re-hydrate, block pull-from-cloud.  
@@ -146,7 +150,8 @@ While a workout is `active`:
 
 ### Suggested implementation order
 
-1. Workout lock (pause background merge while `active`)
+0. Draft vs history split ([LOGGING_LIFECYCLE.md](./LOGGING_LIFECYCLE.md))
+1. Workout lock (pause background merge while draft/history active workout)
 2. Local-first finish (don’t block completion on network)
 3. Block/confirm pull-from-cloud during active workout
 4. Sync queue + offline indicator

@@ -6,6 +6,8 @@ export type SessionStatus = 'active' | 'paused' | 'completed' | 'partial' | 'aba
 
 export interface Exercise {
   id: string
+  /** Immutable catalog id for history/coaching (Option A). */
+  catalogExerciseId: string
   name: string
   primaryMuscles: string[]
   equipment: string
@@ -35,6 +37,8 @@ export interface SetLog {
 
 export interface ExerciseLog {
   exerciseId: string
+  /** Immutable catalog id — required on new logs; optional on legacy rows. */
+  catalogExerciseId?: string
   exerciseName: string
   sets: SetLog[]
 }
