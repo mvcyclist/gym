@@ -131,6 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       provider: 'google',
       options: {
         redirectTo: getAuthRedirectUrl(),
+        queryParams: { prompt: 'select_account' },
       },
     })
     if (error) throw error
