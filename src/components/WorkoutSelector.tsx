@@ -23,7 +23,6 @@ interface WorkoutSelectorProps {
   onDeleteWorkoutSession: (sessionId: string) => void
   onSaveBackfill: (rows: import('./BackfillRecentActivityModal').BackfillRow[]) => void
   onStartRecommendation: () => void
-  onStartTomorrowRecommendation: () => void
   onSelectWorkout: (workoutId: WorkoutCategory) => void
   onSelectCardio: (type: WorkoutType) => void
   onSelectTimer: () => void
@@ -43,7 +42,6 @@ export function WorkoutSelector({
   onDeleteWorkoutSession,
   onSaveBackfill,
   onStartRecommendation,
-  onStartTomorrowRecommendation,
   onSelectWorkout,
   onSelectCardio,
   onSelectTimer,
@@ -123,7 +121,6 @@ export function WorkoutSelector({
               tomorrowRecommendation={tomorrowRecommendation}
               onStart={onStartRecommendation}
               onChooseAnother={() => setChooseOpen(true)}
-              onStartTomorrow={onStartTomorrowRecommendation}
             />
 
             {weeklyPlan.length > 1 && (

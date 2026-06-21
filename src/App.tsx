@@ -297,12 +297,7 @@ function WorkoutApp() {
     startFromRecommendation(recommendation.primary.type)
   }, [recommendation, startFromRecommendation])
 
-  const handleStartTomorrowRecommendation = useCallback(() => {
-    if (!tomorrowRecommendation) return
-    startFromRecommendation(tomorrowRecommendation.workoutType)
-  }, [startFromRecommendation, tomorrowRecommendation])
-
-  const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
+const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
     refresh()
     const tomorrow = getTomorrowWorkoutRecommendation(getLastSevenDays())
     if (!tomorrow) return false
@@ -664,7 +659,6 @@ function WorkoutApp() {
             onDeleteWorkoutSession={deleteWorkoutSession}
             onSaveBackfill={saveBackfill}
             onStartRecommendation={handleStartRecommendation}
-            onStartTomorrowRecommendation={handleStartTomorrowRecommendation}
             onSelectWorkout={handleSelectWorkout}
             onSelectCardio={handleSelectCardio}
             onSelectTimer={handleSelectTimer}

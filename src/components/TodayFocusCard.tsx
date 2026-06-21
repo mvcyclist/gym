@@ -64,11 +64,10 @@ function PreWorkoutState({ recommendation, onStart, onChooseAnother }: PreWorkou
 interface PostWorkoutProps {
   todaySummary: TodaySummary
   tomorrowRecommendation: import('../types/training').WorkoutRecommendation
-  onStartTomorrow?: () => void
   onChooseAnother: () => void
 }
 
-function PostWorkoutState({ todaySummary, tomorrowRecommendation, onStartTomorrow, onChooseAnother }: PostWorkoutProps) {
+function PostWorkoutState({ todaySummary, tomorrowRecommendation, onChooseAnother }: PostWorkoutProps) {
   const title = isSessionSummary(todaySummary) ? todaySummary.workoutTitle : todaySummary.title
   const duration = isSessionSummary(todaySummary) ? todaySummary.durationMinutes : undefined
 
@@ -91,23 +90,14 @@ function PostWorkoutState({ todaySummary, tomorrowRecommendation, onStartTomorro
       </p>
       <p className="text-lg font-bold text-white">{tomorrowRecommendation.title}</p>
       <p className="mt-1 text-sm leading-relaxed text-zinc-400">{tomorrowRecommendation.reason}</p>
-      {onStartTomorrow && tomorrowRecommendation.workoutType !== 'Rest' && (
-        <button
-          type="button"
-          onClick={onStartTomorrow}
-          className="mt-3 rounded-xl border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-300 transition hover:border-zinc-500 hover:bg-zinc-900"
-        >
-          Preview {tomorrowRecommendation.workoutType} workout
-        </button>
-      )}
 
       <div className="mt-4 border-t border-zinc-800 pt-3">
         <button
           type="button"
           onClick={onChooseAnother}
-          className="text-xs text-zinc-500 transition hover:text-zinc-300"
+          className="text-sm font-semibold text-zinc-300 transition hover:text-white"
         >
-          Start a different workout →
+          Start a workout now →
         </button>
       </div>
     </>
@@ -121,7 +111,6 @@ interface TodayFocusCardProps {
   tomorrowRecommendation: import('../types/training').WorkoutRecommendation | null
   onStart: () => void
   onChooseAnother: () => void
-  onStartTomorrow?: () => void
 }
 
 export function TodayFocusCard({
@@ -131,7 +120,6 @@ export function TodayFocusCard({
   tomorrowRecommendation,
   onStart,
   onChooseAnother,
-  onStartTomorrow,
 }: TodayFocusCardProps) {
   return (
     <div className="rounded-2xl border border-zinc-700 bg-zinc-900/80 p-5">
@@ -139,7 +127,6 @@ export function TodayFocusCard({
         <PostWorkoutState
           todaySummary={todaySummary}
           tomorrowRecommendation={tomorrowRecommendation}
-          onStartTomorrow={onStartTomorrow}
           onChooseAnother={onChooseAnother}
         />
       ) : recommendation ? (
