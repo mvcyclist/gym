@@ -7,7 +7,7 @@ import {
   replaceManualDayOnCloud,
   upsertSessionToCloud,
 } from '../adapters/supabaseLedgerStorage'
-import { bindDraftStorageUser } from '../adapters/workoutDraftStorage'
+import { bindDraftStorageUser, hasDraft } from '../adapters/workoutDraftStorage'
 import { bindLocalLedgerUser, loadLocalLedger, saveLocalLedger } from '../adapters/localLedgerStorage'
 import { bindPreferencesUser } from './preferencesRepository'
 import { kvGet, kvSet } from '../adapters/localKeyValueStorage'
@@ -25,7 +25,7 @@ import {
   shouldPreferLocalLedger,
 } from '../utils/ledgerStats'
 
-const IMPORT_PROMPT_KEY = 'workout-deck-import-prompted'
+const IMPORT_PROMPT_KEY_BASE = 'workout-deck-import-prompted'
 
 let memoryLedger: TrainingLedger | null = null
 let syncUserId: string | null = null
@@ -88,7 +88,14 @@ function applyInProgressMigration(ledger: TrainingLedger): TrainingLedger {
   return cleaned
 }
 
-export async function refreshMergedLedgerFromCloud(userId: string): Promise<TrainingLedger> {
+export async function refreshMergedLedgerFromCloud(
+  userId: string,
+  options?: { force?: boolean },
+): Promise<TrainingLedger> {
+  if (!options?.force && hasDraft()) {
+    return loadLedger()
+  }
+
   const cloud = await fetchLedgerFromCloud(userId)
   const local = loadLocalLedger()
   const merged = mergeLedgers(local, cloud)
@@ -167,12 +174,9 @@ export async function upsertSession(session: WorkoutSession): Promise<void> {
   persistLedger(ledger)
 
   if (syncUserId) {
-    try {
-      await upsertSessionToCloud(session, syncUserId)
-    } catch (error) {
+    void upsertSessionToCloud(session, syncUserId).catch((error) => {
       console.error('[ledger] failed to sync session', error)
-      throw error
-    }
+    })
   }
 }
 
@@ -204,24 +208,30 @@ export function hasMeaningfulLocalLedger(): boolean {
   return hasMeaningfulLedger(loadLocalLedger())
 }
 
-export function wasImportPromptShown(userId: string): boolean {
-  const raw = kvGet(IMPORT_PROMPT_KEY)
+function importPromptKey(userId: string): string {
+  return `${IMPORT_PROMPT_KEY_BASE}:${userId}`
+}
+
+function migrateLegacyImportPrompt(userId: string): boolean {
+  const raw = kvGet(IMPORT_PROMPT_KEY_BASE)
   if (!raw) return false
   try {
     const prompted = JSON.parse(raw) as string[]
-    return prompted.includes(userId)
-  } catch {
-    return false
-  }
+    if (prompted.includes(userId)) {
+      kvSet(importPromptKey(userId), '1')
+      return true
+    }
+  } catch { /* ignore */ }
+  return false
+}
+
+export function wasImportPromptShown(userId: string): boolean {
+  if (kvGet(importPromptKey(userId)) === '1') return true
+  return migrateLegacyImportPrompt(userId)
 }
 
 export function markImportPromptShown(userId: string): void {
-  const raw = kvGet(IMPORT_PROMPT_KEY)
-  const prompted = raw ? (() => { try { return JSON.parse(raw) as string[] } catch { return [] } })() : []
-  if (!prompted.includes(userId)) {
-    prompted.push(userId)
-    kvSet(IMPORT_PROMPT_KEY, JSON.stringify(prompted))
-  }
+  kvSet(importPromptKey(userId), '1')
 }
 
 export async function shouldOfferLocalImport(userId: string): Promise<boolean> {

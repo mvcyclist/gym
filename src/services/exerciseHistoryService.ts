@@ -1,5 +1,5 @@
 /**
- * Phase 1 exercise history queries over loadLedger() — device-ledger scoped, not cloud reads.
+ * Exercise-level history queries. Calendar/session reads live in historyQueryService.
  *
  * Freshness = last local merge + confirmed history writes. See MVP1_BACKEND_REQUIREMENTS.md.
  */

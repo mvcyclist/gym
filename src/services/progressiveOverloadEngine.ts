@@ -64,46 +64,143 @@ export interface ProgressionTarget {
   sublabel: string
 }
 
-// ─── Default profiles ─────────────────────────────────────────────────────────
+// ─── Catalog profiles (keyed by historyExerciseKey / catalogExerciseId) ───────
 
-export const DEFAULT_PROFILES: Record<string, ExerciseProfile> = {
-  'bench press':            { name: 'Bench press',            category: 'hypertrophy_compound',  repRangeBottom: 6,  repRangeTop: 10, targetSets: 3, weightIncrement: 5,   isBodyweight: false, seedWeight: 135 },
-  'squat':                  { name: 'Squat',                  category: 'strength_compound',     repRangeBottom: 4,  repRangeTop: 6,  targetSets: 4, weightIncrement: 5,   isBodyweight: false, seedWeight: 135 },
-  'deadlift':               { name: 'Deadlift',               category: 'strength_compound',     repRangeBottom: 4,  repRangeTop: 6,  targetSets: 3, weightIncrement: 5,   isBodyweight: false, seedWeight: 135 },
-  'overhead press':         { name: 'Overhead press',         category: 'hypertrophy_compound',  repRangeBottom: 6,  repRangeTop: 10, targetSets: 3, weightIncrement: 2.5, isBodyweight: false, seedWeight: 75  },
-  'barbell row':            { name: 'Barbell row',            category: 'hypertrophy_compound',  repRangeBottom: 6,  repRangeTop: 10, targetSets: 3, weightIncrement: 2.5, isBodyweight: false, seedWeight: 95  },
-  'romanian deadlift':      { name: 'Romanian deadlift',      category: 'hypertrophy_compound',  repRangeBottom: 8,  repRangeTop: 12, targetSets: 3, weightIncrement: 2.5, isBodyweight: false, seedWeight: 95  },
-  'incline bench press':    { name: 'Incline bench press',    category: 'hypertrophy_compound',  repRangeBottom: 6,  repRangeTop: 10, targetSets: 3, weightIncrement: 5,   isBodyweight: false, seedWeight: 115 },
-  'dumbbell curl':          { name: 'Dumbbell curl',          category: 'hypertrophy_isolation', repRangeBottom: 10, repRangeTop: 15, targetSets: 3, weightIncrement: 2.5, isBodyweight: false, seedWeight: 25  },
-  'tricep pushdown':        { name: 'Tricep pushdown',        category: 'hypertrophy_isolation', repRangeBottom: 10, repRangeTop: 15, targetSets: 3, weightIncrement: 2.5, isBodyweight: false, seedWeight: 40  },
-  'lat pulldown':           { name: 'Lat pulldown',           category: 'hypertrophy_compound',  repRangeBottom: 8,  repRangeTop: 12, targetSets: 3, weightIncrement: 2.5, isBodyweight: false, seedWeight: 80  },
-  'cable row':              { name: 'Cable row',              category: 'hypertrophy_compound',  repRangeBottom: 8,  repRangeTop: 12, targetSets: 3, weightIncrement: 2.5, isBodyweight: false, seedWeight: 70  },
-  'leg press':              { name: 'Leg press',              category: 'hypertrophy_compound',  repRangeBottom: 8,  repRangeTop: 12, targetSets: 3, weightIncrement: 5,   isBodyweight: false, seedWeight: 180 },
-  'leg curl':               { name: 'Leg curl',               category: 'hypertrophy_isolation', repRangeBottom: 10, repRangeTop: 15, targetSets: 3, weightIncrement: 2.5, isBodyweight: false, seedWeight: 60  },
-  'lateral raise':          { name: 'Lateral raise',          category: 'hypertrophy_isolation', repRangeBottom: 12, repRangeTop: 15, targetSets: 3, weightIncrement: 2.5, isBodyweight: false, seedWeight: 15  },
-  'dumbbell pullover':      { name: 'Dumbbell pullover',      category: 'hypertrophy_isolation', repRangeBottom: 10, repRangeTop: 15, targetSets: 3, weightIncrement: 2.5, isBodyweight: false, seedWeight: 30  },
-  'pushup':                 { name: 'Pushup',                 category: 'bodyweight',            repRangeBottom: 8,  repRangeTop: 15, targetSets: 3, weightIncrement: 0,   isBodyweight: true,  seedWeight: 0   },
-  'pullup':                 { name: 'Pullup',                 category: 'bodyweight',            repRangeBottom: 5,  repRangeTop: 10, targetSets: 3, weightIncrement: 0,   isBodyweight: true,  seedWeight: 0   },
-  'dip':                    { name: 'Dip',                    category: 'bodyweight',            repRangeBottom: 8,  repRangeTop: 15, targetSets: 3, weightIncrement: 0,   isBodyweight: true,  seedWeight: 0   },
-  'atomic push-up':         { name: 'Atomic push-up',         category: 'bodyweight',            repRangeBottom: 8,  repRangeTop: 12, targetSets: 3, weightIncrement: 0,   isBodyweight: true,  seedWeight: 0   },
-  'trx tricep extension':   { name: 'TRX tricep extension',   category: 'bodyweight',            repRangeBottom: 10, repRangeTop: 15, targetSets: 3, weightIncrement: 0,   isBodyweight: true,  seedWeight: 0   },
-  'trx pike':               { name: 'TRX pike',               category: 'bodyweight',            repRangeBottom: 8,  repRangeTop: 12, targetSets: 3, weightIncrement: 0,   isBodyweight: true,  seedWeight: 0   },
-  'close-grip push-up':     { name: 'Close-grip push-up',     category: 'bodyweight',            repRangeBottom: 8,  repRangeTop: 15, targetSets: 3, weightIncrement: 0,   isBodyweight: true,  seedWeight: 0   },
-  'overhead db tricep extension': { name: 'Overhead DB tricep extension', category: 'hypertrophy_isolation', repRangeBottom: 10, repRangeTop: 15, targetSets: 3, weightIncrement: 2.5, isBodyweight: false, seedWeight: 25 },
+type CatalogProfile = Omit<ExerciseProfile, 'name'>
+
+const compoundUpper = (overrides: Partial<CatalogProfile> = {}): CatalogProfile => ({
+  category: 'hypertrophy_compound',
+  repRangeBottom: 6,
+  repRangeTop: 10,
+  targetSets: 3,
+  weightIncrement: 5,
+  isBodyweight: false,
+  seedWeight: 0,
+  ...overrides,
+})
+
+const compoundLower = (overrides: Partial<CatalogProfile> = {}): CatalogProfile => ({
+  category: 'strength_compound',
+  repRangeBottom: 8,
+  repRangeTop: 10,
+  targetSets: 4,
+  weightIncrement: 10,
+  isBodyweight: false,
+  seedWeight: 0,
+  ...overrides,
+})
+
+const isolationUpper = (overrides: Partial<CatalogProfile> = {}): CatalogProfile => ({
+  category: 'hypertrophy_isolation',
+  repRangeBottom: 10,
+  repRangeTop: 15,
+  targetSets: 3,
+  weightIncrement: 2.5,
+  isBodyweight: false,
+  seedWeight: 0,
+  ...overrides,
+})
+
+const isolationLower = (overrides: Partial<CatalogProfile> = {}): CatalogProfile => ({
+  category: 'hypertrophy_isolation',
+  repRangeBottom: 10,
+  repRangeTop: 15,
+  targetSets: 3,
+  weightIncrement: 5,
+  isBodyweight: false,
+  seedWeight: 0,
+  ...overrides,
+})
+
+const bodyweight = (overrides: Partial<CatalogProfile> = {}): CatalogProfile => ({
+  category: 'bodyweight',
+  repRangeBottom: 8,
+  repRangeTop: 12,
+  targetSets: 3,
+  weightIncrement: 0,
+  isBodyweight: true,
+  seedWeight: 0,
+  ...overrides,
+})
+
+export const CATALOG_PROFILES: Record<string, CatalogProfile> = {
+  barbell_bench_press: compoundUpper({ seedWeight: 135 }),
+  dumbbell_pullover: isolationUpper({ repRangeBottom: 10, repRangeTop: 12, seedWeight: 30 }),
+  overhead_press: compoundUpper({ weightIncrement: 2.5, seedWeight: 75 }),
+  inclined_barbell_press: compoundUpper({ repRangeBottom: 8, repRangeTop: 12, seedWeight: 115 }),
+  lateral_raises: isolationUpper({ repRangeBottom: 12, repRangeTop: 15, seedWeight: 15 }),
+  atomic_push_up: bodyweight(),
+  overhead_db_tricep_extension: isolationUpper({ seedWeight: 25 }),
+  trx_tricep_extension: bodyweight({ repRangeBottom: 10, repRangeTop: 15 }),
+  close_grip_push_ups: bodyweight({ repRangeBottom: 10, repRangeTop: 15 }),
+  trx_pike: bodyweight(),
+  pull_ups: bodyweight({ repRangeBottom: 5, repRangeTop: 10 }),
+  barbell_rows: compoundUpper({ repRangeBottom: 8, repRangeTop: 12, weightIncrement: 2.5, seedWeight: 95 }),
+  single_dumbbell_arm_rows: compoundUpper({ repRangeBottom: 8, repRangeTop: 12, weightIncrement: 2.5, seedWeight: 50 }),
+  trx_rear_delt_fly: isolationUpper({ repRangeBottom: 12, repRangeTop: 15 }),
+  barbell_curls: isolationUpper({ repRangeBottom: 8, repRangeTop: 12, seedWeight: 45 }),
+  barbell_reverse_curls: isolationUpper({ repRangeBottom: 10, repRangeTop: 12, seedWeight: 45 }),
+  trx_core_1: bodyweight(),
+  trx_core_2: bodyweight(),
+  trx_core_3: bodyweight(),
+  barbell_back_squat: compoundLower({ seedWeight: 135 }),
+  barbell_hip_thrust: compoundLower({ targetSets: 3, weightIncrement: 5, seedWeight: 135 }),
+  trx_weighted_lunge: compoundLower({ targetSets: 3, repRangeBottom: 10, repRangeTop: 10, weightIncrement: 5, seedWeight: 25 }),
+  trx_hamstring_curl: isolationLower({ targetSets: 2, repRangeBottom: 10, repRangeTop: 12, seedWeight: 0 }),
+  standing_calf_raise: isolationLower({ seedWeight: 25 }),
+  trx_side_tuck: bodyweight({ repRangeBottom: 10, repRangeTop: 10 }),
+  plank: bodyweight(),
+  side_plank: bodyweight({ repRangeBottom: 8, repRangeTop: 12 }),
+  dead_bug: bodyweight({ repRangeBottom: 8, repRangeTop: 12 }),
+  hollow_hold: bodyweight(),
+  mountain_climber: bodyweight(),
+  pallof_press: bodyweight({ repRangeBottom: 10, repRangeTop: 12 }),
 }
 
-export function getDefaultProfile(exerciseName: string): ExerciseProfile {
-  const key = normalizeExerciseName(exerciseName)
-  return DEFAULT_PROFILES[key] ?? {
-    name: exerciseName,
-    category: 'hypertrophy_compound',
-    repRangeBottom: 6,
-    repRangeTop: 10,
-    targetSets: 3,
-    weightIncrement: 2.5,
-    isBodyweight: false,
-    seedWeight: 0,
+function fallbackCatalogProfile(_displayName: string): CatalogProfile {
+  return compoundUpper({ seedWeight: 0 })
+}
+
+export function parseWorkoutTemplateReps(
+  reps: string,
+): { bottom: number; top: number } | null {
+  const range = reps.match(/(\d+)\s*[-–]\s*(\d+)/)
+  if (range) return { bottom: Number(range[1]), top: Number(range[2]) }
+  const single = reps.match(/^(\d+)/)
+  if (single) {
+    const value = Number(single[1])
+    return { bottom: value, top: value }
   }
+  return null
+}
+
+export function parseWorkoutTemplateSets(sets: string): number | null {
+  const value = parseInt(sets, 10)
+  return Number.isNaN(value) ? null : value
+}
+
+export function getProfileForCatalogId(
+  catalogExerciseId: string,
+  displayName: string,
+  template?: { sets?: string; reps?: string },
+): ExerciseProfile {
+  const base = CATALOG_PROFILES[catalogExerciseId] ?? fallbackCatalogProfile(displayName)
+  const profile: ExerciseProfile = { ...base, name: displayName }
+
+  if (template?.reps) {
+    const range = parseWorkoutTemplateReps(template.reps)
+    if (range) {
+      profile.repRangeBottom = range.bottom
+      profile.repRangeTop = range.top
+    }
+  }
+
+  if (template?.sets) {
+    const sets = parseWorkoutTemplateSets(template.sets)
+    if (sets !== null) profile.targetSets = sets
+  }
+
+  return profile
 }
 
 // ─── Main engine ──────────────────────────────────────────────────────────────
@@ -385,6 +482,3 @@ function bestReps(sets: ExerciseSet[]): number {
   return Math.max(...completed.map(s => s.reps))
 }
 
-export function normalizeExerciseName(name: string): string {
-  return name.trim().toLowerCase().replace(/\s+/g, ' ')
-}

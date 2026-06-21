@@ -123,15 +123,36 @@ Finish/save commits to local history immediately; cloud sync is async with retry
 ## Current gaps (why this doc exists)
 
 
-| Gap                                                                                          | Risk if ignored                                           |
-| -------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| Multiple write/read paths (`Eye exercise data (`exerciseProgressionStore` vs session ledger) | Divergent “last lift” answers; double migration on mobile |
-| `localStorage` accessed from services (palette, progression, import prompts)                 | Hard to swap storage; untestable domain                   |
-| Global / legacy storage keys                                                                 | Cross-account leakage                                     |
-| Coaching reads merged cache without a documented contract                                    | Silent wrong answers on new device                        |
-| Two recommendation systems                                                                   | Inconsistent UX; duplicate mobile port                    |
-| `App.tsx` orchestrates storage + domain + navigation                                         | Hard to reuse logic in mobile shell                       |
+| Gap | Status |
+| --- | --- |
+| Multiple write/read paths (`exerciseProgressionStore` vs session ledger) | **Resolved** — progression derived from `historyQueryService` / session ledger |
+| `localStorage` accessed from domain services | **Resolved** — adapters only (`localKeyValueStorage`, `localLedgerStorage`, `workoutDraftStorage`) |
+| Global / legacy storage keys | **Mostly resolved** — ledger, draft, palette, import prompt namespaced by `userId` |
+| Coaching reads merged cache without a documented contract | **Documented** — see `historyQueryService.ts` header; device-ledger scoped until Phase 6 |
+| Two recommendation systems | **Resolved** — `recommendationEngine` + thin `recommendationService` facade |
+| `App.tsx` orchestrates storage + domain + navigation | **Open** — defer until mobile shell or provider extraction |
+| Cloud sync blocks finish UX / no retry queue | **Open** — Phase 4 (local-first finish done; background queue pending) |
+| Recommendation variety (e.g. consecutive Walk days) | **Open** — engine tuning, not framework |
 
+---
+
+## History query API (Phase 3 — canonical reads)
+
+All coaching and calendar reads go through **`historyQueryService`**:
+
+| Query | Used for |
+| --- | --- |
+| `getLastExercisePerformance(historyExerciseKey)` | Last lift for an exercise (`completed` only) |
+| `getExerciseHistoryForProgression(historyExerciseKey, …)` | Progressive overload engine input |
+| `getRecentCompletedSessions()` / `getLastCompletedSessionByWorkoutType()` | Session-level coaching |
+| `getLastSevenDays()` | Calendar strip, recommendations |
+| `getSessionsForDate(date)` | Today summary, day detail |
+| `getSessionById(id)` | Resume / edit confirmed sessions |
+| `getManualActivitiesForDate(date)` | Manual activity entries |
+
+Writes: `trainingLedgerService` + `ledgerRepository` + `workoutDraftStorage`.
+
+**Freshness:** results reflect the merged local cache on this device until Phase 6 authoritative cloud reads.
 
 ---
 
@@ -143,10 +164,10 @@ Work in phases. **Complete the gate for each phase before layering new product f
 
 **Outcome:** Everyone (including future-you) knows the boundaries.
 
-- [ ] Treat this doc + linked docs as the decision record.
-- [ ] List the canonical history queries the app needs (see Principle 2).
-- [ ] Map each existing feature to its query source (audit: who reads what today).
-- [ ] Decide: progression is **derived from session history**, not a separate log (target state).
+- [x] Treat this doc + linked docs as the decision record.
+- [x] List the canonical history queries the app needs (see Principle 2).
+- [x] Map each existing feature to its query source (audit: who reads what today).
+- [x] Decide: progression is **derived from session history**, not a separate log (target state).
 
 **Gate:** Written query list + audit table (can live in this file or a short appendix).
 
@@ -158,10 +179,10 @@ Work in phases. **Complete the gate for each phase before layering new product f
 
 Prerequisite spec: [LOGGING_LIFECYCLE.md](./LOGGING_LIFECYCLE.md)
 
-- [ ] Draft storage fully separate from history ledger; no `active` rows in history.
-- [ ] Finish → `completed`; End → opt-in `partial` only via Save progress.
-- [ ] `historyQueryPolicy` enforced everywhere sessions are read or written.
-- [ ] Workout lock during active session: no destructive cloud merge mid-workout ([BACKLOG.md](./BACKLOG.md)).
+- [x] Draft storage fully separate from history ledger; no `active` rows in history.
+- [x] Finish → `completed`; End → opt-in `partial` only via Save progress.
+- [x] `historyQueryPolicy` enforced everywhere sessions are read or written.
+- [x] Workout lock during active session: no destructive cloud merge mid-workout ([BACKLOG.md](./BACKLOG.md)).
 
 **Gate:** Calendar and progression reflect only confirmed history; refresh mid-workout does not lose sets or corrupt ledger.
 
@@ -171,12 +192,12 @@ Prerequisite spec: [LOGGING_LIFECYCLE.md](./LOGGING_LIFECYCLE.md)
 
 **Outcome:** All persistence behind adapters; safe multi-account web use.
 
-- [ ] `LedgerRepository` is the only writer/reader for history ledger (memory + local + cloud orchestration).
-- [ ] `DraftRepository` for in-progress workouts only.
-- [ ] `PreferencesRepository` for palette and similar (no coaching impact).
-- [ ] Namespace all keys: `workout-deck-ledger:<userId>`, etc.
-- [ ] Sign-out / account switch: clear memory, bind repositories to new user.
-- [ ] Remove direct `localStorage` usage from domain services (`recommendationEngine`, `exerciseProgressionStore`, etc.).
+- [x] `LedgerRepository` is the only writer/reader for history ledger (memory + local + cloud orchestration).
+- [x] `DraftRepository` for in-progress workouts only (`workoutDraftStorage` adapter).
+- [x] `PreferencesRepository` for palette and similar (no coaching impact).
+- [x] Namespace all keys: `workout-deck-ledger:<userId>`, etc.
+- [x] Sign-out / account switch: clear memory, bind repositories to new user.
+- [x] Remove direct `localStorage` usage from domain services (`recommendationEngine`, `exerciseProgressionStore`, etc.).
 
 **Gate:** No domain `.ts` file imports `localStorage` except adapters.
 
@@ -188,10 +209,10 @@ Prerequisite spec: [LOGGING_LIFECYCLE.md](./LOGGING_LIFECYCLE.md)
 
 Spec detail: [MVP1_BACKEND_REQUIREMENTS.md](./MVP1_BACKEND_REQUIREMENTS.md) §1
 
-- [ ] `getLastExercisePerformance(historyExerciseKey)` — completed sessions only.
-- [ ] `getSessionsForDate(date)` / `getLastSevenDays()` — via repository, not ad hoc ledger scans.
-- [ ] Progression reads from session history (deprecate or thin-wrap `exerciseProgressionStore`).
-- [ ] Document: **results are ledger-scoped** until Phase 4.
+- [x] `getLastExercisePerformance(historyExerciseKey)` — completed sessions only.
+- [x] `getSessionsForDate(date)` / `getLastSevenDays()` — via `historyQueryService`, not ad hoc ledger scans in UI/hooks.
+- [x] Progression reads from session history (`exerciseProgressionStore` removed).
+- [x] Document: **results are ledger-scoped** until Phase 6.
 
 **Gate:** ExerciseCard, recommendations, and calendar all use the query layer; zero direct ledger scans in UI/hooks.
 
@@ -283,11 +304,11 @@ Ask for every PR that touches data:
 
 You can start mobile UI when:
 
-- [ ] Phases 1–3 complete (history quality, repositories, unified queries)
+- [x] Phases 1–3 complete (history quality, repositories, unified queries)
 - [ ] Phase 4 minimally complete (sync queue + per-user cache + workout lock)
 - [ ] Core types and services have no web imports
-- [ ] One recommendation + one progression path
-- [ ] Documented freshness contract for coaching
+- [x] One recommendation + one progression path
+- [x] Documented freshness contract for coaching
 
 You do **not** need Phase 6 to start mobile — local cache + sync is enough for v1 mobile if freshness is honest. Phase 6 is required for **trustworthy multi-device coaching**.
 
@@ -308,9 +329,7 @@ You do **not** need Phase 6 to start mobile — local cache + sync is enough for
 
 ## Suggested immediate focus (next 2–4 weeks)
 
-1. **Phase 1** — finish draft vs history if anything remains from [LOGGING_LIFECYCLE.md](./LOGGING_LIFECYCLE.md).
-2. **Phase 2** — per-user keys + ban `localStorage` outside adapters.
-3. **Phase 3** — route progression through `exerciseHistoryService`; plan deprecation of `exerciseProgressionStore` as source of truth.
-4. **Consolidate recommendations** — one engine + one weekly planner input, or clearly split responsibilities (today vs week) with shared stats builder.
-
-After that, continue desktop feature work with confidence. Mobile becomes a new shell, not an archaeology project.
+1. **Phase 4** — background sync queue with retry; surface stale/sync-failure in UI when coaching may be wrong.
+2. **Recommendation tuning** — consecutive recovery variety, weekly plan coherence (pure engine changes).
+3. **App shell** — thin provider layer so `App.tsx` stops orchestrating storage + domain (mobile prep).
+4. Continue desktop feature work — foundation gates for Phases 1–3 are met.

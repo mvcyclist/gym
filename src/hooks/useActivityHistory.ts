@@ -9,9 +9,11 @@ import { countDaysWithActivity } from '../services/recommendationReadiness'
 import {
   getLastSevenDays,
   getSessionsForDate,
+} from '../services/historyQueryService'
+import {
+  deleteCompletedSession,
   saveBackfillDays,
   updateManualActivities,
-  deleteCompletedSession,
 } from '../services/trainingLedgerService'
 import type { BackfillRow } from '../components/BackfillRecentActivityModal'
 import { useAuth } from './useAuth'

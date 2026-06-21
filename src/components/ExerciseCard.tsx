@@ -3,7 +3,7 @@ import type { Exercise, ExerciseLog, SetLog } from '../types/workout'
 import { SetLogger } from './SetLogger'
 import {
   getProgressionTarget,
-  getDefaultProfile,
+  getProfileForCatalogId,
   checkPR,
 } from '../services/progressiveOverloadEngine'
 import { getExerciseHistoryForProgression } from '../services/exerciseHistoryService'
@@ -39,14 +39,17 @@ export function ExerciseCard({
   const [prBanner, setPrBanner] = useState(false)
 
   const { target, profile } = useMemo(() => {
-    const p = getDefaultProfile(exercise.name)
+    const p = getProfileForCatalogId(exercise.catalogExerciseId, exercise.name, {
+      sets: exercise.sets,
+      reps: exercise.reps,
+    })
     const history = getExerciseHistoryForProgression(
       exercise.catalogExerciseId,
       p.repRangeBottom,
       p.repRangeTop,
     )
     return { target: getProgressionTarget(history, p), profile: p }
-  }, [exercise.catalogExerciseId, exercise.name])
+  }, [exercise.catalogExerciseId, exercise.name, exercise.reps, exercise.sets])
 
   // Prefill all empty sets at once when exercise loads
   useEffect(() => {

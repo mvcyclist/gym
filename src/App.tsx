@@ -21,7 +21,8 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useWorkoutElapsedTimer } from './hooks/useWorkoutElapsedTimer'
 import { useWorkoutLog } from './hooks/useWorkoutLog'
 import { getTomorrowWorkoutRecommendation } from './services/recommendationService'
-import { appendManualActivity, getLastSevenDays } from './services/trainingLedgerService'
+import { appendManualActivity } from './services/trainingLedgerService'
+import { getLastSevenDays } from './services/historyQueryService'
 import {
   discardDraft,
   findPriorDayDraft,
