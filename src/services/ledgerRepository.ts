@@ -8,7 +8,8 @@ import {
   upsertSessionToCloud,
 } from '../adapters/supabaseLedgerStorage'
 import { bindDraftStorageUser } from '../adapters/workoutDraftStorage'
-import { loadLocalLedger, saveLocalLedger } from '../adapters/localLedgerStorage'
+import { bindLocalLedgerUser, loadLocalLedger, saveLocalLedger } from '../adapters/localLedgerStorage'
+import { bindPreferencesUser } from './preferencesRepository'
 import { isDraftableSessionStatus } from '../types/draft'
 import { migrateLedgerInProgressToDraft } from './workoutDraftMigration'
 import { isSupabaseConfigured } from '../lib/supabase'
@@ -40,12 +41,16 @@ export function resetLedgerRepository(): void {
   memoryLedger = null
   syncUserId = null
   bindDraftStorageUser(null)
+  bindLocalLedgerUser(null)
+  bindPreferencesUser(null)
 }
 
 export function bindLedgerToUser(userId: string | null): void {
   syncUserId = userId
   memoryLedger = null
   bindDraftStorageUser(userId)
+  bindLocalLedgerUser(userId)
+  bindPreferencesUser(userId)
 }
 
 function purgeInProgressFromCloud(sessionIds: string[]): void {

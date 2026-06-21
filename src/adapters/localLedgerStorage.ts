@@ -3,8 +3,30 @@ import type { WorkoutSession } from '../types/workout'
 import { migrateManualDateKeysFromUtcStorageKeys } from '../utils/activityHistory'
 import { isHistorySession } from '../services/historyQueryPolicy'
 
-const LEDGER_KEY = 'workout-deck-ledger'
+const LEDGER_KEY_BASE = 'workout-deck-ledger'
 const LEGACY_SESSIONS_KEY = 'workout-deck-sessions'
+
+let boundUserId: string | null = null
+
+function getLedgerKey(): string {
+  return boundUserId ? `${LEDGER_KEY_BASE}:${boundUserId}` : LEDGER_KEY_BASE
+}
+
+export function bindLocalLedgerUser(userId: string | null): void {
+  if (userId && userId !== boundUserId) {
+    migrateLegacyGlobalLedger(userId)
+  }
+  boundUserId = userId
+}
+
+function migrateLegacyGlobalLedger(userId: string): void {
+  const globalRaw = localStorage.getItem(LEDGER_KEY_BASE)
+  if (!globalRaw) return
+  const userKey = `${LEDGER_KEY_BASE}:${userId}`
+  if (!localStorage.getItem(userKey)) {
+    localStorage.setItem(userKey, globalRaw)
+  }
+}
 
 const LEDGER_VERSION = 4
 
@@ -64,7 +86,7 @@ function migrateLegacySessions(ledger: TrainingLedger): TrainingLedger {
 
 export function loadLocalLedger(): TrainingLedger {
   try {
-    const raw = localStorage.getItem(LEDGER_KEY)
+    const raw = localStorage.getItem(getLedgerKey())
     if (!raw) {
       const migrated = migrateLegacySessions(emptyLedger())
       saveLocalLedger(migrated)
@@ -91,7 +113,7 @@ export function loadLocalLedger(): TrainingLedger {
 }
 
 export function saveLocalLedger(ledger: TrainingLedger): void {
-  localStorage.setItem(LEDGER_KEY, JSON.stringify(ledger))
+  localStorage.setItem(getLedgerKey(), JSON.stringify(ledger))
 }
 
 export function removeLegacySessionsKey(): void {

@@ -3,7 +3,8 @@ import {
   getTomorrowWorkoutRecommendation,
   getWeeklyPlan,
 } from '../services/recommendationService'
-import { getRecommendation, getUserPalette } from '../services/recommendationEngine'
+import { getRecommendation } from '../services/recommendationEngine'
+import { getUserPalette } from '../services/preferencesRepository'
 import { countDaysWithActivity } from '../services/recommendationReadiness'
 import {
   getLastSevenDays,

@@ -321,14 +321,3 @@ export function getRecommendation(
   }
 }
 
-export function getUserPalette(): UserPalette {
-  try {
-    const raw = localStorage.getItem('userPalette')
-    if (raw) return JSON.parse(raw) as UserPalette
-  } catch { /* ignore */ }
-  return DEFAULT_PALETTE
-}
-
-export function saveUserPalette(palette: UserPalette): void {
-  localStorage.setItem('userPalette', JSON.stringify(palette))
-}
