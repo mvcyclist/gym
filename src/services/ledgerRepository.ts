@@ -10,6 +10,7 @@ import {
 import { bindDraftStorageUser } from '../adapters/workoutDraftStorage'
 import { bindLocalLedgerUser, loadLocalLedger, saveLocalLedger } from '../adapters/localLedgerStorage'
 import { bindPreferencesUser } from './preferencesRepository'
+import { kvGet, kvSet } from '../adapters/localKeyValueStorage'
 import { isDraftableSessionStatus } from '../types/draft'
 import { migrateLedgerInProgressToDraft } from './workoutDraftMigration'
 import { isSupabaseConfigured } from '../lib/supabase'
@@ -204,9 +205,9 @@ export function hasMeaningfulLocalLedger(): boolean {
 }
 
 export function wasImportPromptShown(userId: string): boolean {
+  const raw = kvGet(IMPORT_PROMPT_KEY)
+  if (!raw) return false
   try {
-    const raw = localStorage.getItem(IMPORT_PROMPT_KEY)
-    if (!raw) return false
     const prompted = JSON.parse(raw) as string[]
     return prompted.includes(userId)
   } catch {
@@ -215,15 +216,11 @@ export function wasImportPromptShown(userId: string): boolean {
 }
 
 export function markImportPromptShown(userId: string): void {
-  try {
-    const raw = localStorage.getItem(IMPORT_PROMPT_KEY)
-    const prompted = raw ? (JSON.parse(raw) as string[]) : []
-    if (!prompted.includes(userId)) {
-      prompted.push(userId)
-      localStorage.setItem(IMPORT_PROMPT_KEY, JSON.stringify(prompted))
-    }
-  } catch {
-    localStorage.setItem(IMPORT_PROMPT_KEY, JSON.stringify([userId]))
+  const raw = kvGet(IMPORT_PROMPT_KEY)
+  const prompted = raw ? (() => { try { return JSON.parse(raw) as string[] } catch { return [] } })() : []
+  if (!prompted.includes(userId)) {
+    prompted.push(userId)
+    kvSet(IMPORT_PROMPT_KEY, JSON.stringify(prompted))
   }
 }
 

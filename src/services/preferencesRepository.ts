@@ -1,4 +1,5 @@
 import { DEFAULT_PALETTE, type UserPalette } from '../types/training'
+import { kvGet, kvSet } from '../adapters/localKeyValueStorage'
 
 const PALETTE_KEY_BASE = 'userPalette'
 
@@ -16,24 +17,22 @@ export function bindPreferencesUser(userId: string | null): void {
 }
 
 function migrateLegacyGlobalPalette(userId: string): void {
-  const globalRaw = localStorage.getItem(PALETTE_KEY_BASE)
+  const globalRaw = kvGet(PALETTE_KEY_BASE)
   if (!globalRaw) return
   const userKey = `${PALETTE_KEY_BASE}:${userId}`
-  if (!localStorage.getItem(userKey)) {
-    localStorage.setItem(userKey, globalRaw)
+  if (!kvGet(userKey)) {
+    kvSet(userKey, globalRaw)
   }
 }
 
 export function getUserPalette(): UserPalette {
   try {
-    const raw = localStorage.getItem(getPaletteKey())
+    const raw = kvGet(getPaletteKey())
     if (raw) return JSON.parse(raw) as UserPalette
   } catch { /* fall through */ }
   return DEFAULT_PALETTE
 }
 
 export function saveUserPalette(palette: UserPalette): void {
-  try {
-    localStorage.setItem(getPaletteKey(), JSON.stringify(palette))
-  } catch { /* storage unavailable */ }
+  kvSet(getPaletteKey(), JSON.stringify(palette))
 }
