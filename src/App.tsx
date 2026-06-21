@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AuthGate } from './components/AuthGate'
 import { UserMenu } from './components/UserMenu'
+import { SyncStatusBanner } from './components/SyncStatusBanner'
 import { useAuth } from './hooks/useAuth'
 import { getWorkoutById } from './data/workouts'
 import { MobilityView } from './components/MobilityView'
@@ -568,6 +569,7 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
   return (
     <div className="flex min-h-full flex-col">
       {configured && user && <UserMenu email={user.email} onSignOut={() => void signOut()} />}
+      {configured && user && screen === 'home' && <SyncStatusBanner />}
 
       {showWorkoutTimers && (
         <div className="sticky top-0 z-50 bg-black/95 backdrop-blur-sm">

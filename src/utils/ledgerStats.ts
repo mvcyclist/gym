@@ -3,6 +3,8 @@ import type { WorkoutSession } from '../types/workout'
 import type { ActivityEntry } from '../types/training'
 import { filterCalendarSessions } from '../services/historyQueryPolicy'
 
+/** Merge rules documented in services/ledgerMergePolicy.ts */
+
 export function countSyncedSessions(ledger: TrainingLedger): number {
   return filterCalendarSessions(ledger.sessions).length
 }

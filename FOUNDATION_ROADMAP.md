@@ -131,7 +131,7 @@ Finish/save commits to local history immediately; cloud sync is async with retry
 | Coaching reads merged cache without a documented contract | **Documented** — see `historyQueryService.ts` header; device-ledger scoped until Phase 6 |
 | Two recommendation systems | **Resolved** — `recommendationEngine` + thin `recommendationService` facade |
 | `App.tsx` orchestrates storage + domain + navigation | **Open** — defer until mobile shell or provider extraction |
-| Cloud sync blocks finish UX / no retry queue | **Open** — Phase 4 (local-first finish done; background queue pending) |
+| Cloud sync blocks finish UX / no retry queue | **Resolved** — local-first writes + `syncQueueService` with retry |
 | Recommendation variety (e.g. consecutive Walk days) | **Open** — engine tuning, not framework |
 
 ---
@@ -222,10 +222,10 @@ Spec detail: [MVP1_BACKEND_REQUIREMENTS.md](./MVP1_BACKEND_REQUIREMENTS.md) §1
 
 **Outcome:** Reliable enough that a second client (mobile) can trust cloud data.
 
-- [ ] Local-first finish + background sync queue with retry.
-- [ ] Hydrate from cloud on sign-in / app foreground with merge rules documented.
-- [ ] Stale/sync-failure surfaced in UI when coaching may be wrong.
-- [ ] Optional: hydrate-before-coaching when online.
+- [x] Local-first finish + background sync queue with retry.
+- [x] Hydrate from cloud on sign-in / app foreground with merge rules documented.
+- [x] Stale/sync-failure surfaced in UI when coaching may be wrong.
+- [x] Hydrate-before-coaching when online (`AuthGate` loading + sign-in hydrate before `ledgerReady`).
 
 **Gate:** Sign in on a fresh browser → history matches cloud after sync; offline finish never blocks user.
 
@@ -305,7 +305,7 @@ Ask for every PR that touches data:
 You can start mobile UI when:
 
 - [x] Phases 1–3 complete (history quality, repositories, unified queries)
-- [ ] Phase 4 minimally complete (sync queue + per-user cache + workout lock)
+- [x] Phase 4 minimally complete (sync queue + per-user cache + workout lock)
 - [ ] Core types and services have no web imports
 - [x] One recommendation + one progression path
 - [x] Documented freshness contract for coaching
@@ -329,7 +329,7 @@ You do **not** need Phase 6 to start mobile — local cache + sync is enough for
 
 ## Suggested immediate focus (next 2–4 weeks)
 
-1. **Phase 4** — background sync queue with retry; surface stale/sync-failure in UI when coaching may be wrong.
-2. **Recommendation tuning** — consecutive recovery variety, weekly plan coherence (pure engine changes).
-3. **App shell** — thin provider layer so `App.tsx` stops orchestrating storage + domain (mobile prep).
-4. Continue desktop feature work — foundation gates for Phases 1–3 are met.
+1. **Recommendation tuning** — consecutive recovery variety, weekly plan coherence (pure engine changes).
+2. **App shell** — thin provider layer so `App.tsx` stops orchestrating storage + domain (mobile prep).
+3. **Phase 5** — extract `packages/core` when mobile work starts.
+4. Continue desktop feature work — Phases 1–4 foundation gates are met.

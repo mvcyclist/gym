@@ -12,6 +12,14 @@ import {
   shouldOfferLocalImport,
   skipLocalImport,
 } from '../services/ledgerRepository'
+import {
+  getSyncStatus,
+  processSyncQueue,
+  recordHydrateFailure,
+  subscribeSyncStatus,
+  syncLedgerWithCloud,
+} from '../services/syncQueueService'
+import type { SyncStatus } from '../services/syncQueueService'
 import { AuthContext, type AuthContextValue } from './authContext'
 
 function getAuthRedirectUrl(): string {
@@ -21,6 +29,7 @@ function getAuthRedirectUrl(): string {
 async function loadLedgerForUser(userId: string): Promise<boolean> {
   bindLedgerToUser(userId)
   await hydrateLedgerFromCloud(userId)
+  await processSyncQueue(userId)
   return shouldOfferLocalImport(userId)
 }
 
@@ -31,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [ledgerReady, setLedgerReady] = useState(!configured)
   const [initialLedgerLoaded, setInitialLedgerLoaded] = useState(!configured)
   const [ledgerVersion, setLedgerVersion] = useState(0)
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(getSyncStatus)
   const [importOfferOpen, setImportOfferOpen] = useState(false)
   const hydratedUserIdRef = useRef<string | null>(null)
   const initialLedgerLoadedRef = useRef(!configured)
@@ -59,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setImportOfferOpen(offerImport)
     } catch (error) {
       console.error('[auth] failed to load cloud ledger', error)
+      recordHydrateFailure(userId, error)
       setLedgerReady(true)
       if (hydratedUserIdRef.current === userId) {
         initialLedgerLoadedRef.current = true
@@ -107,21 +118,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [configured, handleSignedIn, handleSignedOut])
 
+  useEffect(() => subscribeSyncStatus(() => setSyncStatus(getSyncStatus())), [])
+
   useEffect(() => {
     if (!configured || !session?.user || !ledgerReady) return
 
-    const syncOnFocus = () => {
+    const runSync = () => {
       if (document.visibilityState !== 'visible') return
-      void refreshMergedLedgerFromCloud(session.user.id)
+      void syncLedgerWithCloud(session.user.id, refreshMergedLedgerFromCloud)
         .then(() => setLedgerVersion((value) => value + 1))
-        .catch((error) => console.error('[auth] failed to refresh from cloud', error))
+        .catch((error) => {
+          recordHydrateFailure(session.user.id, error)
+          console.error('[auth] failed to refresh from cloud', error)
+        })
     }
 
-    window.addEventListener('focus', syncOnFocus)
-    document.addEventListener('visibilitychange', syncOnFocus)
+    const runQueueOnly = () => {
+      void processSyncQueue(session.user.id)
+    }
+
+    window.addEventListener('focus', runSync)
+    document.addEventListener('visibilitychange', runSync)
+    window.addEventListener('online', runQueueOnly)
     return () => {
-      window.removeEventListener('focus', syncOnFocus)
-      document.removeEventListener('visibilitychange', syncOnFocus)
+      window.removeEventListener('focus', runSync)
+      document.removeEventListener('visibilitychange', runSync)
+      window.removeEventListener('online', runQueueOnly)
     }
   }, [configured, ledgerReady, session?.user])
 
@@ -151,7 +173,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const userId = session?.user?.id
     if (!userId) return
     bindLedgerToUser(userId)
-    await refreshMergedLedgerFromCloud(userId)
+    await syncLedgerWithCloud(userId, refreshMergedLedgerFromCloud)
+    setLedgerVersion((value) => value + 1)
+  }, [session])
+
+  const retrySync = useCallback(async () => {
+    const userId = session?.user?.id
+    if (!userId) return
+    await syncLedgerWithCloud(userId, refreshMergedLedgerFromCloud)
     setLedgerVersion((value) => value + 1)
   }, [session])
 
@@ -202,12 +231,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: session?.user ?? null,
       ledgerReady: !configured || ledgerReady,
       ledgerVersion,
+      syncStatus,
       importOfferOpen,
       signInWithGoogle,
       signOut,
       importLocalHistory,
       dismissImportOffer,
       refreshLedger,
+      retrySync,
       pushDeviceHistoryToCloud: pushDeviceHistory,
       pullLedgerFromCloud: pullDeviceHistory,
       deviceLedgerSummary: getDeviceLedgerSummary(),
@@ -222,11 +253,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ledgerReady,
       ledgerVersion,
       refreshLedger,
+      retrySync,
       pushDeviceHistory,
       pullDeviceHistory,
       session,
       signInWithGoogle,
       signOut,
+      syncStatus,
     ],
   )
 

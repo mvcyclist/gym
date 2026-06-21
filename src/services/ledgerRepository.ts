@@ -4,8 +4,6 @@ import {
   importLedgerToCloud,
   purgeInProgressSessionsFromCloud,
   replaceCloudLedgerWithLocal,
-  replaceManualDayOnCloud,
-  upsertSessionToCloud,
 } from '../adapters/supabaseLedgerStorage'
 import { bindDraftStorageUser, hasDraft } from '../adapters/workoutDraftStorage'
 import { bindLocalLedgerUser, loadLocalLedger, saveLocalLedger } from '../adapters/localLedgerStorage'
@@ -13,6 +11,15 @@ import { bindPreferencesUser } from './preferencesRepository'
 import { kvGet, kvSet } from '../adapters/localKeyValueStorage'
 import { isDraftableSessionStatus } from '../types/draft'
 import { migrateLedgerInProgressToDraft } from './workoutDraftMigration'
+import {
+  bindSyncQueueUser,
+  clearSyncQueue,
+  enqueueManualDayReplace,
+  enqueueSessionDelete,
+  enqueueSessionUpsert,
+  processSyncQueue,
+  recordHydrateSuccess,
+} from './syncQueueService'
 import { isSupabaseConfigured } from '../lib/supabase'
 import type { ActivityEntry } from '../types/training'
 import type { TrainingLedger } from '../types/ledger'
@@ -44,6 +51,7 @@ export function resetLedgerRepository(): void {
   bindDraftStorageUser(null)
   bindLocalLedgerUser(null)
   bindPreferencesUser(null)
+  bindSyncQueueUser(null)
 }
 
 export function bindLedgerToUser(userId: string | null): void {
@@ -52,6 +60,7 @@ export function bindLedgerToUser(userId: string | null): void {
   bindDraftStorageUser(userId)
   bindLocalLedgerUser(userId)
   bindPreferencesUser(userId)
+  bindSyncQueueUser(userId)
 }
 
 function purgeInProgressFromCloud(sessionIds: string[]): void {
@@ -104,6 +113,7 @@ export async function refreshMergedLedgerFromCloud(
   memoryLedger = ledger
   saveLocalLedger(ledger)
   await purgeLegacyInProgressFromCloud(userId)
+  recordHydrateSuccess(userId)
   return ledger
 }
 
@@ -125,8 +135,10 @@ export function getDeviceLedgerSummary(): {
 export async function pushDeviceHistoryToCloud(userId: string): Promise<TrainingLedger> {
   const local = applyInProgressMigration(loadLocalLedger())
   await replaceCloudLedgerWithLocal(userId, local)
+  clearSyncQueue(userId)
   markImportPromptShown(userId)
   memoryLedger = local
+  saveLocalLedger(local)
   return local
 }
 
@@ -134,7 +146,10 @@ export async function pullLedgerFromCloud(userId: string): Promise<TrainingLedge
   const cloud = await fetchLedgerFromCloud(userId)
   const ledger = applyInProgressMigration(cloud)
   memoryLedger = ledger
+  saveLocalLedger(ledger)
+  clearSyncQueue(userId)
   await purgeLegacyInProgressFromCloud(userId)
+  recordHydrateSuccess(userId)
   return ledger
 }
 
@@ -174,9 +189,8 @@ export async function upsertSession(session: WorkoutSession): Promise<void> {
   persistLedger(ledger)
 
   if (syncUserId) {
-    void upsertSessionToCloud(session, syncUserId).catch((error) => {
-      console.error('[ledger] failed to sync session', error)
-    })
+    enqueueSessionUpsert(syncUserId, session)
+    void processSyncQueue(syncUserId)
   }
 }
 
@@ -186,9 +200,8 @@ export function removeSession(sessionId: string): void {
   persistLedger(ledger)
 
   if (syncUserId) {
-    void deleteSessionFromCloud(sessionId, syncUserId).catch((error) => {
-      console.error('[ledger] failed to delete session', error)
-    })
+    enqueueSessionDelete(syncUserId, sessionId)
+    void processSyncQueue(syncUserId)
   }
 }
 
@@ -198,9 +211,8 @@ export function replaceManualActivities(date: string, activities: ActivityEntry[
   persistLedger(ledger)
 
   if (syncUserId) {
-    void replaceManualDayOnCloud(syncUserId, date, activities).catch((error) => {
-      console.error('[ledger] failed to sync manual activities', error)
-    })
+    enqueueManualDayReplace(syncUserId, date, activities)
+    void processSyncQueue(syncUserId)
   }
 }
 
@@ -249,6 +261,7 @@ export async function shouldOfferLocalImport(userId: string): Promise<boolean> {
 export async function importLocalLedgerToCloud(userId: string): Promise<TrainingLedger> {
   const local = applyInProgressMigration(loadLocalLedger())
   await importLedgerToCloud(userId, local)
+  clearSyncQueue(userId)
   markImportPromptShown(userId)
   memoryLedger = local
   return local

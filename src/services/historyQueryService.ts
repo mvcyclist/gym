@@ -2,7 +2,7 @@
  * Single front door for history reads — calendar, sessions, and exercise performance.
  *
  * Results are device-ledger scoped until authoritative cloud reads (Phase 6).
- * See exerciseHistoryService.ts and MVP1_BACKEND_REQUIREMENTS.md.
+ * Hydrate from cloud on sign-in / focus before coaching (see ledgerMergePolicy).
  */
 import { loadLedger } from './ledgerRepository'
 import { filterCalendarSessions, isHistorySession } from './historyQueryPolicy'
