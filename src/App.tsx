@@ -23,6 +23,17 @@ import { useWorkoutLog } from './hooks/useWorkoutLog'
 import { getTomorrowWorkoutRecommendation } from './services/recommendationService'
 import { appendManualActivity, getLastSevenDays } from './services/trainingLedgerService'
 import {
+  getProgressionTarget,
+  getDefaultProfile,
+  normalizeExerciseName,
+  countQualifyingSets,
+} from './services/progressiveOverloadEngine'
+import {
+  loadExerciseHistory,
+  loadExerciseProfile,
+  appendExerciseHistory,
+} from './services/exerciseProgressionStore'
+import {
   discardDraft,
   findPriorDayDraft,
   formatDraftWorkoutDate,
@@ -453,6 +464,37 @@ function WorkoutApp() {
     if (!allSetsComplete) return
 
     if (countCompletedSets(session) === 0) return
+
+    // Write exercise progression history for each completed exercise
+    const now = Date.now()
+    const todayDate = new Date().toISOString().slice(0, 10)
+    for (const log of session.exercises) {
+      const completedSets = log.sets.filter((s) => s.completed)
+      if (completedSets.length === 0) continue
+      const profile = loadExerciseProfile(log.exerciseName) ?? getDefaultProfile(log.exerciseName)
+      const history = loadExerciseHistory(log.exerciseName)
+      const target = getProgressionTarget(history, profile)
+      const engineSets = completedSets
+        .map((s) => {
+          const w = parseFloat(s.weight)
+          const r = parseInt(s.reps, 10)
+          if (isNaN(w) || isNaN(r)) return null
+          return { reps: r, weightLbs: w, completed: true }
+        })
+        .filter((s): s is { reps: number; weightLbs: number; completed: boolean } => s !== null)
+      if (engineSets.length === 0) continue
+      const topWeight = Math.max(...engineSets.map((s) => s.weightLbs))
+      appendExerciseHistory({
+        exerciseName: normalizeExerciseName(log.exerciseName),
+        date: todayDate,
+        timestamp: now,
+        weight: topWeight,
+        sets: engineSets,
+        repRangeBottom: target.targetRepsBottom,
+        repRangeTop: target.targetRepsTop,
+        qualifyingSets: countQualifyingSets(engineSets, target.targetRepsBottom),
+      })
+    }
 
     void finishWorkout()
       .then((completed) => {

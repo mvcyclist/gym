@@ -1,7 +1,24 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Exercise, ExerciseLog, SetLog } from '../types/workout'
 import { SetLogger } from './SetLogger'
-import { getExerciseSuggestion, formatProgressionHint } from '../services/progressionService'
+import {
+  getProgressionTarget,
+  getDefaultProfile,
+  checkPR,
+  type ProgressionTarget,
+} from '../services/progressiveOverloadEngine'
+import {
+  loadExerciseHistory,
+  loadExerciseProfile,
+} from '../services/exerciseProgressionStore'
+
+const SUBLABEL_COLOR: Record<string, string> = {
+  PROGRESS: '#4ade80',
+  ACCUMULATE: '#86efac',
+  CONSOLIDATE: '#888',
+  DELOAD: '#f87171',
+  FIRST: '#555',
+}
 
 interface ExerciseCardProps {
   exercise: Exercise
@@ -21,42 +38,86 @@ export function ExerciseCard({
   onDeleteSet,
 }: ExerciseCardProps) {
   const sets = exerciseLog?.sets ?? []
+  const [prBanner, setPrBanner] = useState(false)
 
-  const suggestion = useMemo(() => {
-    if (!exercise.catalogExerciseId) return null
-    const targetSets = parseInt(exercise.sets, 10)
-    if (!targetSets) return null
-    return getExerciseSuggestion(exercise.catalogExerciseId, targetSets, exercise.reps)
-  }, [exercise.catalogExerciseId, exercise.sets, exercise.reps])
+  const target: ProgressionTarget = useMemo(() => {
+    const history = loadExerciseHistory(exercise.name)
+    const profile = loadExerciseProfile(exercise.name) ?? getDefaultProfile(exercise.name)
+    return getProgressionTarget(history, profile)
+  }, [exercise.name])
 
-  const hint = suggestion ? formatProgressionHint(suggestion) : null
+  // Prefill empty sets with target weight/reps once on exercise load
+  useEffect(() => {
+    if (!exerciseLog) return
+    const prefillWeight = target.targetWeight > 0 ? String(target.targetWeight) : ''
+    const prefillReps = String(target.targetRepsBottom)
+    exerciseLog.sets.forEach((set) => {
+      if (!set.completed && set.weight === '' && set.reps === '') {
+        if (prefillWeight) onUpdateSet(set.setNumber, { weight: prefillWeight, reps: prefillReps })
+      }
+    })
+    // Only run when exercise changes, not on every render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exercise.name])
+
+  const handleCompleteSet = (setNumber: number) => {
+    onCompleteSet(setNumber)
+    // PR check using the set values before completion state propagates
+    const set = sets.find((s) => s.setNumber === setNumber)
+    if (!set) return
+    const weight = parseFloat(set.weight)
+    const reps = parseInt(set.reps, 10)
+    if (isNaN(weight) || isNaN(reps) || weight <= 0 || reps <= 0) return
+    const history = loadExerciseHistory(exercise.name)
+    if (checkPR(history, weight, reps)) setPrBanner(true)
+  }
+
+  const isDeload = target.state === 'DELOAD'
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/90">
-      <div className="border-b border-zinc-800 px-5 py-4 sm:px-6">
+    <article
+      className="overflow-hidden rounded-2xl border bg-zinc-900/90"
+      style={{ borderColor: isDeload ? '#3a2010' : undefined }}
+    >
+      <div className="border-b border-zinc-800 px-5 py-4 sm:px-6" style={isDeload ? { borderColor: '#3a2010' } : undefined}>
         <h3 className="text-2xl font-bold text-white sm:text-3xl">{exercise.name}</h3>
 
-        {hint && (
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-zinc-400">
-            <span>Last: <span className="text-zinc-300">{hint.lastTime}</span></span>
-            <span className="text-zinc-600">→</span>
-            <span>Target: <span className="font-medium text-zinc-200">{hint.suggested}</span></span>
-            {hint.noteLabel && (
-              <span className="text-xs text-zinc-500">{hint.noteLabel}</span>
-            )}
-          </div>
-        )}
+        <div className="mt-2 space-y-0.5">
+          <p className="text-sm text-zinc-300">{target.label}</p>
+          <p className="text-xs" style={{ color: SUBLABEL_COLOR[target.state] }}>
+            {target.sublabel}
+          </p>
+        </div>
       </div>
+
+      {isDeload && (
+        <div className="border-b px-5 py-3 sm:px-6" style={{ borderColor: '#3a2010', backgroundColor: '#1c0f08' }}>
+          <p className="text-sm font-semibold" style={{ color: '#f87171' }}>
+            Deload week
+          </p>
+          <p className="mt-0.5 text-xs text-zinc-500">
+            Stalled {target.stallCount} sessions — drop weight, rebuild consistency.
+          </p>
+        </div>
+      )}
 
       {exerciseLog && (
         <SetLogger
           sets={sets}
           targetReps={exercise.reps}
           onUpdateSet={onUpdateSet}
-          onCompleteSet={onCompleteSet}
+          onCompleteSet={handleCompleteSet}
           onAddSet={onAddSet}
           onDeleteSet={onDeleteSet}
         />
+      )}
+
+      {prBanner && (
+        <div className="border-t border-zinc-800 px-5 py-3 sm:px-6" style={{ backgroundColor: '#0f2010' }}>
+          <p className="text-sm font-bold" style={{ color: '#4ade80' }}>
+            🏆 New PR! Estimated 1RM is your best ever for this exercise.
+          </p>
+        </div>
       )}
     </article>
   )
