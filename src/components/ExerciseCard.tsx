@@ -5,12 +5,8 @@ import {
   getProgressionTarget,
   getDefaultProfile,
   checkPR,
-  type ProgressionTarget,
 } from '../services/progressiveOverloadEngine'
-import {
-  loadExerciseHistory,
-  loadExerciseProfile,
-} from '../services/exerciseProgressionStore'
+import { getExerciseHistoryForProgression } from '../services/exerciseHistoryService'
 
 const SUBLABEL_COLOR: Record<string, string> = {
   PROGRESS: '#4ade80',
@@ -42,28 +38,35 @@ export function ExerciseCard({
   const sets = exerciseLog?.sets ?? []
   const [prBanner, setPrBanner] = useState(false)
 
-  const target: ProgressionTarget = useMemo(() => {
-    const history = loadExerciseHistory(exercise.name)
-    const profile = loadExerciseProfile(exercise.name) ?? getDefaultProfile(exercise.name)
-    return getProgressionTarget(history, profile)
-  }, [exercise.name])
+  const { target, profile } = useMemo(() => {
+    const p = getDefaultProfile(exercise.name)
+    const history = getExerciseHistoryForProgression(
+      exercise.catalogExerciseId,
+      p.repRangeBottom,
+      p.repRangeTop,
+    )
+    return { target: getProgressionTarget(history, p), profile: p }
+  }, [exercise.catalogExerciseId, exercise.name])
 
   // Prefill all empty sets at once when exercise loads
   useEffect(() => {
     if (!exerciseLog || target.targetWeight <= 0) return
     onPrefillSets(String(target.targetWeight), String(target.targetRepsBottom))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exercise.name])
+  }, [exercise.catalogExerciseId])
 
   const handleCompleteSet = (setNumber: number) => {
     onCompleteSet(setNumber)
-    // PR check using the set values before completion state propagates
     const set = sets.find((s) => s.setNumber === setNumber)
     if (!set) return
     const weight = parseFloat(set.weight)
     const reps = parseInt(set.reps, 10)
     if (isNaN(weight) || isNaN(reps) || weight <= 0 || reps <= 0) return
-    const history = loadExerciseHistory(exercise.name)
+    const history = getExerciseHistoryForProgression(
+      exercise.catalogExerciseId,
+      profile.repRangeBottom,
+      profile.repRangeTop,
+    )
     if (checkPR(history, weight, reps)) setPrBanner(true)
   }
 
