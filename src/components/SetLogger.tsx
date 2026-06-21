@@ -1,137 +1,254 @@
+import type { CoachingMode } from '../data/exerciseCatalog'
 import type { SetLog } from '../types/workout'
-import { sanitizeRepsInput, sanitizeWeightInput } from '../utils/weightInput'
+import type { ProgressionRecommendation } from '../services/progressionRecommendation'
+import { sanitizeRepsInput } from '../utils/weightInput'
 
 interface SetLoggerProps {
   sets: SetLog[]
-  targetReps: string
+  coachingMode: CoachingMode
+  recommendation: ProgressionRecommendation
+  targetWeight: string | null
+  repRangeLabel: string
   onUpdateSet: (setNumber: number, updates: Partial<Pick<SetLog, 'weight' | 'reps'>>) => void
   onCompleteSet: (setNumber: number) => void
   onAddSet: () => void
   onDeleteSet: (setNumber: number) => void
 }
 
+function displayTargetWeight(coachingMode: CoachingMode, targetWeight: string | null): string {
+  if (coachingMode === 'bodyweight_reps') return 'BW'
+  if (coachingMode === 'time') return '—'
+  return targetWeight ?? '—'
+}
+
+function setFeedback(
+  repsLogged: number,
+  setNumber: number,
+  repFloor: number,
+  repCeiling: number,
+): { tone: 'amber' | 'green'; message: string } | null {
+  if (repsLogged > 0 && repsLogged < repFloor) {
+    return {
+      tone: 'amber',
+      message: `${repsLogged} reps — below target. Drop weight if it happens again.`,
+    }
+  }
+  if (repsLogged >= repCeiling && setNumber === 1) {
+    return {
+      tone: 'green',
+      message: 'Hit the ceiling on set 1 — push for it on the next set too.',
+    }
+  }
+  return null
+}
+
 export function SetLogger({
   sets,
-  targetReps,
+  coachingMode,
+  recommendation,
+  targetWeight,
+  repRangeLabel,
   onUpdateSet,
   onCompleteSet,
   onAddSet,
   onDeleteSet,
 }: SetLoggerProps) {
-  const completedCount = sets.filter((set) => set.completed).length
-  const allComplete = sets.length > 0 && completedCount === sets.length
+  const currentSetNumber =
+    sets.find((set) => !set.completed)?.setNumber ?? sets[sets.length - 1]?.setNumber ?? 1
   const canDelete = sets.length > 1
+  const targetWeightDisplay = displayTargetWeight(coachingMode, targetWeight)
+  const isTime = coachingMode === 'time'
+  const repsColumnLabel = isTime ? 'Done' : 'Reps done'
+
+  const handleComplete = (setNumber: number) => {
+    const set = sets.find((item) => item.setNumber === setNumber)
+    if (!set) return
+
+    if (coachingMode === 'weighted' && targetWeight && !set.weight) {
+      onUpdateSet(setNumber, { weight: targetWeight })
+    }
+    if (coachingMode === 'bodyweight_reps' && !set.weight) {
+      onUpdateSet(setNumber, { weight: 'BW' })
+    }
+
+    onCompleteSet(setNumber)
+  }
 
   return (
-    <div className="border-b border-zinc-800 bg-zinc-950/50 px-5 py-5 sm:px-6">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-            Set logger
-          </p>
-          <p className="mt-1 text-sm text-zinc-400">
-            Target: {sets.length} × {targetReps}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
+    <div className="px-5 py-5 sm:px-6">
+      <div
+        className="mb-2 grid gap-2 border-b pb-1.5"
+        style={{
+          gridTemplateColumns: '32px 1fr 1fr 1fr 90px',
+          borderColor: 'rgba(255,255,255,0.07)',
+        }}
+      >
+        {['#', 'Target weight', 'Target reps', repsColumnLabel, 'Action'].map((label) => (
           <span
-            className={`rounded-full px-3 py-1 text-xs font-semibold ${
-              allComplete ? 'bg-green-500/15 text-green-400' : 'bg-zinc-800 text-zinc-300'
-            }`}
+            key={label}
+            className="text-[10px] uppercase tracking-[0.06em]"
+            style={{ color: 'rgba(255,255,255,0.25)' }}
           >
-            {completedCount}/{sets.length} sets
+            {label}
           </span>
-          <button
-            type="button"
-            onClick={onAddSet}
-            className="rounded-lg border border-red-500/50 bg-red-500/15 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-500/25"
-          >
-            + Add set
-          </button>
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        {sets.map((set) => (
-          <div
-            key={set.setNumber}
-            className={`rounded-xl border p-3 sm:p-4 ${
-              set.completed
-                ? 'border-green-500/30 bg-green-500/5'
-                : 'border-zinc-800 bg-zinc-900/60'
-            }`}
-          >
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <span className="text-sm font-semibold text-zinc-300">Set {set.setNumber}</span>
-              <button
-                type="button"
-                onClick={() => onDeleteSet(set.setNumber)}
-                disabled={!canDelete}
-                aria-label={`Remove set ${set.setNumber}`}
-                className="rounded-md px-2 py-1 text-xs font-semibold text-zinc-500 transition enabled:hover:bg-red-500/10 enabled:hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-30"
-              >
-                Remove
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_auto] sm:gap-3">
-              <label className="min-w-0">
-                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                  Weight (lbs or BW)
-                </span>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={set.weight}
-                  disabled={set.completed}
-                  onChange={(event) =>
-                    onUpdateSet(set.setNumber, {
-                      weight: sanitizeWeightInput(event.target.value),
-                    })
-                  }
-                  placeholder="0 or BW"
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-base text-white placeholder:text-zinc-600 focus:border-red-500 focus:outline-none disabled:opacity-60"
-                />
-              </label>
-
-              <label className="min-w-0">
-                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                  Reps
-                </span>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min="0"
-                  step="1"
-                  value={set.reps}
-                  disabled={set.completed}
-                  onChange={(event) =>
-                    onUpdateSet(set.setNumber, { reps: sanitizeRepsInput(event.target.value) })
-                  }
-                  placeholder="0"
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-base text-white placeholder:text-zinc-600 focus:border-red-500 focus:outline-none disabled:opacity-60"
-                />
-              </label>
-
-              <button
-                type="button"
-                onClick={() => onCompleteSet(set.setNumber)}
-                disabled={set.completed}
-                className="col-span-2 rounded-lg bg-red-600 px-3 py-2.5 text-sm font-semibold text-white transition enabled:hover:bg-red-500 disabled:cursor-default disabled:bg-green-600/20 disabled:text-green-400 sm:col-span-1 sm:mt-5 sm:px-4"
-              >
-                {set.completed ? 'Done' : 'Complete'}
-              </button>
-            </div>
-          </div>
         ))}
       </div>
 
-      {allComplete && (
-        <p className="mt-4 text-center text-sm font-medium text-green-400">
-          All sets logged — rest up, then move to the next exercise.
-        </p>
-      )}
+      <div className="space-y-0">
+        {sets.map((set) => {
+          const isCompleted = set.completed
+          const isCurrent = !isCompleted && set.setNumber === currentSetNumber
+          const isFuture = !isCompleted && set.setNumber > currentSetNumber
+          const feedback =
+            isCompleted && !isTime
+              ? setFeedback(
+                  parseInt(set.reps, 10) || 0,
+                  set.setNumber,
+                  recommendation.repFloor,
+                  recommendation.repCeiling,
+                )
+              : null
+
+          return (
+            <div key={set.setNumber}>
+              <div
+                className="grid items-center gap-2 py-2"
+                style={{
+                  gridTemplateColumns: '32px 1fr 1fr 1fr 90px',
+                  borderBottom: '0.5px solid rgba(255,255,255,0.04)',
+                }}
+              >
+                <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>
+                  {set.setNumber}
+                </span>
+                <span className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                  {targetWeightDisplay}
+                </span>
+                <span className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                  {isTime ? 'Time' : repRangeLabel}
+                </span>
+
+                {isCompleted ? (
+                  <span
+                    className="rounded-md px-2.5 py-1.5 text-sm"
+                    style={{
+                      background: 'rgba(16,185,129,0.08)',
+                      border: '0.5px solid rgba(16,185,129,0.2)',
+                      color: '#34d399',
+                    }}
+                  >
+                    {set.reps || '—'}
+                  </span>
+                ) : (
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={set.reps}
+                    disabled={isFuture}
+                    onChange={(event) =>
+                      onUpdateSet(set.setNumber, { reps: sanitizeRepsInput(event.target.value) })
+                    }
+                    placeholder={isTime ? 'sec' : '0'}
+                    className="w-full rounded-md px-2.5 py-1.5 text-sm"
+                    style={
+                      isFuture
+                        ? {
+                            background: 'rgba(255,255,255,0.05)',
+                            border: '0.5px solid rgba(255,255,255,0.1)',
+                            color: 'rgba(255,255,255,0.3)',
+                            opacity: 0.35,
+                            pointerEvents: 'none',
+                          }
+                        : isCurrent
+                          ? {
+                              background: 'rgba(239,68,68,0.05)',
+                              border: '0.5px solid rgba(239,68,68,0.4)',
+                              color: '#fff',
+                            }
+                          : {
+                              background: 'rgba(255,255,255,0.05)',
+                              border: '0.5px solid rgba(255,255,255,0.1)',
+                              color: 'rgba(255,255,255,0.3)',
+                            }
+                    }
+                  />
+                )}
+
+                {isCompleted ? (
+                  <span className="block text-center text-base" style={{ color: '#34d399' }}>
+                    ✓
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={isFuture}
+                    onClick={() => handleComplete(set.setNumber)}
+                    className="w-full rounded-md py-1.5 text-xs font-semibold"
+                    style={
+                      isFuture
+                        ? {
+                            background: 'transparent',
+                            border: '0.5px solid rgba(255,255,255,0.08)',
+                            color: 'rgba(255,255,255,0.2)',
+                            opacity: 0.3,
+                            cursor: 'default',
+                          }
+                        : {
+                            background: '#ef4444',
+                            border: 'none',
+                            color: '#fff',
+                            cursor: 'pointer',
+                          }
+                    }
+                  >
+                    Complete
+                  </button>
+                )}
+              </div>
+
+              {feedback && (
+                <div
+                  className="mb-1.5 ml-8 rounded-md px-2.5 py-1 text-[11px]"
+                  style={
+                    feedback.tone === 'amber'
+                      ? {
+                          background: 'rgba(251,191,36,0.06)',
+                          border: '0.5px solid rgba(251,191,36,0.15)',
+                          color: '#fbbf24',
+                        }
+                      : {
+                          background: 'rgba(16,185,129,0.06)',
+                          border: '0.5px solid rgba(16,185,129,0.12)',
+                          color: '#34d399',
+                        }
+                  }
+                >
+                  {feedback.message}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={onAddSet}
+          className="rounded-lg border border-zinc-600 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-800"
+        >
+          + Add set
+        </button>
+        {canDelete && (
+          <button
+            type="button"
+            onClick={() => onDeleteSet(sets[sets.length - 1].setNumber)}
+            className="text-sm text-zinc-500 hover:text-zinc-300"
+          >
+            Remove last set
+          </button>
+        )}
+      </div>
     </div>
   )
 }

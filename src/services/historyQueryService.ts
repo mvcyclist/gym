@@ -16,7 +16,6 @@ import { getSessionCalendarDate } from '../utils/sessionMetrics'
 import { sessionToActivityEntry } from '../utils/sessionToActivity'
 
 export {
-  getExerciseHistoryForProgression,
   getExerciseSetsFromSession,
   getLastCompletedSessionByWorkoutType,
   getLastExercisePerformance,

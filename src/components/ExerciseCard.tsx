@@ -1,24 +1,23 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Exercise, ExerciseLog, SetLog } from '../types/workout'
-import { SetLogger } from './SetLogger'
 import {
-  getProgressionTarget,
-  getProfileForCatalogId,
-  checkPR,
-} from '../services/progressiveOverloadEngine'
-import { getExerciseHistoryForProgression } from '../services/exerciseHistoryService'
-
-const SUBLABEL_COLOR: Record<string, string> = {
-  PROGRESS: '#4ade80',
-  ACCUMULATE: '#86efac',
-  CONSOLIDATE: '#888',
-  DELOAD: '#f87171',
-  FIRST: '#555',
-}
+  getCatalogExerciseById,
+  parseTemplateSetCount,
+  type CoachingMode,
+} from '../data/exerciseCatalog'
+import { getLastExercisePerformance } from '../services/exerciseHistoryService'
+import {
+  getProgressionRecommendation,
+  type ProgressionRecommendation,
+} from '../services/progressionRecommendation'
+import { SetLogger } from './SetLogger'
 
 interface ExerciseCardProps {
   exercise: Exercise
   exerciseLog?: ExerciseLog
+  workoutTitle: string
+  exerciseIndex: number
+  totalExercises: number
   onUpdateSet: (setNumber: number, updates: Partial<Pick<SetLog, 'weight' | 'reps'>>) => void
   onPrefillSets: (weight: string, reps: string) => void
   onCompleteSet: (setNumber: number) => void
@@ -26,99 +25,163 @@ interface ExerciseCardProps {
   onDeleteSet: (setNumber: number) => void
 }
 
+function stripTone(rec: ProgressionRecommendation, mode: CoachingMode): 'green' | 'muted' {
+  if (mode === 'time') return 'muted'
+  if (rec.case === 5) return 'muted'
+  return 'green'
+}
+
 export function ExerciseCard({
   exercise,
   exerciseLog,
+  workoutTitle,
+  exerciseIndex,
+  totalExercises,
   onUpdateSet,
   onPrefillSets,
   onCompleteSet,
   onAddSet,
   onDeleteSet,
 }: ExerciseCardProps) {
-  const sets = exerciseLog?.sets ?? []
-  const [prBanner, setPrBanner] = useState(false)
+  const catalog = getCatalogExerciseById(exercise.catalogExerciseId)
+  const coachingMode = catalog?.coachingMode ?? 'weighted'
+  const targetSetCount = parseTemplateSetCount(exercise.sets)
 
-  const { target, profile } = useMemo(() => {
-    const p = getProfileForCatalogId(exercise.catalogExerciseId, exercise.name, {
-      sets: exercise.sets,
-      reps: exercise.reps,
-    })
-    const history = getExerciseHistoryForProgression(
-      exercise.catalogExerciseId,
-      p.repRangeBottom,
-      p.repRangeTop,
-    )
-    return { target: getProgressionTarget(history, p), profile: p }
-  }, [exercise.catalogExerciseId, exercise.name, exercise.reps, exercise.sets])
+  const recommendation = useMemo(() => {
+    if (!catalog) return null
+    const last = getLastExercisePerformance(exercise.catalogExerciseId)
+    return getProgressionRecommendation(catalog, last, targetSetCount)
+  }, [catalog, exercise.catalogExerciseId, targetSetCount])
 
-  // Prefill all empty sets at once when exercise loads
+  const [weightOverride, setWeightOverride] = useState<string | null>(null)
+
   useEffect(() => {
-    if (!exerciseLog || target.targetWeight <= 0) return
-    onPrefillSets(String(target.targetWeight), String(target.targetRepsBottom))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setWeightOverride(null)
   }, [exercise.catalogExerciseId])
 
-  const handleCompleteSet = (setNumber: number) => {
-    onCompleteSet(setNumber)
-    const set = sets.find((s) => s.setNumber === setNumber)
-    if (!set) return
-    const weight = parseFloat(set.weight)
-    const reps = parseInt(set.reps, 10)
-    if (isNaN(weight) || isNaN(reps) || weight <= 0 || reps <= 0) return
-    const history = getExerciseHistoryForProgression(
-      exercise.catalogExerciseId,
-      profile.repRangeBottom,
-      profile.repRangeTop,
+  const activeTargetWeight = useMemo(() => {
+    if (coachingMode !== 'weighted' || !recommendation?.suggestedWeightLbs) return null
+    if (weightOverride !== null && weightOverride !== '') return weightOverride
+    return String(recommendation.suggestedWeightLbs)
+  }, [coachingMode, recommendation, weightOverride])
+
+  useEffect(() => {
+    if (!exerciseLog || !recommendation) return
+    if (recommendation.case === 5 || coachingMode === 'time') return
+
+    if (coachingMode === 'bodyweight_reps') {
+      onPrefillSets('BW', '')
+      return
+    }
+
+    if (activeTargetWeight) {
+      onPrefillSets(activeTargetWeight, '')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exercise.catalogExerciseId, recommendation?.case, activeTargetWeight])
+
+  if (!catalog || !recommendation) {
+    return (
+      <article className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/90 p-5">
+        <p className="text-zinc-400">Unknown exercise in catalog.</p>
+      </article>
     )
-    if (checkPR(history, weight, reps)) setPrBanner(true)
   }
 
-  const isDeload = target.state === 'DELOAD'
+  const tone = stripTone(recommendation, coachingMode)
+  const repRangeLabel =
+    recommendation.repFloor > 0
+      ? `${recommendation.repFloor}–${recommendation.repCeiling}`
+      : '—'
 
   return (
-    <article
-      className="overflow-hidden rounded-2xl border bg-zinc-900/90"
-      style={{ borderColor: isDeload ? '#3a2010' : undefined }}
-    >
-      <div className="border-b border-zinc-800 px-5 py-4 sm:px-6" style={isDeload ? { borderColor: '#3a2010' } : undefined}>
-        <h3 className="text-2xl font-bold text-white sm:text-3xl">{exercise.name}</h3>
+    <article className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/90">
+      <div className="border-b border-zinc-800 px-5 py-4 sm:px-6">
+        <p
+          className="mb-1 text-[11px] uppercase tracking-[0.06em]"
+          style={{ color: 'rgba(255,255,255,0.3)' }}
+        >
+          {workoutTitle} · Exercise {exerciseIndex + 1} of {totalExercises}
+        </p>
+        <h3 className="mb-2 text-[22px] font-bold text-white">{exercise.name}</h3>
 
-        <div className="mt-2 space-y-0.5">
-          <p className="text-sm text-zinc-300">{target.label}</p>
-          <p className="text-xs" style={{ color: SUBLABEL_COLOR[target.state] }}>
-            {target.sublabel}
+        <div
+          className="rounded-lg px-3 py-2"
+          style={
+            tone === 'green'
+              ? {
+                  background: 'rgba(16,185,129,0.07)',
+                  border: '0.5px solid rgba(16,185,129,0.18)',
+                }
+              : {
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '0.5px solid rgba(255,255,255,0.08)',
+                }
+          }
+        >
+          <p
+            className="mb-0.5 text-[13px] font-medium"
+            style={{ color: tone === 'green' ? '#34d399' : 'rgba(255,255,255,0.4)' }}
+          >
+            {recommendation.coachingMain}
+          </p>
+          <p className="text-[11px] leading-relaxed" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            {recommendation.coachingSub}
           </p>
         </div>
+
+        {recommendation.lastWorkoutLines.length > 0 && (
+          <div className="mt-3">
+            <p className="text-[10px] uppercase tracking-[0.06em] text-zinc-500">Last workout</p>
+            <ul className="mt-1 space-y-0.5">
+              {recommendation.lastWorkoutLines.map((line, index) => (
+                <li key={index} className="text-sm text-zinc-300">
+                  {line}
+                </li>
+              ))}
+            </ul>
+            {recommendation.suggestedWeightLbs !== null && coachingMode === 'weighted' && (
+              <p className="mt-2 text-sm text-zinc-300">
+                Suggested:{' '}
+                <span className="font-semibold text-white">
+                  {recommendation.suggestedWeightLbs} lbs
+                </span>
+              </p>
+            )}
+            <p className="mt-1 text-xs text-zinc-500">{recommendation.displayReason}</p>
+          </div>
+        )}
+
+        {coachingMode === 'weighted' &&
+          recommendation.case !== 5 &&
+          recommendation.suggestedWeightLbs !== null && (
+            <label className="mt-3 block">
+              <span className="text-[10px] uppercase tracking-[0.06em] text-zinc-500">
+                Working weight (editable)
+              </span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={activeTargetWeight ?? ''}
+                onChange={(event) => setWeightOverride(event.target.value)}
+                className="mt-1 w-full max-w-[140px] rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
+              />
+            </label>
+          )}
       </div>
-
-      {isDeload && (
-        <div className="border-b px-5 py-3 sm:px-6" style={{ borderColor: '#3a2010', backgroundColor: '#1c0f08' }}>
-          <p className="text-sm font-semibold" style={{ color: '#f87171' }}>
-            Deload week
-          </p>
-          <p className="mt-0.5 text-xs text-zinc-500">
-            Stalled {target.stallCount} sessions — drop weight, rebuild consistency.
-          </p>
-        </div>
-      )}
 
       {exerciseLog && (
         <SetLogger
-          sets={sets}
-          targetReps={exercise.reps}
+          sets={exerciseLog.sets}
+          coachingMode={coachingMode}
+          recommendation={recommendation}
+          targetWeight={activeTargetWeight}
+          repRangeLabel={repRangeLabel}
           onUpdateSet={onUpdateSet}
-          onCompleteSet={handleCompleteSet}
+          onCompleteSet={onCompleteSet}
           onAddSet={onAddSet}
           onDeleteSet={onDeleteSet}
         />
-      )}
-
-      {prBanner && (
-        <div className="border-t border-zinc-800 px-5 py-3 sm:px-6" style={{ backgroundColor: '#0f2010' }}>
-          <p className="text-sm font-bold" style={{ color: '#4ade80' }}>
-            🏆 New PR! Estimated 1RM is your best ever for this exercise.
-          </p>
-        </div>
       )}
     </article>
   )

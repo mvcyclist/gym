@@ -4,6 +4,7 @@ import { UserMenu } from './components/UserMenu'
 import { SyncStatusBanner } from './components/SyncStatusBanner'
 import { useAuth } from './hooks/useAuth'
 import { getWorkoutById } from './data/workouts'
+import { getCatalogExerciseById, getDefaultRestSeconds } from './data/exerciseCatalog'
 import { MobilityView } from './components/MobilityView'
 import { LeaveWorkoutDialog } from './components/LeaveWorkoutDialog'
 import { PriorDayDraftDialog } from './components/PriorDayDraftDialog'
@@ -214,10 +215,24 @@ function WorkoutApp() {
       const workout = getWorkoutById(selectedWorkoutType)
       const exercise = workout?.exercises[exerciseIndex]
       if (!exercise) return
-      startWithDuration(exercise.suggestedRestSeconds)
+      const catalog = getCatalogExerciseById(exercise.catalogExerciseId)
+      const seconds = catalog
+        ? getDefaultRestSeconds(catalog)
+        : exercise.suggestedRestSeconds
+      startWithDuration(seconds)
     },
     [selectedWorkoutType, startWithDuration],
   )
+
+  useEffect(() => {
+    if (screen !== 'workout' || !selectedWorkoutType) return
+    const workout = getWorkoutById(selectedWorkoutType)
+    const exercise = workout?.exercises[currentExerciseIndex]
+    if (!exercise) return
+    const catalog = getCatalogExerciseById(exercise.catalogExerciseId)
+    const seconds = catalog ? getDefaultRestSeconds(catalog) : exercise.suggestedRestSeconds
+    setDuration(seconds)
+  }, [screen, selectedWorkoutType, currentExerciseIndex, setDuration])
 
   const handleSelectWorkout = useCallback(
     (workoutId: WorkoutCategory) => {

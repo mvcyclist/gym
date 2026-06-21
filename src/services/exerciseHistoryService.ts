@@ -20,10 +20,6 @@ import {
   sumReps,
   type ParsedWeight,
 } from '../utils/setParsing'
-import {
-  countQualifyingSets,
-  type ExerciseHistory as EngineExerciseHistory,
-} from './progressiveOverloadEngine'
 
 export interface LastExercisePerformanceSet {
   setNumber: number
@@ -125,54 +121,4 @@ export function getLastExercisePerformance(
   }
 
   return null
-}
-
-/**
- * Returns all completed sessions for an exercise in the shape the progression
- * engine expects. This is the single read path for progression — no parallel store.
- */
-export function getExerciseHistoryForProgression(
-  historyExerciseKey: string,
-  repRangeBottom: number,
-  repRangeTop: number,
-): EngineExerciseHistory[] {
-  assertValidHistoryExerciseKey(historyExerciseKey)
-
-  const sessions = filterProgressionSessions(loadLedger().sessions)
-  const result: EngineExerciseHistory[] = []
-
-  for (const session of sessions) {
-    const log = session.exercises.find((item) =>
-      exerciseLogMatchesHistoryKey(item, historyExerciseKey),
-    )
-    if (!log) continue
-
-    const engineSets = log.sets
-      .filter((s) => s.completed)
-      .map((s) => {
-        const { weight, reps } = parseSetLoad(s)
-        if (weight === null || weight === 'BW' || reps === null) return null
-        return { reps, weightLbs: weight as number, completed: true as const }
-      })
-      .filter((s): s is { reps: number; weightLbs: number; completed: true } => s !== null)
-
-    if (engineSets.length === 0) continue
-
-    const topWeight = Math.max(...engineSets.map((s) => s.weightLbs))
-    const timestamp = new Date(session.completedAt ?? session.updatedAt).getTime()
-    const date = (session.completedAt ?? session.updatedAt).slice(0, 10)
-
-    result.push({
-      exerciseName: historyExerciseKey,
-      date,
-      timestamp,
-      weight: topWeight,
-      sets: engineSets,
-      repRangeBottom,
-      repRangeTop,
-      qualifyingSets: countQualifyingSets(engineSets, repRangeBottom),
-    })
-  }
-
-  return result
 }

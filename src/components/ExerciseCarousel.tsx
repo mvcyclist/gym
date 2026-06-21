@@ -73,6 +73,9 @@ export function ExerciseCarousel({
           <ExerciseCard
             exercise={exercise}
             exerciseLog={exerciseLog}
+            workoutTitle={`${workout.title} Day`}
+            exerciseIndex={currentIndex}
+            totalExercises={workout.exercises.length}
             onUpdateSet={(setNumber, updates) => onUpdateSet(exercise.id, setNumber, updates)}
             onPrefillSets={(weight, reps) => onPrefillSets(exercise.id, weight, reps)}
             onCompleteSet={(setNumber) => onCompleteSet(exercise.id, setNumber)}
