@@ -65,9 +65,10 @@ interface PostWorkoutProps {
   todaySummary: TodaySummary
   tomorrowRecommendation: import('../types/training').WorkoutRecommendation
   onStartTomorrow?: () => void
+  onChooseAnother: () => void
 }
 
-function PostWorkoutState({ todaySummary, tomorrowRecommendation, onStartTomorrow }: PostWorkoutProps) {
+function PostWorkoutState({ todaySummary, tomorrowRecommendation, onStartTomorrow, onChooseAnother }: PostWorkoutProps) {
   const title = isSessionSummary(todaySummary) ? todaySummary.workoutTitle : todaySummary.title
   const duration = isSessionSummary(todaySummary) ? todaySummary.durationMinutes : undefined
 
@@ -99,6 +100,16 @@ function PostWorkoutState({ todaySummary, tomorrowRecommendation, onStartTomorro
           Preview {tomorrowRecommendation.workoutType} workout
         </button>
       )}
+
+      <div className="mt-4 border-t border-zinc-800 pt-3">
+        <button
+          type="button"
+          onClick={onChooseAnother}
+          className="text-xs text-zinc-500 transition hover:text-zinc-300"
+        >
+          Start a different workout →
+        </button>
+      </div>
     </>
   )
 }
@@ -129,6 +140,7 @@ export function TodayFocusCard({
           todaySummary={todaySummary}
           tomorrowRecommendation={tomorrowRecommendation}
           onStartTomorrow={onStartTomorrow}
+          onChooseAnother={onChooseAnother}
         />
       ) : recommendation ? (
         <PreWorkoutState
