@@ -69,6 +69,7 @@ interface UseWorkoutLogReturn {
     setNumber: number,
     updates: Partial<Pick<SetLog, 'weight' | 'reps'>>,
   ) => void
+  prefillExerciseSets: (exerciseId: string, weight: string, reps: string) => void
   completeSet: (exerciseId: string, setNumber: number) => void
   addSet: (exerciseId: string) => void
   deleteSet: (exerciseId: string, setNumber: number) => void
@@ -154,6 +155,28 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
         }),
       }
 
+      persistDraft(nextSession)
+    },
+    [persistDraft, session],
+  )
+
+  const prefillExerciseSets = useCallback(
+    (exerciseId: string, weight: string, reps: string) => {
+      if (!session) return
+      const nextSession: WorkoutSession = {
+        ...session,
+        exercises: session.exercises.map((exerciseLog) => {
+          if (exerciseLog.exerciseId !== exerciseId) return exerciseLog
+          return {
+            ...exerciseLog,
+            sets: exerciseLog.sets.map((setLog) =>
+              !setLog.completed && setLog.weight === '' && setLog.reps === ''
+                ? { ...setLog, weight, reps }
+                : setLog,
+            ),
+          }
+        }),
+      }
       persistDraft(nextSession)
     },
     [persistDraft, session],
@@ -328,6 +351,7 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
     startSession,
     resumeSession,
     updateSet,
+    prefillExerciseSets,
     completeSet,
     addSet,
     deleteSet,

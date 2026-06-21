@@ -11,6 +11,7 @@ interface WorkoutDeckProps {
     setNumber: number,
     updates: Partial<Pick<SetLog, 'weight' | 'reps'>>,
   ) => void
+  onPrefillSets: (exerciseId: string, weight: string, reps: string) => void
   onCompleteSet: (exerciseId: string, setNumber: number) => void
   onAddSet: (exerciseId: string) => void
   onDeleteSet: (exerciseId: string, setNumber: number) => void
@@ -27,6 +28,7 @@ export function WorkoutDeck({
   currentExerciseIndex,
   getExerciseLog,
   onUpdateSet,
+  onPrefillSets,
   onCompleteSet,
   onAddSet,
   onDeleteSet,
@@ -56,6 +58,7 @@ export function WorkoutDeck({
       currentIndex={currentExerciseIndex}
       getExerciseLog={getExerciseLog}
       onUpdateSet={onUpdateSet}
+      onPrefillSets={onPrefillSets}
       onCompleteSet={onCompleteSet}
       onAddSet={onAddSet}
       onDeleteSet={onDeleteSet}

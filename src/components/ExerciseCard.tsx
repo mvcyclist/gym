@@ -24,6 +24,7 @@ interface ExerciseCardProps {
   exercise: Exercise
   exerciseLog?: ExerciseLog
   onUpdateSet: (setNumber: number, updates: Partial<Pick<SetLog, 'weight' | 'reps'>>) => void
+  onPrefillSets: (weight: string, reps: string) => void
   onCompleteSet: (setNumber: number) => void
   onAddSet: () => void
   onDeleteSet: (setNumber: number) => void
@@ -33,6 +34,7 @@ export function ExerciseCard({
   exercise,
   exerciseLog,
   onUpdateSet,
+  onPrefillSets,
   onCompleteSet,
   onAddSet,
   onDeleteSet,
@@ -46,17 +48,10 @@ export function ExerciseCard({
     return getProgressionTarget(history, profile)
   }, [exercise.name])
 
-  // Prefill empty sets with target weight/reps once on exercise load
+  // Prefill all empty sets at once when exercise loads
   useEffect(() => {
-    if (!exerciseLog) return
-    const prefillWeight = target.targetWeight > 0 ? String(target.targetWeight) : ''
-    const prefillReps = String(target.targetRepsBottom)
-    exerciseLog.sets.forEach((set) => {
-      if (!set.completed && set.weight === '' && set.reps === '') {
-        if (prefillWeight) onUpdateSet(set.setNumber, { weight: prefillWeight, reps: prefillReps })
-      }
-    })
-    // Only run when exercise changes, not on every render
+    if (!exerciseLog || target.targetWeight <= 0) return
+    onPrefillSets(String(target.targetWeight), String(target.targetRepsBottom))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exercise.name])
 

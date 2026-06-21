@@ -90,6 +90,7 @@ function WorkoutApp() {
     session,
     startSession,
     updateSet,
+    prefillExerciseSets,
     completeSet,
     addSet,
     deleteSet,
@@ -677,6 +678,7 @@ function WorkoutApp() {
             currentExerciseIndex={currentExerciseIndex}
             getExerciseLog={getExerciseLog}
             onUpdateSet={handleUpdateSet}
+            onPrefillSets={(exerciseId, weight, reps) => prefillExerciseSets(exerciseId, weight, reps)}
             onCompleteSet={handleCompleteSet}
             onAddSet={handleAddSet}
             onDeleteSet={handleDeleteSet}
