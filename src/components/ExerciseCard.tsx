@@ -9,7 +9,7 @@ import { getLastExercisePerformance } from '../services/exerciseHistoryService'
 import {
   getProgressionRecommendation,
   type ProgressionRecommendation,
-} from '../services/progressionRecommendation'
+} from '../services/sessionCoaching'
 import { SetLogger } from './SetLogger'
 
 interface ExerciseCardProps {

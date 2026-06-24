@@ -1,6 +1,6 @@
 import type { CoachingMode } from '../data/exerciseCatalog'
 import type { SetLog } from '../types/workout'
-import type { ProgressionRecommendation } from '../services/progressionRecommendation'
+import { getSetFeedback, type ProgressionRecommendation } from '../services/sessionCoaching'
 import { sanitizeRepsInput } from '../utils/weightInput'
 
 interface SetLoggerProps {
@@ -21,26 +21,6 @@ function displayTargetWeight(coachingMode: CoachingMode, targetWeight: string | 
   return targetWeight ?? '—'
 }
 
-function setFeedback(
-  repsLogged: number,
-  setNumber: number,
-  repFloor: number,
-  repCeiling: number,
-): { tone: 'amber' | 'green'; message: string } | null {
-  if (repsLogged > 0 && repsLogged < repFloor) {
-    return {
-      tone: 'amber',
-      message: `${repsLogged} reps — below target. Drop weight if it happens again.`,
-    }
-  }
-  if (repsLogged >= repCeiling && setNumber === 1) {
-    return {
-      tone: 'green',
-      message: 'Hit the ceiling on set 1 — push for it on the next set too.',
-    }
-  }
-  return null
-}
 
 export function SetLogger({
   sets,
@@ -101,7 +81,7 @@ export function SetLogger({
           const isFuture = !isCompleted && set.setNumber > currentSetNumber
           const feedback =
             isCompleted && !isTime
-              ? setFeedback(
+              ? getSetFeedback(
                   parseInt(set.reps, 10) || 0,
                   set.setNumber,
                   recommendation.repFloor,

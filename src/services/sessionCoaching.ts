@@ -1,7 +1,11 @@
 /**
- * Progression recommendation — spec 5-case model (replaces progressiveOverloadEngine v2).
+ * Session coaching — single source of truth for all in-session coaching logic.
  *
- * Pure function over getLastExercisePerformance output + catalog coaching profile.
+ * Covers:
+ *   - Pre-exercise recommendation (weight, rep targets, coaching copy)
+ *   - Between-set feedback after each completed set
+ *
+ * To experiment with a new coaching philosophy, edit this file only.
  */
 import type { CatalogExercise } from '../data/exerciseCatalog'
 import { getRepRangeForCatalog } from '../data/exerciseCatalog'
@@ -22,6 +26,36 @@ export interface ProgressionRecommendation {
   coachingSub: string
   displayReason: string
 }
+
+export interface SetFeedback {
+  tone: 'amber' | 'green'
+  message: string
+}
+
+// ─── Between-set feedback ────────────────────────────────────────────────────
+
+export function getSetFeedback(
+  repsLogged: number,
+  setNumber: number,
+  repFloor: number,
+  repCeiling: number,
+): SetFeedback | null {
+  if (repsLogged > 0 && repsLogged < repFloor) {
+    return {
+      tone: 'amber',
+      message: `${repsLogged} reps — below target. Drop weight if it happens again.`,
+    }
+  }
+  if (repsLogged >= repCeiling && setNumber === 1) {
+    return {
+      tone: 'green',
+      message: 'Hit the ceiling on set 1 — push for it on the next set too.',
+    }
+  }
+  return null
+}
+
+// ─── Pre-exercise recommendation ─────────────────────────────────────────────
 
 const STALE_DAYS = 14
 
@@ -45,10 +79,7 @@ function numericWeight(weight: number | 'BW'): number | null {
   return typeof weight === 'number' ? weight : null
 }
 
-function evaluateCase(
-  reps: number[],
-  repCeiling: number,
-): 1 | 2 | 3 {
+function evaluateCase(reps: number[], repCeiling: number): 1 | 2 | 3 {
   if (reps.length === 0) return 2
 
   const firstSetReps = reps[0]
