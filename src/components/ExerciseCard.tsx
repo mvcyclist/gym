@@ -25,11 +25,6 @@ interface ExerciseCardProps {
   onDeleteSet: (setNumber: number) => void
 }
 
-function stripTone(rec: ProgressionRecommendation, mode: CoachingMode): 'green' | 'muted' {
-  if (mode === 'time') return 'muted'
-  if (rec.case === 5) return 'muted'
-  return 'green'
-}
 
 export function ExerciseCard({
   exercise,
@@ -71,11 +66,6 @@ export function ExerciseCard({
 
     if (coachingMode === 'bodyweight_reps') {
       onPrefillSets('BW', '')
-      return
-    }
-
-    if (activeTargetWeight) {
-      onPrefillSets(activeTargetWeight, '')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exercise.catalogExerciseId, recommendation?.case, activeTargetWeight])
@@ -88,86 +78,125 @@ export function ExerciseCard({
     )
   }
 
-  const tone = stripTone(recommendation, coachingMode)
   const repRangeLabel =
     recommendation.repFloor > 0
       ? `${recommendation.repFloor}–${recommendation.repCeiling}`
       : '—'
 
+  const showSuggestedWeight =
+    coachingMode === 'weighted' &&
+    recommendation.case !== 5 &&
+    recommendation.suggestedWeightLbs !== null
+
   return (
     <article className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/90">
       <div className="border-b border-zinc-800 px-5 py-4 sm:px-6">
         <p
-          className="mb-1 text-[11px] uppercase tracking-[0.06em]"
+          className="mb-1 text-[12px] uppercase tracking-[0.06em]"
           style={{ color: 'rgba(255,255,255,0.3)' }}
         >
           {workoutTitle} · Exercise {exerciseIndex + 1} of {totalExercises}
         </p>
-        <h3 className="mb-2 text-[22px] font-bold text-white">{exercise.name}</h3>
+        <h3 className="mb-2 text-[26px] font-bold text-white">{exercise.name}</h3>
 
+        {/* Coaching strip — red left border (Option B) */}
         <div
-          className="rounded-lg px-3 py-2"
           style={
-            tone === 'green'
+            recommendation.case === 5
               ? {
-                  background: 'rgba(16,185,129,0.07)',
-                  border: '0.5px solid rgba(16,185,129,0.18)',
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '0.5px solid rgba(255,255,255,0.07)',
+                  borderLeft: '3px solid rgba(255,255,255,0.15)',
+                  borderRadius: '0 8px 8px 0',
+                  padding: '8px 12px',
+                  marginBottom: '0.875rem',
                 }
               : {
                   background: 'rgba(255,255,255,0.04)',
                   border: '0.5px solid rgba(255,255,255,0.08)',
+                  borderLeft: '3px solid #ef4444',
+                  borderRadius: '0 8px 8px 0',
+                  padding: '8px 12px',
+                  marginBottom: '0.875rem',
                 }
           }
         >
           <p
             className="mb-0.5 text-[13px] font-medium"
-            style={{ color: tone === 'green' ? '#34d399' : 'rgba(255,255,255,0.4)' }}
+            style={{ color: recommendation.case === 5 ? 'rgba(255,255,255,0.4)' : '#fff' }}
           >
             {recommendation.coachingMain}
           </p>
-          <p className="text-[11px] leading-relaxed" style={{ color: 'rgba(255,255,255,0.4)' }}>
+          <p className="text-[11px] leading-[1.5]" style={{ color: 'rgba(255,255,255,0.4)' }}>
             {recommendation.coachingSub}
           </p>
         </div>
 
+        {/* Meta row: last workout (left) + suggested weight (right) */}
         {recommendation.lastWorkoutLines.length > 0 && (
-          <div className="mt-3">
-            <p className="text-[10px] uppercase tracking-[0.06em] text-zinc-500">Last workout</p>
-            <ul className="mt-1 space-y-0.5">
-              {recommendation.lastWorkoutLines.map((line, index) => (
-                <li key={index} className="text-sm text-zinc-300">
-                  {line}
-                </li>
-              ))}
-            </ul>
-            {recommendation.suggestedWeightLbs !== null && coachingMode === 'weighted' && (
-              <p className="mt-2 text-sm text-zinc-300">
-                Suggested:{' '}
-                <span className="font-semibold text-white">
-                  {recommendation.suggestedWeightLbs} lbs
-                </span>
+          <div
+            className="mt-3 flex items-start gap-8 border-b pb-3"
+            style={{ borderColor: 'rgba(255,255,255,0.06)' }}
+          >
+            {/* Left: last workout */}
+            <div className="min-w-0 flex-1">
+              <p
+                className="mb-1 text-[10px] uppercase tracking-[0.07em]"
+                style={{ color: 'rgba(255,255,255,0.25)' }}
+              >
+                Last workout
               </p>
+              <ul className="space-y-0">
+                {recommendation.lastWorkoutLines.map((line, index) => (
+                  <li
+                    key={index}
+                    className="text-[12px] leading-[1.9]"
+                    style={{ color: 'rgba(255,255,255,0.45)' }}
+                  >
+                    {line}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1.5 text-[11px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                {recommendation.displayReason}
+              </p>
+            </div>
+
+            {/* Right: suggested weight input */}
+            {showSuggestedWeight && (
+              <div className="shrink-0 text-right">
+                <p
+                  className="mb-1 text-[10px] uppercase tracking-[0.07em]"
+                  style={{ color: 'rgba(255,255,255,0.25)' }}
+                >
+                  Suggested weight
+                </p>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={activeTargetWeight ?? ''}
+                  onChange={(event) => setWeightOverride(event.target.value)}
+                  className="mb-1 block text-center font-bold"
+                  style={{
+                    width: 90,
+                    fontSize: 18,
+                    background: 'rgba(255,255,255,0.08)',
+                    border: '0.5px solid rgba(255,255,255,0.2)',
+                    borderRadius: 6,
+                    padding: '6px 12px',
+                    color: '#fff',
+                  }}
+                />
+                <p
+                  className="text-[10px]"
+                  style={{ color: 'rgba(255,255,255,0.2)' }}
+                >
+                  edit to override
+                </p>
+              </div>
             )}
-            <p className="mt-1 text-xs text-zinc-500">{recommendation.displayReason}</p>
           </div>
         )}
-
-        {coachingMode === 'weighted' &&
-          recommendation.case !== 5 &&
-          recommendation.suggestedWeightLbs !== null && (
-            <label className="mt-3 block">
-              <span className="text-[10px] uppercase tracking-[0.06em] text-zinc-500">
-                Working weight (editable)
-              </span>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={activeTargetWeight ?? ''}
-                onChange={(event) => setWeightOverride(event.target.value)}
-                className="mt-1 w-full max-w-[140px] rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
-              />
-            </label>
-          )}
       </div>
 
       {exerciseLog && (

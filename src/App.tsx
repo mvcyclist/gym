@@ -13,7 +13,6 @@ import { WorkoutCompleteSummaryDialog } from './components/WorkoutCompleteSummar
 import { TimerBar } from './components/TimerBar'
 import { TimerOnlyView } from './components/TimerOnlyView'
 import { WorkoutDeck } from './components/WorkoutDeck'
-import { WorkoutElapsedBar } from './components/WorkoutElapsedBar'
 import { WorkoutSelector } from './components/WorkoutSelector'
 import { WorkoutStartView } from './components/WorkoutStartView'
 import { CardioLogScreen } from './components/CardioLogScreen'
@@ -587,22 +586,20 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
       {configured && user && screen === 'home' && <SyncStatusBanner />}
 
       {showWorkoutTimers && (
-        <div className="sticky top-0 z-50 bg-black/95 backdrop-blur-sm">
-          <WorkoutElapsedBar elapsedSeconds={workoutElapsedSeconds} />
-          <TimerBar
-            remaining={timerRemaining}
-            duration={timerDuration}
-            status={timerStatus}
-            muted={muted}
-            embedded
-            onStart={start}
-            onPause={pause}
-            onReset={reset}
-            onAdjust={adjustRemaining}
-            onSetDuration={setDuration}
-            onToggleMute={() => setMuted((value) => !value)}
-          />
-        </div>
+        <TimerBar
+          remaining={timerRemaining}
+          duration={timerDuration}
+          status={timerStatus}
+          muted={muted}
+          elapsedSeconds={workoutElapsedSeconds}
+          embedded
+          onStart={start}
+          onPause={pause}
+          onReset={reset}
+          onAdjust={adjustRemaining}
+          onSetDuration={setDuration}
+          onToggleMute={() => setMuted((value) => !value)}
+        />
       )}
 
       {showRestTimerOnly && (

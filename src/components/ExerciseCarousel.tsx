@@ -57,7 +57,7 @@ export function ExerciseCarousel({
           <p className="text-sm font-semibold uppercase tracking-wider text-red-500">
             {workout.title} Day
           </p>
-          <h2 className="text-3xl font-bold text-white">{progressLabel}</h2>
+          <h2 className="text-[28px] font-bold text-white">{progressLabel}</h2>
         </div>
         <button
           type="button"

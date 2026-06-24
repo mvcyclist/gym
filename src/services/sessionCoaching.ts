@@ -4,6 +4,7 @@
  * Covers:
  *   - Pre-exercise recommendation (weight, rep targets, coaching copy)
  *   - Between-set feedback after each completed set
+ *   - Next session card shown after the last set completes
  *
  * To experiment with a new coaching philosophy, edit this file only.
  */
@@ -32,27 +33,138 @@ export interface SetFeedback {
   message: string
 }
 
+export interface NextSessionCard {
+  title: string
+  body: string
+  suggestedWeightLbs: number | null
+  repFloor: number
+  repCeiling: number
+}
+
 // ─── Between-set feedback ────────────────────────────────────────────────────
 
+/**
+ * Returns feedback for the set that was just completed.
+ *
+ * @param justCompletedSetNumber  1-indexed set number just finished
+ * @param allCompletedReps        reps for sets 1..N in order (length = justCompletedSetNumber)
+ * @param repFloor                minimum acceptable reps at this weight
+ * @param repCeiling              rep target indicating readiness to progress
+ * @param totalSets               total number of sets in this exercise
+ */
 export function getSetFeedback(
-  repsLogged: number,
-  setNumber: number,
+  justCompletedSetNumber: number,
+  allCompletedReps: number[],
   repFloor: number,
   repCeiling: number,
+  totalSets: number,
 ): SetFeedback | null {
-  if (repsLogged > 0 && repsLogged < repFloor) {
-    return {
-      tone: 'amber',
-      message: `${repsLogged} reps — below target. Drop weight if it happens again.`,
+  const repsLogged = allCompletedReps[justCompletedSetNumber - 1]
+  if (repsLogged === undefined || repsLogged === 0) return null
+
+  const isLastSet = justCompletedSetNumber === totalSets
+
+  if (isLastSet) {
+    const repsStr = allCompletedReps.slice(0, totalSets).join(' / ')
+    const firstReps = allCompletedReps[0] ?? 0
+    const hasSignificantDrop = allCompletedReps
+      .slice(0, totalSets)
+      .some((r) => firstReps > 0 && r < firstReps * 0.75)
+    const allNearCeiling = allCompletedReps
+      .slice(0, totalSets)
+      .every((r) => r >= repCeiling - 1)
+
+    if (allNearCeiling) {
+      return { tone: 'green', message: `${repsStr} — strong session. You're ready to progress.` }
     }
-  }
-  if (repsLogged >= repCeiling && setNumber === 1) {
-    return {
-      tone: 'green',
-      message: 'Hit the ceiling on set 1 — push for it on the next set too.',
+    if (hasSignificantDrop) {
+      return {
+        tone: 'amber',
+        message: `${repsStr} — performance dropped. Focus on form next time.`,
+      }
     }
+    return { tone: 'green', message: `${repsStr} — solid. Keep building at this weight.` }
   }
+
+  if (justCompletedSetNumber === 1) {
+    if (repsLogged >= repCeiling) {
+      return {
+        tone: 'green',
+        message: 'Hit the ceiling on set 1 — push for it on the next set too.',
+      }
+    }
+    if (repsLogged < repFloor) {
+      return {
+        tone: 'amber',
+        message: `${repsLogged} reps — below target. Drop weight if it happens again.`,
+      }
+    }
+    return null
+  }
+
+  if (justCompletedSetNumber === 2) {
+    const set1Reps = allCompletedReps[0] ?? 0
+    if (repsLogged < repFloor) {
+      return {
+        tone: 'amber',
+        message: `${repsLogged} reps — below target. Drop weight if it happens again.`,
+      }
+    }
+    if (set1Reps > 0 && repsLogged < set1Reps * 0.75) {
+      return {
+        tone: 'amber',
+        message: `Rep drop from set 1 (${set1Reps} → ${repsLogged}). Consider dropping weight.`,
+      }
+    }
+    return null
+  }
+
   return null
+}
+
+// ─── Next session card ───────────────────────────────────────────────────────
+
+export function getNextSessionCard(rec: ProgressionRecommendation): NextSessionCard | null {
+  if (rec.case === 5) return null
+
+  const { repFloor, repCeiling, suggestedWeightLbs, daysSinceLastWorkout } = rec
+
+  switch (rec.case) {
+    case 1:
+      return {
+        title: `↑ Increase to ${suggestedWeightLbs} lbs`,
+        body: `You hit ${repCeiling} reps across all sets. Add weight and build back from the lower end.`,
+        suggestedWeightLbs,
+        repFloor,
+        repCeiling,
+      }
+    case 2:
+      return {
+        title: `→ Stay at ${suggestedWeightLbs} lbs`,
+        body: 'Keep building reps. Hit the ceiling consistently before adding weight.',
+        suggestedWeightLbs,
+        repFloor,
+        repCeiling,
+      }
+    case 3:
+      return {
+        title: `→ Stay at ${suggestedWeightLbs} lbs`,
+        body: 'Performance dropped across sets. Same weight, focus on quality next session.',
+        suggestedWeightLbs,
+        repFloor,
+        repCeiling,
+      }
+    case 4:
+      return {
+        title: `↓ Reset to ${suggestedWeightLbs} lbs`,
+        body: `It's been ${daysSinceLastWorkout} days. Ease back in and rebuild momentum.`,
+        suggestedWeightLbs,
+        repFloor,
+        repCeiling,
+      }
+    default:
+      return null
+  }
 }
 
 // ─── Pre-exercise recommendation ─────────────────────────────────────────────
@@ -70,9 +182,9 @@ function formatSetLine(weight: number | 'BW', reps: number): string {
   return `${weight} × ${reps}`
 }
 
-function roundDownToIncrement(weight: number, increment: number): number {
+function roundToIncrement(weight: number, increment: number): number {
   if (increment <= 0) return weight
-  return Math.floor(weight / increment) * increment
+  return Math.round(weight / increment) * increment
 }
 
 function numericWeight(weight: number | 'BW'): number | null {
@@ -165,7 +277,7 @@ export function getProgressionRecommendation(
     numericWeight(lastPerformance.topSet?.weight ?? lastPerformance.sets[0]?.weight ?? null) ?? 0
 
   if (isWeighted && daysAgo > STALE_DAYS && topNumericWeight > 0) {
-    const resetWeight = roundDownToIncrement(topNumericWeight * 0.9, 5)
+    const resetWeight = roundToIncrement(topNumericWeight * 0.9, 5)
     return {
       case: 4,
       repFloor,
