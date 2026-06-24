@@ -3,12 +3,10 @@ import type { Exercise, ExerciseLog, SetLog } from '../types/workout'
 import {
   getCatalogExerciseById,
   parseTemplateSetCount,
-  type CoachingMode,
 } from '../data/exerciseCatalog'
 import { getLastExercisePerformance } from '../services/exerciseHistoryService'
 import {
   getProgressionRecommendation,
-  type ProgressionRecommendation,
 } from '../services/sessionCoaching'
 import { SetLogger } from './SetLogger'
 

@@ -53,11 +53,6 @@ export function SetLogger({
   const totalSets = sets.length
   const allCompleted = sets.every((s) => s.completed)
 
-  const completedReps = sets
-    .filter((s) => s.completed)
-    .sort((a, b) => a.setNumber - b.setNumber)
-    .map((s) => parseInt(s.reps, 10) || 0)
-
   const handleComplete = (setNumber: number) => {
     const set = sets.find((item) => item.setNumber === setNumber)
     if (!set) return
