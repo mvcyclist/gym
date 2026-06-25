@@ -3,7 +3,7 @@ import type { CoachingMode } from '../data/exerciseCatalog'
 import type { SetLog } from '../types/workout'
 import {
   getSetFeedback,
-  getNextSessionCard,
+  getPostSessionNextCard,
   type ProgressionRecommendation,
 } from '../services/sessionCoaching'
 import { sanitizeRepsInput } from '../utils/weightInput'
@@ -67,7 +67,19 @@ export function SetLogger({
     onCompleteSet(setNumber)
   }
 
-  const nextSessionCard = allCompleted ? getNextSessionCard(recommendation) : null
+  const nextSessionCard = allCompleted
+    ? getPostSessionNextCard(
+        sets
+          .filter((s) => s.completed)
+          .map((s) => ({
+            weight: s.weight === 'BW' ? 'BW' : s.weight === '' ? null : Number(s.weight),
+            reps: parseInt(s.reps, 10) || 0,
+          })),
+        recommendation.repFloor,
+        recommendation.repCeiling,
+        recommendation.weightIncrement ?? 5,
+      )
+    : null
   const nextSessionWeight =
     nextSessionWeightOverride ?? String(nextSessionCard?.suggestedWeightLbs ?? '')
 

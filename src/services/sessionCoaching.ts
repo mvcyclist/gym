@@ -26,6 +26,7 @@ export interface ProgressionRecommendation {
   coachingMain: string
   coachingSub: string
   displayReason: string
+  weightIncrement: number
 }
 
 export interface SetFeedback {
@@ -167,6 +168,59 @@ export function getNextSessionCard(rec: ProgressionRecommendation): NextSessionC
   }
 }
 
+// ─── Post-session next-session card ──────────────────────────────────────────
+
+/**
+ * Computes the next session card from what was ACTUALLY logged this session,
+ * rather than from the pre-session recommendation.
+ */
+export function getPostSessionNextCard(
+  completedSets: Array<{ weight: number | 'BW' | null; reps: number }>,
+  repFloor: number,
+  repCeiling: number,
+  increment: number,
+): NextSessionCard | null {
+  const numericSets = completedSets.filter(
+    (s): s is { weight: number; reps: number } =>
+      typeof s.weight === 'number' && s.reps > 0,
+  )
+
+  if (numericSets.length === 0) return null
+
+  const topWeight = Math.max(...numericSets.map((s) => s.weight))
+  const reps = numericSets.map((s) => s.reps)
+  const progressionCase = evaluateCase(reps, repCeiling)
+
+  if (progressionCase === 1) {
+    const newWeight = roundToIncrement(topWeight + increment, increment)
+    return {
+      title: `↑ Increase to ${newWeight} lbs`,
+      body: `You hit ${repCeiling} reps across all sets. Add weight and build back from the lower end.`,
+      suggestedWeightLbs: newWeight,
+      repFloor,
+      repCeiling,
+    }
+  }
+
+  if (progressionCase === 3) {
+    return {
+      title: `→ Stay at ${topWeight} lbs`,
+      body: 'Performance dropped across sets. Same weight, focus on quality next session.',
+      suggestedWeightLbs: topWeight,
+      repFloor,
+      repCeiling,
+    }
+  }
+
+  return {
+    title: `→ Stay at ${topWeight} lbs`,
+    body: 'Keep building reps at this weight.',
+    suggestedWeightLbs: topWeight,
+    repFloor,
+    repCeiling,
+  }
+}
+
 // ─── Pre-exercise recommendation ─────────────────────────────────────────────
 
 const STALE_DAYS = 14
@@ -212,6 +266,7 @@ function buildFirstSession(
   repFloor: number,
   repCeiling: number,
   targetSets: number,
+  increment: number,
 ): ProgressionRecommendation {
   return {
     case: 5,
@@ -225,6 +280,7 @@ function buildFirstSession(
     coachingMain: 'First session',
     coachingSub: 'Find a challenging weight and log your baseline.',
     displayReason: 'First session — find a challenging weight and establish a baseline.',
+    weightIncrement: increment,
   }
 }
 
@@ -241,6 +297,7 @@ function buildTimeCoaching(exerciseName: string): ProgressionRecommendation {
     coachingMain: 'Timed exercise',
     coachingSub: `Log ${exerciseName} duration or reps — no weight progression for this movement.`,
     displayReason: 'Timed exercise — focus on quality holds or controlled reps.',
+    weightIncrement: 0,
   }
 }
 
@@ -255,16 +312,17 @@ export function getProgressionRecommendation(
   }
 
   const repRange = getRepRangeForCatalog(catalog)
+  const increment = catalog.weightIncrementLbs ?? 5
+
   if (!repRange) {
-    return buildFirstSession(6, 10, targetSets)
+    return buildFirstSession(6, 10, targetSets, increment)
   }
 
   const { floor: repFloor, ceiling: repCeiling } = repRange
   const isWeighted = catalog.coachingMode === 'weighted'
-  const increment = catalog.weightIncrementLbs ?? 5
 
   if (!lastPerformance || lastPerformance.sets.length === 0) {
-    return buildFirstSession(repFloor, repCeiling, targetSets)
+    return buildFirstSession(repFloor, repCeiling, targetSets, increment)
   }
 
   const daysAgo = daysSince(lastPerformance.lastPerformedAt, now)
@@ -290,6 +348,7 @@ export function getProgressionRecommendation(
       coachingMain: `↓ Conservative reset · ${topNumericWeight} → ${resetWeight} lbs`,
       coachingSub: "It's been a while. Ease back in and rebuild momentum.",
       displayReason: `It's been ${daysAgo} days. Ease back in at ${resetWeight} lbs.`,
+      weightIncrement: increment,
     }
   }
 
@@ -317,6 +376,7 @@ export function getProgressionRecommendation(
       coachingSub,
       displayReason:
         'You reached the top of your rep range. Increase weight and build back up from the lower end.',
+      weightIncrement: increment,
     }
   }
 
@@ -336,6 +396,7 @@ export function getProgressionRecommendation(
         : '→ Stay at current reps — focus on form',
       coachingSub: 'Performance dropped last session. Quality reps matter more than numbers today.',
       displayReason: 'Performance dropped across sets. Stay here and focus on quality reps.',
+      weightIncrement: increment,
     }
   }
 
@@ -352,5 +413,6 @@ export function getProgressionRecommendation(
     coachingMain: isWeighted ? `→ Stay at ${holdWeight} lbs` : '→ Keep building reps',
     coachingSub: 'Keep building reps at this weight.',
     displayReason: 'Keep building reps at this weight.',
+    weightIncrement: increment,
   }
 }
