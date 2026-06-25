@@ -15,6 +15,8 @@ export interface CatalogExercise {
   /** Required for weighted and bodyweight_reps — drives rep range and rest defaults. */
   movementClass?: MovementClass
   weightIncrementLbs?: number
+  /** Override the mode/class default rest duration for this specific exercise. */
+  restSeconds?: number
 }
 
 export const REP_RANGES: Record<MovementClass, { floor: number; ceiling: number }> = {
@@ -30,7 +32,7 @@ const BODYWEIGHT_REST_SECONDS = 60
 
 export const exerciseCatalog: CatalogExercise[] = [
   { id: 'barbell_bench_press', name: 'Barbell Bench Press', coachingMode: 'weighted', movementClass: 'compound_upper', weightIncrementLbs: 5 },
-  { id: 'dumbbell_pullover', name: 'Dumbbell Pullover', coachingMode: 'weighted', movementClass: 'compound_upper', weightIncrementLbs: 2.5 },
+  { id: 'dumbbell_pullover', name: 'Dumbbell Pullover', coachingMode: 'weighted', movementClass: 'isolation_upper', weightIncrementLbs: 2.5 },
   { id: 'overhead_press', name: 'Overhead Press', coachingMode: 'weighted', movementClass: 'compound_upper', weightIncrementLbs: 2.5 },
   { id: 'inclined_barbell_press', name: 'Inclined Barbell Press', coachingMode: 'weighted', movementClass: 'compound_upper', weightIncrementLbs: 5 },
   { id: 'lateral_raises', name: 'Lateral Raises', coachingMode: 'weighted', movementClass: 'isolation_upper', weightIncrementLbs: 2.5 },
@@ -39,7 +41,7 @@ export const exerciseCatalog: CatalogExercise[] = [
   { id: 'trx_tricep_extension', name: 'TRX Tricep Extension', coachingMode: 'bodyweight_reps', movementClass: 'isolation_upper' },
   { id: 'close_grip_push_ups', name: 'Close-Grip Push-ups', coachingMode: 'bodyweight_reps', movementClass: 'compound_upper' },
   { id: 'trx_pike', name: 'TRX Pike', coachingMode: 'bodyweight_reps', movementClass: 'isolation_upper' },
-  { id: 'pull_ups', name: 'Pull-ups', coachingMode: 'bodyweight_reps', movementClass: 'compound_upper' },
+  { id: 'pull_ups', name: 'Pull-ups', coachingMode: 'bodyweight_reps', movementClass: 'compound_upper', restSeconds: 180 },
   { id: 'barbell_rows', name: 'Barbell Rows', coachingMode: 'weighted', movementClass: 'compound_upper', weightIncrementLbs: 2.5 },
   { id: 'single_dumbbell_arm_rows', name: 'Single Dumbbell Arm Rows', coachingMode: 'weighted', movementClass: 'compound_upper', weightIncrementLbs: 2.5 },
   { id: 'trx_rear_delt_fly', name: 'TRX Rear Delt Fly', coachingMode: 'bodyweight_reps', movementClass: 'isolation_upper' },
@@ -82,6 +84,7 @@ export function getRepRangeForCatalog(exercise: CatalogExercise): { floor: numbe
 }
 
 export function getDefaultRestSeconds(exercise: CatalogExercise): number {
+  if (exercise.restSeconds !== undefined) return exercise.restSeconds
   if (exercise.coachingMode === 'time' || exercise.coachingMode === 'bodyweight_reps') {
     return BODYWEIGHT_REST_SECONDS
   }

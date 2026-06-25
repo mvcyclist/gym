@@ -121,12 +121,11 @@ function WorkoutApp() {
     if (!selectedWorkoutType) return []
     const workout = getWorkoutById(selectedWorkoutType)
     if (!workout) return []
-    if (!session) return workout.exercises
-    const order = session.exerciseOrder ?? workout.exercises.map((e) => e.id)
+    const order = session?.exerciseOrder ?? workout.exercises.map((e) => e.id)
     return order
       .map((id) => workout.exercises.find((e) => e.id === id))
       .filter(Boolean) as typeof workout.exercises
-  }, [selectedWorkoutType, session])
+  }, [selectedWorkoutType, session?.exerciseOrder])
 
   useEffect(() => {
     scrollToTopAfterLayout()
@@ -505,7 +504,9 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
       if (!exercise) return
 
       completeSet(exerciseId, setNumber)
-      startWithDuration(exercise.suggestedRestSeconds)
+      const catalog = getCatalogExerciseById(exercise.catalogExerciseId)
+      const seconds = catalog ? getDefaultRestSeconds(catalog) : exercise.suggestedRestSeconds
+      startWithDuration(seconds)
     },
     [completeSet, effectiveExercises, startWithDuration],
   )
