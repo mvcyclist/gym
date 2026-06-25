@@ -40,11 +40,26 @@ export function ExerciseCard({
   const coachingMode = catalog?.coachingMode ?? 'weighted'
   const targetSetCount = parseTemplateSetCount(exercise.sets)
 
+  const lastPerformance = useMemo(
+    () => getLastExercisePerformance(exercise.catalogExerciseId),
+    [exercise.catalogExerciseId],
+  )
+
   const recommendation = useMemo(() => {
     if (!catalog) return null
-    const last = getLastExercisePerformance(exercise.catalogExerciseId)
-    return getProgressionRecommendation(catalog, last, targetSetCount)
-  }, [catalog, exercise.catalogExerciseId, targetSetCount])
+    return getProgressionRecommendation(catalog, lastPerformance, targetSetCount)
+  }, [catalog, lastPerformance, targetSetCount])
+
+  useEffect(() => {
+    if (!lastPerformance) return
+    console.debug('[coaching] history match for', exercise.catalogExerciseId, {
+      matchedExerciseName: lastPerformance.exerciseName,
+      lastPerformedAt: lastPerformance.lastPerformedAt,
+      daysSince: lastPerformance.lastPerformedAt,
+      sets: lastPerformance.sets.map((s) => `${s.weight} × ${s.reps}`),
+      topSet: lastPerformance.topSet,
+    })
+  }, [exercise.catalogExerciseId, lastPerformance])
 
   const [weightOverride, setWeightOverride] = useState<string | null>(null)
 
@@ -143,6 +158,12 @@ export function ExerciseCard({
                 style={{ color: 'rgba(255,255,255,0.25)' }}
               >
                 Last workout
+                {lastPerformance?.lastPerformedAt && (
+                  <span style={{ color: 'rgba(255,255,255,0.18)', marginLeft: 6 }}>
+                    · {lastPerformance.lastPerformedAt}
+                    {recommendation.daysSinceLastWorkout !== null && ` (${recommendation.daysSinceLastWorkout}d ago)`}
+                  </span>
+                )}
               </p>
               <ul className="space-y-0">
                 {recommendation.lastWorkoutLines.map((line, index) => (

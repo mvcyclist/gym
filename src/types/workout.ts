@@ -41,6 +41,7 @@ export interface ExerciseLog {
   catalogExerciseId?: string
   exerciseName: string
   sets: SetLog[]
+  skipped?: boolean
 }
 
 export interface WorkoutSession {
@@ -55,6 +56,8 @@ export interface WorkoutSession {
   /** ISO timestamp when the elapsed timer last started/resumed; null while paused. */
   workoutTimerStartedAt?: string | null
   exercises: ExerciseLog[]
+  /** Custom exercise ordering/filtering — IDs in the order to show them. If absent, use template order. */
+  exerciseOrder?: string[]
 }
 
 export interface AppState {

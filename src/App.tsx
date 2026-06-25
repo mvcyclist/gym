@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AuthGate } from './components/AuthGate'
 import { UserMenu } from './components/UserMenu'
 import { SyncStatusBanner } from './components/SyncStatusBanner'
@@ -86,6 +86,9 @@ function WorkoutApp() {
     addSet,
     deleteSet,
     skipExercise,
+    isExerciseSkipped,
+    reorderExercises,
+    removeExerciseFromSession,
     getExerciseLog,
     isExerciseLogged,
     finishWorkout,
@@ -113,6 +116,17 @@ function WorkoutApp() {
   const showWorkoutTimers = screen === 'workout' && workoutStarted
   const showRestTimerOnly = screen === 'timer-only'
   const completedSetsInSession = session ? countCompletedSets(session) : 0
+
+  const effectiveExercises = useMemo(() => {
+    if (!selectedWorkoutType) return []
+    const workout = getWorkoutById(selectedWorkoutType)
+    if (!workout) return []
+    if (!session) return workout.exercises
+    const order = session.exerciseOrder ?? workout.exercises.map((e) => e.id)
+    return order
+      .map((id) => workout.exercises.find((e) => e.id === id))
+      .filter(Boolean) as typeof workout.exercises
+  }, [selectedWorkoutType, session])
 
   useEffect(() => {
     scrollToTopAfterLayout()
@@ -210,28 +224,23 @@ function WorkoutApp() {
 
   const startRestForExercise = useCallback(
     (exerciseIndex: number) => {
-      if (!selectedWorkoutType) return
-      const workout = getWorkoutById(selectedWorkoutType)
-      const exercise = workout?.exercises[exerciseIndex]
+      const exercise = effectiveExercises[exerciseIndex]
       if (!exercise) return
       const catalog = getCatalogExerciseById(exercise.catalogExerciseId)
-      const seconds = catalog
-        ? getDefaultRestSeconds(catalog)
-        : exercise.suggestedRestSeconds
+      const seconds = catalog ? getDefaultRestSeconds(catalog) : exercise.suggestedRestSeconds
       startWithDuration(seconds)
     },
-    [selectedWorkoutType, startWithDuration],
+    [effectiveExercises, startWithDuration],
   )
 
   useEffect(() => {
-    if (screen !== 'workout' || !selectedWorkoutType) return
-    const workout = getWorkoutById(selectedWorkoutType)
-    const exercise = workout?.exercises[currentExerciseIndex]
+    if (screen !== 'workout') return
+    const exercise = effectiveExercises[currentExerciseIndex]
     if (!exercise) return
     const catalog = getCatalogExerciseById(exercise.catalogExerciseId)
     const seconds = catalog ? getDefaultRestSeconds(catalog) : exercise.suggestedRestSeconds
     setDuration(seconds)
-  }, [screen, selectedWorkoutType, currentExerciseIndex, setDuration])
+  }, [screen, effectiveExercises, currentExerciseIndex, setDuration])
 
   const handleSelectWorkout = useCallback(
     (workoutId: WorkoutCategory) => {
@@ -255,9 +264,9 @@ function WorkoutApp() {
     [openWorkoutPreview, resumeSession, resumeWorkoutScreen],
   )
 
-  const handleStartWorkout = useCallback(() => {
+  const handleStartWorkout = useCallback((customOrder?: string[]) => {
     if (!selectedWorkoutType) return
-    startSession(selectedWorkoutType)
+    startSession(selectedWorkoutType, customOrder)
     reset()
     scrollToTopAfterLayout()
   }, [reset, selectedWorkoutType, startSession])
@@ -425,43 +434,38 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
   }, [])
 
   const handlePrevious = useCallback(() => {
-    if (!selectedWorkoutType) return
-    const workout = getWorkoutById(selectedWorkoutType)
-    if (!workout) return
-
     for (let index = currentExerciseIndex - 1; index >= 0; index -= 1) {
-      if (isExerciseLogged(workout.exercises[index].id)) {
+      const id = effectiveExercises[index]?.id
+      if (id && (isExerciseLogged(id) || isExerciseSkipped(id))) {
         setCurrentExerciseIndex(index)
         return
       }
     }
-  }, [currentExerciseIndex, isExerciseLogged, selectedWorkoutType])
+  }, [currentExerciseIndex, effectiveExercises, isExerciseLogged, isExerciseSkipped])
 
   const handleNext = useCallback(() => {
-    if (!selectedWorkoutType) return
-    const workout = getWorkoutById(selectedWorkoutType)
-    if (!workout) return
-
-    const exercise = workout.exercises[currentExerciseIndex]
+    const exercise = effectiveExercises[currentExerciseIndex]
+    if (!exercise) return
     const exerciseLog = getExerciseLog(exercise.id)
-    const allSetsComplete = exerciseLog?.sets.every((set) => set.completed) ?? false
+    const allSetsComplete =
+      (exerciseLog?.sets.length ?? 0) > 0 && (exerciseLog?.sets.every((set) => set.completed) ?? false)
     if (!allSetsComplete) return
 
-    const nextIndex = Math.min(workout.exercises.length - 1, currentExerciseIndex + 1)
+    const nextIndex = Math.min(effectiveExercises.length - 1, currentExerciseIndex + 1)
     if (nextIndex === currentExerciseIndex) return
 
     startRestForExercise(nextIndex)
     setCurrentExerciseIndex(nextIndex)
-  }, [currentExerciseIndex, getExerciseLog, selectedWorkoutType, startRestForExercise])
+  }, [currentExerciseIndex, effectiveExercises, getExerciseLog, startRestForExercise])
 
   const handleFinish = useCallback(() => {
-    if (!selectedWorkoutType || !session) return
-    const workout = getWorkoutById(selectedWorkoutType)
-    if (!workout) return
+    if (!session) return
 
-    const exercise = workout.exercises[currentExerciseIndex]
+    const exercise = effectiveExercises[currentExerciseIndex]
+    if (!exercise) return
     const exerciseLog = getExerciseLog(exercise.id)
-    const allSetsComplete = exerciseLog?.sets.every((set) => set.completed) ?? false
+    const allSetsComplete =
+      (exerciseLog?.sets.length ?? 0) > 0 && (exerciseLog?.sets.every((set) => set.completed) ?? false)
     if (!allSetsComplete) return
 
     if (countCompletedSets(session) === 0) return
@@ -476,10 +480,10 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
       .catch((error) => console.error('[workout] failed to finish workout', error))
   }, [
     currentExerciseIndex,
+    effectiveExercises,
     finishWorkout,
     getExerciseLog,
     goHome,
-    selectedWorkoutType,
     session,
     showWorkoutCompleteSummary,
   ])
@@ -497,15 +501,13 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
 
   const handleCompleteSet = useCallback(
     (exerciseId: string, setNumber: number) => {
-      if (!selectedWorkoutType) return
-      const workout = getWorkoutById(selectedWorkoutType)
-      const exercise = workout?.exercises.find((item) => item.id === exerciseId)
+      const exercise = effectiveExercises.find((item) => item.id === exerciseId)
       if (!exercise) return
 
       completeSet(exerciseId, setNumber)
       startWithDuration(exercise.suggestedRestSeconds)
     },
-    [completeSet, selectedWorkoutType, startWithDuration],
+    [completeSet, effectiveExercises, startWithDuration],
   )
 
   const handleAddSet = useCallback(
@@ -524,14 +526,10 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
 
   const handleSkipExercise = useCallback(
     (exerciseId: string) => {
-      if (!selectedWorkoutType) return
-      const workout = getWorkoutById(selectedWorkoutType)
-      if (!workout) return
-
       const updated = skipExercise(exerciseId)
       if (!updated) return
 
-      const isLast = currentExerciseIndex >= workout.exercises.length - 1
+      const isLast = currentExerciseIndex >= effectiveExercises.length - 1
 
       if (isLast) {
         if (countCompletedSets(updated) === 0) {
@@ -551,17 +549,50 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
         return
       }
 
-      setCurrentExerciseIndex((index) => Math.min(workout.exercises.length - 1, index + 1))
+      setCurrentExerciseIndex((index) => Math.min(effectiveExercises.length - 1, index + 1))
     },
     [
       currentExerciseIndex,
+      effectiveExercises.length,
       discardActiveWorkout,
       finishWorkout,
       goHome,
-      selectedWorkoutType,
       showWorkoutCompleteSummary,
       skipExercise,
     ],
+  )
+
+  const handleRemoveExercise = useCallback(
+    (exerciseId: string) => {
+      const updated = removeExerciseFromSession(exerciseId)
+      if (!updated) return
+
+      setCurrentExerciseIndex((index) => {
+        const newEffective = updated.exerciseOrder
+          ? updated.exerciseOrder
+          : effectiveExercises.filter((e) => e.id !== exerciseId).map((e) => e.id)
+        const clampedIndex = Math.min(index, Math.max(0, newEffective.length - 1))
+        if (effectiveExercises[index]?.id === exerciseId) {
+          return Math.min(index, newEffective.length - 1)
+        }
+        return clampedIndex
+      })
+    },
+    [effectiveExercises, removeExerciseFromSession],
+  )
+
+  const handleReorderExercises = useCallback(
+    (newOrder: string[]) => {
+      reorderExercises(newOrder)
+    },
+    [reorderExercises],
+  )
+
+  const handleJumpToExercise = useCallback(
+    (index: number) => {
+      setCurrentExerciseIndex(index)
+    },
+    [],
   )
 
   const handleToggleTimer = useCallback(() => {
@@ -642,6 +673,7 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
         {screen === 'workout' && selectedWorkoutType && workoutStarted && (
           <WorkoutDeck
             workoutId={selectedWorkoutType}
+            exercises={effectiveExercises}
             currentExerciseIndex={currentExerciseIndex}
             getExerciseLog={getExerciseLog}
             onUpdateSet={handleUpdateSet}
@@ -650,7 +682,11 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
             onAddSet={handleAddSet}
             onDeleteSet={handleDeleteSet}
             onSkipExercise={handleSkipExercise}
+            onRemoveExercise={handleRemoveExercise}
+            onReorderExercises={handleReorderExercises}
+            onJumpToExercise={handleJumpToExercise}
             isExerciseLogged={isExerciseLogged}
+            isExerciseSkipped={isExerciseSkipped}
             onPrevious={handlePrevious}
             onNext={handleNext}
             onBack={handleBackFromWorkout}

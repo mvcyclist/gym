@@ -1,9 +1,10 @@
 import { getWorkoutById } from '../data/workouts'
-import type { ExerciseLog, SetLog, WorkoutCategory } from '../types/workout'
+import type { Exercise, ExerciseLog, SetLog, WorkoutCategory } from '../types/workout'
 import { ExerciseCarousel } from './ExerciseCarousel'
 
 interface WorkoutDeckProps {
   workoutId: WorkoutCategory
+  exercises: Exercise[]
   currentExerciseIndex: number
   getExerciseLog: (exerciseId: string) => ExerciseLog | undefined
   onUpdateSet: (
@@ -16,7 +17,11 @@ interface WorkoutDeckProps {
   onAddSet: (exerciseId: string) => void
   onDeleteSet: (exerciseId: string, setNumber: number) => void
   onSkipExercise: (exerciseId: string) => void
+  onRemoveExercise: (exerciseId: string) => void
+  onReorderExercises: (newOrder: string[]) => void
+  onJumpToExercise: (index: number) => void
   isExerciseLogged: (exerciseId: string) => boolean
+  isExerciseSkipped: (exerciseId: string) => boolean
   onPrevious: () => void
   onNext: () => void
   onBack: () => void
@@ -25,6 +30,7 @@ interface WorkoutDeckProps {
 
 export function WorkoutDeck({
   workoutId,
+  exercises,
   currentExerciseIndex,
   getExerciseLog,
   onUpdateSet,
@@ -33,7 +39,11 @@ export function WorkoutDeck({
   onAddSet,
   onDeleteSet,
   onSkipExercise,
+  onRemoveExercise,
+  onReorderExercises,
+  onJumpToExercise,
   isExerciseLogged,
+  isExerciseSkipped,
   onPrevious,
   onNext,
   onBack,
@@ -55,6 +65,7 @@ export function WorkoutDeck({
   return (
     <ExerciseCarousel
       workout={workout}
+      exercises={exercises}
       currentIndex={currentExerciseIndex}
       getExerciseLog={getExerciseLog}
       onUpdateSet={onUpdateSet}
@@ -63,7 +74,11 @@ export function WorkoutDeck({
       onAddSet={onAddSet}
       onDeleteSet={onDeleteSet}
       onSkipExercise={onSkipExercise}
+      onRemoveExercise={onRemoveExercise}
+      onReorderExercises={onReorderExercises}
+      onJumpToExercise={onJumpToExercise}
       isExerciseLogged={isExerciseLogged}
+      isExerciseSkipped={isExerciseSkipped}
       onPrevious={onPrevious}
       onNext={onNext}
       onBack={onBack}

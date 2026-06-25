@@ -33,11 +33,15 @@ function renumberSets(sets: SetLog[]): SetLog[] {
   }))
 }
 
-function createExerciseLogs(workoutType: WorkoutCategory): ExerciseLog[] {
+function createExerciseLogs(workoutType: WorkoutCategory, exerciseOrder?: string[]): ExerciseLog[] {
   const workout = getWorkoutById(workoutType)
   if (!workout) return []
 
-  return workout.exercises.map((exercise) => ({
+  const templateExercises = exerciseOrder
+    ? exerciseOrder.map((id) => workout.exercises.find((e) => e.id === id)).filter(Boolean) as typeof workout.exercises
+    : workout.exercises
+
+  return templateExercises.map((exercise) => ({
     exerciseId: exercise.id,
     catalogExerciseId: exercise.catalogExerciseId,
     exerciseName: exercise.name,
@@ -45,7 +49,7 @@ function createExerciseLogs(workoutType: WorkoutCategory): ExerciseLog[] {
   }))
 }
 
-function createSession(workoutType: WorkoutCategory): WorkoutSession {
+function createSession(workoutType: WorkoutCategory, exerciseOrder?: string[]): WorkoutSession {
   const now = new Date().toISOString()
   return {
     id: `${workoutType}-${Date.now()}`,
@@ -56,13 +60,14 @@ function createSession(workoutType: WorkoutCategory): WorkoutSession {
     completedAt: null,
     workoutElapsedMs: 0,
     workoutTimerStartedAt: now,
-    exercises: createExerciseLogs(workoutType),
+    exercises: createExerciseLogs(workoutType, exerciseOrder),
+    exerciseOrder,
   }
 }
 
 interface UseWorkoutLogReturn {
   session: WorkoutSession | null
-  startSession: (workoutType: WorkoutCategory) => WorkoutSession
+  startSession: (workoutType: WorkoutCategory, exerciseOrder?: string[]) => WorkoutSession
   resumeSession: (sessionId: string, options?: { activate?: boolean }) => WorkoutSession | null
   updateSet: (
     exerciseId: string,
@@ -74,6 +79,9 @@ interface UseWorkoutLogReturn {
   addSet: (exerciseId: string) => void
   deleteSet: (exerciseId: string, setNumber: number) => void
   skipExercise: (exerciseId: string) => WorkoutSession | null
+  isExerciseSkipped: (exerciseId: string) => boolean
+  reorderExercises: (newOrder: string[]) => void
+  removeExerciseFromSession: (exerciseId: string) => WorkoutSession | null
   getExerciseLog: (exerciseId: string) => ExerciseLog | undefined
   isExerciseLogged: (exerciseId: string) => boolean
   finishWorkout: (sessionOverride?: WorkoutSession) => Promise<WorkoutSession | null>
@@ -97,8 +105,8 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
   }, [])
 
   const startSession = useCallback(
-    (workoutType: WorkoutCategory) => {
-      const nextSession = createSession(workoutType)
+    (workoutType: WorkoutCategory, exerciseOrder?: string[]) => {
+      const nextSession = createSession(workoutType, exerciseOrder)
       saveDraft(nextSession)
       setSession(nextSession)
       return nextSession
@@ -270,7 +278,51 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
 
       const nextSession: WorkoutSession = {
         ...session,
+        exercises: session.exercises.map((log) =>
+          log.exerciseId === exerciseId
+            ? { ...log, skipped: true, sets: createDefaultSets() }
+            : log,
+        ),
+      }
+
+      return persistDraft(nextSession)
+    },
+    [persistDraft, session],
+  )
+
+  const isExerciseSkipped = useCallback(
+    (exerciseId: string) =>
+      session?.exercises.find((log) => log.exerciseId === exerciseId)?.skipped === true,
+    [session],
+  )
+
+  const reorderExercises = useCallback(
+    (newOrder: string[]) => {
+      if (!session) return
+
+      const reordered = newOrder
+        .map((id) => session.exercises.find((log) => log.exerciseId === id))
+        .filter(Boolean) as typeof session.exercises
+
+      const nextSession: WorkoutSession = {
+        ...session,
+        exercises: reordered,
+        exerciseOrder: newOrder,
+      }
+
+      persistDraft(nextSession)
+    },
+    [persistDraft, session],
+  )
+
+  const removeExerciseFromSession = useCallback(
+    (exerciseId: string) => {
+      if (!session) return null
+
+      const nextSession: WorkoutSession = {
+        ...session,
         exercises: session.exercises.filter((log) => log.exerciseId !== exerciseId),
+        exerciseOrder: session.exerciseOrder?.filter((id) => id !== exerciseId),
       }
 
       return persistDraft(nextSession)
@@ -284,7 +336,8 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
   )
 
   const isExerciseLogged = useCallback(
-    (exerciseId: string) => session?.exercises.some((log) => log.exerciseId === exerciseId) ?? false,
+    (exerciseId: string) =>
+      session?.exercises.some((log) => log.exerciseId === exerciseId && !log.skipped) ?? false,
     [session],
   )
 
@@ -356,6 +409,9 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
     addSet,
     deleteSet,
     skipExercise,
+    isExerciseSkipped,
+    reorderExercises,
+    removeExerciseFromSession,
     getExerciseLog,
     isExerciseLogged,
     finishWorkout,
