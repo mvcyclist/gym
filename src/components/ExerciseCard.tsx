@@ -110,7 +110,7 @@ export function ExerciseCard({
         >
           {workoutTitle} · Exercise {exerciseIndex + 1} of {totalExercises}
         </p>
-        <h3 className="mb-2 text-[26px] font-bold text-white">{exercise.name}</h3>
+        <h3 className="mb-2 text-[22px] font-bold text-white">{exercise.name}</h3>
 
         {/* Coaching strip — red left border (Option B) */}
         <div
@@ -135,7 +135,7 @@ export function ExerciseCard({
           }
         >
           <p
-            className="mb-0.5 text-[13px] font-medium"
+            className="mb-0.5 text-[14px] font-medium"
             style={{ color: recommendation.case === 5 ? 'rgba(255,255,255,0.4)' : '#fff' }}
           >
             {recommendation.coachingMain}
@@ -169,7 +169,7 @@ export function ExerciseCard({
                 {recommendation.lastWorkoutLines.map((line, index) => (
                   <li
                     key={index}
-                    className="text-[12px] leading-[1.9]"
+                    className="text-[13px] leading-[1.9]"
                     style={{ color: 'rgba(255,255,255,0.45)' }}
                   >
                     {line}

@@ -189,7 +189,7 @@ export function SetLogger({
                 }}
               >
                 {/* Set number */}
-                <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.2)' }}>
+                <span className="text-[12px]" style={{ color: 'rgba(255,255,255,0.2)' }}>
                   {set.setNumber}
                 </span>
 
@@ -212,7 +212,7 @@ export function SetLogger({
 
                 {/* Target reps (read-only) */}
                 <span
-                  className="text-[12px]"
+                  className="text-[13px]"
                   style={{ color: 'rgba(255,255,255,0.28)', textAlign: 'center' }}
                 >
                   {isTime ? 'Time' : repRangeLabel}
