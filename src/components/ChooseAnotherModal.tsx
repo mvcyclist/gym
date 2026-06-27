@@ -140,7 +140,7 @@ export function ChooseAnotherModal({
           )}
           {skipOptions.length > 0 && (
             <div>
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-red-500/70">Skip today</p>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-red-500/70">Not recommended</p>
               <div className="flex flex-col gap-2">{skipOptions.map(renderRow)}</div>
             </div>
           )}

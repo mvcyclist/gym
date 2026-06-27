@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   getTomorrowWorkoutRecommendation,
+  getTodayRecommendation,
   getWeeklyPlan,
 } from '../services/recommendationService'
-import { getRecommendation } from '../services/recommendationEngine'
-import { getUserPalette } from '../services/preferencesRepository'
 import { countDaysWithActivity } from '../services/recommendationReadiness'
 import {
   getLastSevenDays,
@@ -57,7 +56,7 @@ export function useActivityHistory() {
   )
 
   const recommendation = useMemo((): RecommendationResult | null => {
-    return getRecommendation(activityHistory, getUserPalette())
+    return getTodayRecommendation(activityHistory)
   }, [activityHistory])
 
   const recommendationReady = recommendation !== null

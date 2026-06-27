@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { createActivityEntry } from '../utils/activityHistory'
 import { ACTIVITY_TYPES, INTENSITY_LEVELS } from '../types/training'
 import type { ActivityEntry, ActivityType, DayActivity, Intensity } from '../types/training'
+import { getCardioDef, isCardioType } from '../data/cardioCatalog'
 
 interface EditActivityModalProps {
   day: DayActivity | null
@@ -15,6 +16,7 @@ interface DraftActivity {
   type: ActivityType
   intensity?: Intensity
   durationMinutes?: number
+  distance?: string
   notes?: string
 }
 
@@ -76,14 +78,18 @@ export function EditActivityModal({ day, onClose, onSave, onDeleteWorkout }: Edi
   }
 
   const handleSave = () => {
-    const activities = drafts.map((draft) =>
-      createActivityEntry(day.date, draft.type, {
+    const activities = drafts.map((draft) => {
+      const cardioDef = isCardioType(draft.type) ? getCardioDef(draft.type) : undefined
+      const distVal = draft.distance ? parseFloat(draft.distance) : undefined
+      return createActivityEntry(day.date, draft.type, {
         intensity: draft.intensity,
         durationMinutes: draft.durationMinutes,
+        distanceMeters: cardioDef?.distanceUnit === 'meters' && distVal ? distVal : undefined,
+        distanceMiles: cardioDef?.distanceUnit === 'miles' && distVal ? distVal : undefined,
         notes: draft.notes,
         source: 'manual',
-      }),
-    )
+      })
+    })
     onSave(day.date, activities)
     onClose()
   }
@@ -242,6 +248,29 @@ export function EditActivityModal({ day, onClose, onSave, onDeleteWorkout }: Edi
                         className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white focus:border-red-500 focus:outline-none"
                       />
                     </label>
+
+                    {isCardioType(draft.type) && (() => {
+                      const cardioDef = getCardioDef(draft.type)
+                      return (
+                        <label className="mt-3 block">
+                          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                            Distance ({cardioDef?.distanceUnit ?? 'units'}, optional)
+                          </span>
+                          <input
+                            type="number"
+                            min="0"
+                            step={cardioDef?.distanceUnit === 'meters' ? '1' : '0.1'}
+                            value={draft.distance ?? ''}
+                            onChange={(event) =>
+                              updateDraft(draft.localId, {
+                                distance: event.target.value || undefined,
+                              })
+                            }
+                            className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white focus:border-red-500 focus:outline-none"
+                          />
+                        </label>
+                      )
+                    })()}
 
                     <label className="mt-3 block">
                       <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-zinc-500">

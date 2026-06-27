@@ -104,7 +104,7 @@ export interface UserPalette {
 }
 
 export const DEFAULT_PALETTE: UserPalette = {
-  types: ['Push', 'Pull', 'Leg', 'Core', 'Swim', 'Bike', 'Walk', 'Mobility', 'Rest'],
+  types: ['Push', 'Pull', 'Leg', 'Core', 'Run', 'Swim', 'Bike', 'Walk', 'Mobility', 'Rest'],
 }
 
 export interface ScoredWorkout {

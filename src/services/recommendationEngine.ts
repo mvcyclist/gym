@@ -219,6 +219,7 @@ function buildReason(
 
   if (daysSince !== null) {
     const days = Math.floor(daysSince)
+    if (days === 0) return `You did this today — not recommended.`
     if (bucket === 'Skip' || bucket === 'Marginal') return `Only ${days}d since last ${type} — needs more recovery time.`
     if (days >= 5) return `Haven't hit ${type} in ${days} days — well rested, ready to go.`
   }

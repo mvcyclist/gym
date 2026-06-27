@@ -1,39 +1,7 @@
 import { useState } from 'react'
 import type { WorkoutType, Intensity, DayActivity } from '../types/training'
 import { toDateString } from '../utils/activityHistory'
-
-const SPORT_EMOJI: Record<string, string> = {
-  Swim: '🏊',
-  Run:  '🏃',
-  Bike: '🚴',
-  Walk: '🚶',
-}
-
-const DURATION_DEFAULTS: Record<string, number> = {
-  Swim: 45,
-  Run:  30,
-  Bike: 60,
-  Walk: 30,
-}
-
-const INTENSITY_DESCRIPTIONS: Record<string, Record<Intensity, string>> = {
-  Swim: {
-    Easy:     'Recovery pace, comfortable breathing',
-    Moderate: 'Steady effort, short phrases only',
-    Hard:     'Race pace or intervals',
-  },
-  Run: {
-    Easy:     'Conversational pace, Zone 1–2',
-    Moderate: 'Tempo effort, Zone 3',
-    Hard:     'Intervals or race effort, Zone 4–5',
-  },
-  Bike: {
-    Easy:     'Spin, recovery ride, flat terrain',
-    Moderate: 'Steady effort, some hills',
-    Hard:     'Intervals, climbs, race effort',
-  },
-  Walk: { Easy: '', Moderate: '', Hard: '' },
-}
+import { getCardioDef } from '../data/cardioCatalog'
 
 function daysSinceLastOfType(history: DayActivity[], type: WorkoutType): number | null {
   const today = toDateString(new Date())
@@ -64,7 +32,8 @@ interface CardioLogScreenProps {
 }
 
 export function CardioLogScreen({ type, history, onLog, onBack }: CardioLogScreenProps) {
-  const [duration, setDuration] = useState(DURATION_DEFAULTS[type] ?? 30)
+  const def = getCardioDef(type)
+  const [duration, setDuration] = useState(def?.durationDefaultMinutes ?? 30)
   const [intensity, setIntensity] = useState<Intensity | null>(type === 'Walk' ? 'Easy' : null)
   const [distance, setDistance] = useState('')
 
@@ -108,7 +77,7 @@ export function CardioLogScreen({ type, history, onLog, onBack }: CardioLogScree
         </button>
         <div>
           <h1 className="text-2xl font-bold text-white">
-            {SPORT_EMOJI[type] ?? ''} {type}
+            {def?.emoji ?? ''} {type}
           </h1>
           <p className="mt-0.5 text-sm text-zinc-500">{subtitle}</p>
         </div>
@@ -158,7 +127,7 @@ export function CardioLogScreen({ type, history, onLog, onBack }: CardioLogScree
               placeholder={isSwim ? '0' : '0.0'}
               className="w-32 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-white placeholder-zinc-600 focus:border-zinc-500 focus:outline-none"
             />
-            <span className="text-sm text-zinc-500">{isSwim ? 'meters' : 'miles'}</span>
+            <span className="text-sm text-zinc-500">{def?.distanceUnit ?? (isSwim ? 'meters' : 'miles')}</span>
           </div>
         </div>
 
@@ -187,9 +156,9 @@ export function CardioLogScreen({ type, history, onLog, onBack }: CardioLogScree
                 )
               })}
             </div>
-            {intensity && INTENSITY_DESCRIPTIONS[type]?.[intensity] && (
+            {intensity && def?.intensityDescriptions[intensity] && (
               <p className="mt-2 text-xs text-zinc-500">
-                {INTENSITY_DESCRIPTIONS[type][intensity]}
+                {def.intensityDescriptions[intensity]}
               </p>
             )}
           </div>

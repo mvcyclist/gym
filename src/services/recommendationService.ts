@@ -1,4 +1,4 @@
-import type { DayActivity, RecommendedWorkoutType, WorkoutRecommendation, WorkoutType } from '../types/training'
+import type { DayActivity, RecommendationResult, RecommendedWorkoutType, WorkoutRecommendation, WorkoutType } from '../types/training'
 import { getRecommendation } from './recommendationEngine'
 import { getUserPalette } from './preferencesRepository'
 import { formatDayLabel, toDateString } from '../utils/activityHistory'
@@ -14,6 +14,59 @@ function titleFor(type: WorkoutType): string {
   if (type === 'Rest') return 'Rest day'
   if (type === 'Walk' || type === 'Mobility') return 'Mobility & recovery'
   return `${type} day`
+}
+
+// ─── Today recommendation with "what comes next" ─────────────────────────────
+
+export function getTodayRecommendation(
+  activityHistory: DayActivity[],
+): RecommendationResult | null {
+  const palette = getUserPalette()
+  const today = new Date()
+  const todayStr = toDateString(today)
+  const todayLabel = formatDayLabel(today)
+
+  const historyWithoutToday = activityHistory.filter((d) => d.date !== todayStr)
+  const todaySlot: DayActivity = { date: todayStr, dayLabel: todayLabel, activities: [] }
+
+  const todayResult = getRecommendation([...historyWithoutToday, todaySlot], palette, today)
+  if (!todayResult) return null
+
+  const tomorrowDate = new Date(today)
+  tomorrowDate.setDate(today.getDate() + 1)
+  const tomorrowStr = toDateString(tomorrowDate)
+  const tomorrowLabel = formatDayLabel(tomorrowDate)
+
+  const projectedToday: DayActivity = {
+    date: todayStr,
+    dayLabel: todayLabel,
+    activities: [{
+      id: `projected-${todayStr}`,
+      date: todayStr,
+      type: todayResult.primary.type,
+      intensity: 'Moderate',
+      source: 'manual',
+    }],
+  }
+
+  const tomorrowSlot: DayActivity = { date: tomorrowStr, dayLabel: tomorrowLabel, activities: [] }
+  const tomorrowResult = getRecommendation(
+    [...historyWithoutToday, projectedToday, tomorrowSlot],
+    palette,
+    tomorrowDate,
+  )
+
+  if (!tomorrowResult) return todayResult
+
+  const todayType = todayResult.primary.type
+  const tomorrowType = tomorrowResult.primary.type
+  const baseReason = todayResult.primary.reason.replace(/\.$/, '')
+  const enrichedReason = `${baseReason} — ${todayType} today, ${tomorrowType} tomorrow.`
+
+  return {
+    ...todayResult,
+    primary: { ...todayResult.primary, reason: enrichedReason },
+  }
 }
 
 // ─── Tomorrow recommendation ──────────────────────────────────────────────────
