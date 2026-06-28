@@ -21,8 +21,16 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   if (loading) {
     return (
-      <div className="flex min-h-[70vh] items-center justify-center px-4">
-        <p className="text-sm text-zinc-400">Checking sign-in…</p>
+      <div style={{
+        minHeight: '100vh',
+        minHeight: '100dvh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#000',
+        padding: '1rem 2rem',
+      }}>
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)' }}>Checking sign-in…</p>
       </div>
     )
   }
