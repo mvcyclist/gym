@@ -8,6 +8,7 @@ import {
 import { bindDraftStorageUser, hasDraft } from '../adapters/workoutDraftStorage'
 import { bindLocalLedgerUser, loadLocalLedger, saveLocalLedger } from '../adapters/localLedgerStorage'
 import { bindPreferencesUser } from './preferencesRepository'
+import { bindUserProfileUser } from './userProfileRepository'
 import { kvGet, kvSet } from '../adapters/localKeyValueStorage'
 import { isDraftableSessionStatus } from '../types/draft'
 import { migrateLedgerInProgressToDraft } from './workoutDraftMigration'
@@ -52,6 +53,7 @@ export function resetLedgerRepository(): void {
   bindDraftStorageUser(null)
   bindLocalLedgerUser(null)
   bindPreferencesUser(null)
+  bindUserProfileUser(null)
   bindSyncQueueUser(null)
 }
 
@@ -61,6 +63,7 @@ export function bindLedgerToUser(userId: string | null): void {
   bindDraftStorageUser(userId)
   bindLocalLedgerUser(userId)
   bindPreferencesUser(userId)
+  bindUserProfileUser(userId)
   bindSyncQueueUser(userId)
 }
 

@@ -3,6 +3,7 @@ import { AuthGate } from './components/AuthGate'
 import { AiCoachLayout } from './components/AiCoachLayout'
 import { HomeScreen } from './components/HomeScreen'
 import { useAuth } from './hooks/useAuth'
+import { useUserProfileContext } from './contexts/UserProfileContext'
 import { getWorkoutById } from './data/workouts'
 import { getCatalogExerciseById, getDefaultRestSeconds } from './data/exerciseCatalog'
 import { MobilityView } from './components/MobilityView'
@@ -45,6 +46,7 @@ type AppScreen = 'home' | 'workout' | 'timer-only' | 'mobility' | 'core-view' | 
 
 function WorkoutApp() {
   const { user, signOut, ledgerReady } = useAuth()
+  const { refresh: refreshProfile } = useUserProfileContext()
   const [screen, setScreen] = useState<AppScreen>('home')
   const [selectedCardioType, setSelectedCardioType] = useState<WorkoutType | null>(null)
   const [resumeChecked, setResumeChecked] = useState(false)
@@ -673,6 +675,7 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
             weeklyPlan={weeklyPlan}
             planOverrides={planOverrides}
             onSignOut={() => void signOut()}
+            onEditRoutine={refreshProfile}
             onUpdateDayActivities={replaceDayActivities}
             onSetPlanOverride={setPlanOverride}
             onStartRecommendation={handleStartRecommendation}

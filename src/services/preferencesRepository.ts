@@ -1,5 +1,7 @@
 import { DEFAULT_PALETTE, type UserPalette } from '../types/training'
 import { kvGet, kvSet } from '../adapters/localKeyValueStorage'
+import { getUserProfile } from './userProfileRepository'
+import { paletteFromProfile } from './paletteFromProfile'
 
 const PALETTE_KEY_BASE = 'userPalette'
 
@@ -26,6 +28,11 @@ function migrateLegacyGlobalPalette(userId: string): void {
 }
 
 export function getUserPalette(): UserPalette {
+  const profile = getUserProfile()
+  if (profile.onboardingComplete) {
+    return paletteFromProfile(profile)
+  }
+
   try {
     const raw = kvGet(getPaletteKey())
     if (raw) return JSON.parse(raw) as UserPalette

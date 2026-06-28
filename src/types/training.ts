@@ -8,6 +8,7 @@ export type ActivityType =
   | 'Bike'
   | 'Run'
   | 'Walk'
+  | 'HIIT'
   | 'Rest'
   | 'Other'
 
@@ -55,6 +56,7 @@ export const ACTIVITY_TYPES: ActivityType[] = [
   'Bike',
   'Run',
   'Walk',
+  'HIIT',
   'Rest',
   'Other',
 ]
@@ -72,6 +74,7 @@ export type WorkoutType =
   | 'Bike'
   | 'Swim'
   | 'Walk'
+  | 'HIIT'
   | 'Mobility'
   | 'Rest'
 
@@ -95,6 +98,7 @@ export const LOAD_PROFILES: Record<WorkoutType, LoadProfile> = {
   Bike:     { type: 'Bike',     recoveryHours: 36, legPoolContribution: 1, isHardSession: true,  isLowLoad: false, addonEligible: false },
   Swim:     { type: 'Swim',     recoveryHours: 24, legPoolContribution: 0, isHardSession: true,  isLowLoad: false, addonEligible: false },
   Walk:     { type: 'Walk',     recoveryHours: 0,  legPoolContribution: 0, isHardSession: false, isLowLoad: true,  addonEligible: false },
+  HIIT:     { type: 'HIIT',     recoveryHours: 48, legPoolContribution: 2, isHardSession: true,  isLowLoad: false, addonEligible: false },
   Mobility: { type: 'Mobility', recoveryHours: 0,  legPoolContribution: 0, isHardSession: false, isLowLoad: true,  addonEligible: true  },
   Rest:     { type: 'Rest',     recoveryHours: 0,  legPoolContribution: 0, isHardSession: false, isLowLoad: true,  addonEligible: false },
 }
@@ -104,7 +108,7 @@ export interface UserPalette {
 }
 
 export const DEFAULT_PALETTE: UserPalette = {
-  types: ['Push', 'Pull', 'Leg', 'Core', 'Run', 'Swim', 'Bike', 'Walk', 'Mobility', 'Rest'],
+  types: ['Push', 'Pull', 'Leg', 'Core', 'Run', 'Swim', 'Bike', 'Walk', 'HIIT', 'Mobility', 'Rest'],
 }
 
 export interface ScoredWorkout {

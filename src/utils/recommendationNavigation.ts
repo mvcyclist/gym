@@ -9,7 +9,7 @@ export interface RecommendationNavigation {
   cardioType?: WorkoutType
 }
 
-const CARDIO_TYPES: WorkoutType[] = ['Swim', 'Run', 'Bike', 'Walk']
+const CARDIO_TYPES: WorkoutType[] = ['Swim', 'Run', 'Bike', 'Walk', 'HIIT']
 
 export function getRecommendationNavigation(type: WorkoutType): RecommendationNavigation {
   if (type === 'Push') return { action: 'workout', workoutId: 'push' }

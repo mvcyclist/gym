@@ -1,4 +1,4 @@
-export type CardioType = 'Run' | 'Bike' | 'Swim' | 'Walk'
+export type CardioType = 'Run' | 'Bike' | 'Swim' | 'Walk' | 'HIIT'
 
 export interface CardioDefinition {
   type: CardioType
@@ -56,6 +56,18 @@ export const cardioCatalog: CardioDefinition[] = [
       Easy:     '',
       Moderate: '',
       Hard:     '',
+    },
+  },
+  {
+    type: 'HIIT',
+    name: 'HIIT',
+    emoji: '⚡',
+    distanceUnit: 'miles',
+    durationDefaultMinutes: 25,
+    intensityDescriptions: {
+      Easy:     'Active recovery intervals',
+      Moderate: 'Standard work/rest intervals',
+      Hard:     'All-out effort intervals',
     },
   },
 ]

@@ -1,4 +1,7 @@
 import type { Exercise, WorkoutType } from '../types/workout'
+import type { WorkoutCategory } from '../types/workout'
+import { getUserProfile } from '../services/userProfileRepository'
+import { getWorkoutExercises } from '../services/workoutTemplateService'
 
 function createExercise(
   id: string,
@@ -92,6 +95,17 @@ export const workouts: WorkoutType[] = [
 ]
 
 export function getWorkoutById(id: string): WorkoutType | undefined {
+  const staticWorkout = workouts.find((workout) => workout.id === id)
+  if (!staticWorkout) return undefined
+
+  const profile = getUserProfile()
+  if (!profile.onboardingComplete) return staticWorkout
+
+  const exercises = getWorkoutExercises(id as WorkoutCategory, profile)
+  return { ...staticWorkout, exercises }
+}
+
+export function getStaticWorkoutById(id: string): WorkoutType | undefined {
   return workouts.find((workout) => workout.id === id)
 }
 

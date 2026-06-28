@@ -1,5 +1,12 @@
 import { useRef, useState } from 'react'
 import { getWorkoutById } from '../data/workouts'
+import { useUserProfileContext } from '../contexts/UserProfileContext'
+import {
+  cycleTemplateSource,
+  resolveTemplateSource,
+  SOURCE_LABELS,
+} from '../services/workoutTemplateService'
+import { getUserProfile } from '../services/userProfileRepository'
 import type { Exercise, WorkoutCategory } from '../types/workout'
 
 interface WorkoutStartViewProps {
@@ -19,10 +26,28 @@ function DragHandle() {
 }
 
 export function WorkoutStartView({ workoutId, onStart, onBack }: WorkoutStartViewProps) {
+  const { profile, refresh } = useUserProfileContext()
   const workout = getWorkoutById(workoutId)
   const [exercises, setExercises] = useState<Exercise[]>(() => workout?.exercises ?? [])
+  const [templateSource, setTemplateSource] = useState(() => resolveTemplateSource(workoutId, profile))
   const [editingOrder, setEditingOrder] = useState(false)
   const dragIndex = useRef<number | null>(null)
+
+  const reloadFromProfile = () => {
+    refresh()
+    const nextWorkout = getWorkoutById(workoutId)
+    setExercises(nextWorkout?.exercises ?? [])
+    setTemplateSource(resolveTemplateSource(workoutId, getUserProfile()))
+  }
+
+  const handleTryAnotherSet = () => {
+    const nextSource = cycleTemplateSource(workoutId, profile)
+    refresh()
+    const nextWorkout = getWorkoutById(workoutId)
+    setExercises(nextWorkout?.exercises ?? [])
+    setTemplateSource(nextSource)
+    setEditingOrder(false)
+  }
 
   if (!workout) {
     return (
@@ -82,6 +107,24 @@ export function WorkoutStartView({ workoutId, onStart, onBack }: WorkoutStartVie
         <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
           Est. {workout.estimatedDuration} · {exercises.length} exercise{exercises.length !== 1 ? 's' : ''}
         </p>
+        <p className="mt-1 text-xs text-red-400/70">{SOURCE_LABELS[templateSource]}</p>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={handleTryAnotherSet}
+            className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-semibold text-zinc-300 transition hover:border-zinc-500 hover:bg-zinc-900"
+          >
+            Try another set ↻
+          </button>
+          <button
+            type="button"
+            onClick={reloadFromProfile}
+            className="rounded-lg border border-zinc-800 px-3 py-1.5 text-xs font-semibold text-zinc-500 transition hover:border-zinc-600 hover:text-zinc-300"
+          >
+            Reset to saved
+          </button>
+        </div>
 
         <div className="mt-6 border-t border-zinc-800 pt-6">
           <div className="mb-3 flex items-center justify-between">

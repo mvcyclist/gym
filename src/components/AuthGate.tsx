@@ -1,6 +1,9 @@
 import { useState, type ReactNode } from 'react'
 import { useAuth } from '../hooks/useAuth'
+import { useUserProfile } from '../hooks/useUserProfile'
+import { UserProfileProvider } from '../contexts/UserProfileContext'
 import { ImportLocalHistoryModal } from './ImportLocalHistoryModal'
+import { OnboardingFlow } from './OnboardingFlow'
 import { SignInScreen } from './SignInScreen'
 
 export function AuthGate({ children }: { children: ReactNode }) {
@@ -13,10 +16,28 @@ export function AuthGate({ children }: { children: ReactNode }) {
     importLocalHistory,
     dismissImportOffer,
   } = useAuth()
+  const profileState = useUserProfile()
+  const { profile, onboardingComplete, refresh } = profileState
   const [signInError, setSignInError] = useState<string | null>(null)
 
+  const showOnboarding = !onboardingComplete
+  const signedInOrLocal = !configured || Boolean(user)
+
   if (!configured) {
-    return <>{children}</>
+    if (showOnboarding) {
+      return (
+        <OnboardingFlow
+          initialProfile={profile}
+          onComplete={refresh}
+          onCancel={refresh}
+        />
+      )
+    }
+    return (
+      <UserProfileProvider value={profileState}>
+        {children}
+      </UserProfileProvider>
+    )
   }
 
   if (loading) {
@@ -50,9 +71,21 @@ export function AuthGate({ children }: { children: ReactNode }) {
     )
   }
 
+  if (signedInOrLocal && showOnboarding) {
+    return (
+      <OnboardingFlow
+        initialProfile={profile}
+        onComplete={refresh}
+        onCancel={refresh}
+      />
+    )
+  }
+
   return (
     <>
-      {children}
+      <UserProfileProvider value={profileState}>
+        {children}
+      </UserProfileProvider>
       <ImportLocalHistoryModal
         open={importOfferOpen}
         onImport={() => void importLocalHistory()}

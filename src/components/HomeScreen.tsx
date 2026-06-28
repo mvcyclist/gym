@@ -12,28 +12,13 @@ import type { TodaySummary } from '../utils/workoutSummary'
 import type { WeeklyPlanDay } from '../services/recommendationService'
 import { ChooseAnotherModal } from './ChooseAnotherModal'
 import { AiCoachLayout, useAiCoachChat } from './AiCoachLayout'
+import { UserMenu } from './UserMenu'
+import { SESSION_DOT_COLORS, SESSION_DISPLAY_LABELS } from '../constants/sessionColors'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const SESSION_COLORS: Record<string, string> = {
-  Push:     '#D85A30',
-  Pull:     '#7F77DD',
-  Leg:      '#1D9E75',
-  Core:     '#7F77DD',
-  Swim:     '#378ADD',
-  Bike:     '#BA7517',
-  Run:      '#D4537E',
-  Walk:     '#3B6D11',
-  Mobility: '#0F6E56',
-  Rest:     'rgba(255,255,255,0.2)',
-  Other:    'rgba(255,255,255,0.2)',
-}
-
-const SESSION_LABELS: Record<string, string> = {
-  Push: 'Push', Pull: 'Pull', Leg: 'Legs', Core: 'Core',
-  Swim: 'Swim', Bike: 'Bike', Run: 'Run', Walk: 'Walk',
-  Mobility: 'Mobility', Rest: 'Rest', Other: 'Other',
-}
+const SESSION_COLORS = SESSION_DOT_COLORS
+const SESSION_LABELS = SESSION_DISPLAY_LABELS
 
 function formatActivityLabels(types: ActivityType[]): string {
   if (types.length === 0) return 'nothing'
@@ -53,6 +38,7 @@ const ALL_SESSION_TYPES: Array<{ type: ActivityType; label: string }> = [
   { type: 'Bike',     label: 'Bike' },
   { type: 'Run',      label: 'Run' },
   { type: 'Walk',     label: 'Walk' },
+  { type: 'HIIT',     label: 'HIIT' },
   { type: 'Mobility', label: 'Mobility' },
   { type: 'Rest',     label: 'Rest' },
 ]
@@ -162,7 +148,7 @@ function buildLast7(history: DayActivity[]): DayActivity[] {
 
 function primaryButtonLabel(type: WorkoutType | undefined): string {
   if (!type) return 'Start session'
-  if (['Run','Swim','Bike','Walk'].includes(type)) return `Log a ${type.toLowerCase()}`
+  if (['Run','Swim','Bike','Walk','HIIT'].includes(type)) return `Log a ${type.toLowerCase()}`
   if (type === 'Mobility') return 'Start mobility'
   if (type === 'Core') return 'Start core'
   if (type === 'Rest') return 'Log rest day'
@@ -182,6 +168,7 @@ interface HomeScreenProps {
   weeklyPlan: WeeklyPlanDay[]
   planOverrides: Record<string, ActivityType[]>
   onSignOut: () => void
+  onEditRoutine: () => void
   onUpdateDayActivities: (date: string, types: ActivityType[]) => void
   onSetPlanOverride: (date: string, types: ActivityType[]) => void
   onStartRecommendation: () => void
@@ -203,7 +190,11 @@ export function HomeScreen(props: HomeScreenProps) {
       flexDirection: 'column',
       overflow: 'hidden',
     }}>
-      <HomeScreenTopBar userEmail={props.userEmail} onSignOut={props.onSignOut} />
+      <HomeScreenTopBar
+        userEmail={props.userEmail}
+        onSignOut={props.onSignOut}
+        onEditRoutine={props.onEditRoutine}
+      />
       <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
         <AiCoachLayout defaultChatVisible>
           <HomeScreenBody {...props} />
@@ -216,7 +207,8 @@ export function HomeScreen(props: HomeScreenProps) {
 function HomeScreenTopBar({
   userEmail,
   onSignOut,
-}: Pick<HomeScreenProps, 'userEmail' | 'onSignOut'>) {
+  onEditRoutine,
+}: Pick<HomeScreenProps, 'userEmail' | 'onSignOut' | 'onEditRoutine'>) {
   const [clockNow, setClockNow] = useState(new Date())
   const [colonOn, setColonOn] = useState(true)
   useEffect(() => {
@@ -277,24 +269,11 @@ function HomeScreenTopBar({
         </div>
       </div>
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-        {userEmail && (
-          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>{userEmail}</span>
-        )}
-        <button
-          type="button"
-          onClick={onSignOut}
-          style={{
-            background: 'transparent',
-            border: '0.5px solid rgba(255,255,255,0.12)',
-            borderRadius: 5,
-            padding: '4px 10px',
-            color: 'rgba(255,255,255,0.4)',
-            fontSize: 11,
-            cursor: 'pointer',
-          }}
-        >
-          Sign out
-        </button>
+        <UserMenu
+          email={userEmail}
+          onSignOut={onSignOut}
+          onEditRoutine={onEditRoutine}
+        />
       </div>
     </div>
   )

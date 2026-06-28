@@ -6,13 +6,16 @@ import { formatDayLabel, toDateString } from '../utils/activityHistory'
 // ─── Type bridge ─────────────────────────────────────────────────────────────
 
 function toRecommendedType(type: WorkoutType): RecommendedWorkoutType {
-  if (type === 'Run' || type === 'Swim' || type === 'Bike' || type === 'Walk') return 'Mobility'
+  if (type === 'Run' || type === 'Swim' || type === 'Bike' || type === 'Walk' || type === 'HIIT') {
+    return 'Mobility'
+  }
   return type as RecommendedWorkoutType
 }
 
 function titleFor(type: WorkoutType): string {
   if (type === 'Rest') return 'Rest day'
   if (type === 'Walk' || type === 'Mobility') return 'Mobility & recovery'
+  if (type === 'HIIT') return 'HIIT session'
   return `${type} day`
 }
 
@@ -158,7 +161,7 @@ export function getWeeklyPlan(activityHistory: DayActivity[]): WeeklyPlanDay[] {
   // Post-generation: force-insert Core if missing from plan
   const hasCore = plan.some((d) => d.displayType === 'Core')
   if (!hasCore) {
-    const CORE_DONOR_TYPES = ['Walk', 'Rest', 'Swim', 'Bike', 'Run']
+    const CORE_DONOR_TYPES = ['Walk', 'Rest', 'Swim', 'Bike', 'Run', 'HIIT']
     const donorIndex = plan.findIndex((d) => CORE_DONOR_TYPES.includes(d.displayType))
     if (donorIndex !== -1) {
       const donor = plan[donorIndex]
