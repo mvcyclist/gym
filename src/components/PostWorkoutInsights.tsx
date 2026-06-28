@@ -10,6 +10,8 @@ interface PostWorkoutInsightsProps {
   tomorrowRecommendation: WorkoutRecommendation
   onStartTomorrow?: () => void
   onDismiss?: () => void
+  onAddCore?: () => void
+  coreLoggedToday?: boolean
   variant?: 'modal' | 'inline'
 }
 
@@ -47,9 +49,17 @@ export function PostWorkoutInsights({
   tomorrowRecommendation,
   onStartTomorrow,
   onDismiss,
+  onAddCore,
+  coreLoggedToday = false,
   variant = 'inline',
 }: PostWorkoutInsightsProps) {
   const isModal = variant === 'modal'
+
+  const showCoreNudge =
+    isSessionSummary(todaySummary) &&
+    ['push', 'pull', 'leg'].includes(todaySummary.workoutType) &&
+    !coreLoggedToday &&
+    Boolean(onAddCore)
 
   return (
     <div className={isModal ? 'space-y-5' : 'space-y-4'}>
@@ -91,6 +101,28 @@ export function PostWorkoutInsights({
           </>
         )}
       </section>
+
+      {showCoreNudge && (
+        <section className="rounded-2xl border border-zinc-700 bg-zinc-900/60 p-5">
+          <p className="text-sm text-zinc-300">Got 10 more minutes?</p>
+          <div className="mt-3 flex gap-3">
+            <button
+              type="button"
+              onClick={onAddCore}
+              className="rounded-xl bg-zinc-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-700"
+            >
+              Add Core session →
+            </button>
+            <button
+              type="button"
+              onClick={onDismiss}
+              className="rounded-xl border border-zinc-700 px-4 py-2.5 text-sm font-semibold text-zinc-400 transition hover:bg-zinc-900"
+            >
+              Done
+            </button>
+          </div>
+        </section>
+      )}
 
       <section className="rounded-2xl border border-sky-500/30 bg-gradient-to-br from-sky-500/10 to-zinc-900/80 p-5 sm:p-6">
         <p className="text-xs font-semibold uppercase tracking-wider text-sky-400">

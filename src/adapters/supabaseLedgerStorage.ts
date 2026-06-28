@@ -1,6 +1,6 @@
 import { getSupabase } from '../lib/supabase'
 import { isDraftableSessionStatus } from '../types/draft'
-import type { ActivityEntry } from '../types/training'
+import type { ActivityEntry, ActivityType } from '../types/training'
 import type { TrainingLedger } from '../types/ledger'
 import type { WorkoutSession } from '../types/workout'
 
@@ -74,10 +74,70 @@ function rowToManual(entry: ManualActivityRow): ActivityEntry {
   }
 }
 
+interface PlanOverrideRow {
+  user_id: string
+  plan_date: string
+  activity_types: string[]
+}
+
+function rowsToPlanOverrides(rows: PlanOverrideRow[]): Record<string, ActivityType[]> {
+  const planOverridesByDate: Record<string, ActivityType[]> = {}
+  for (const row of rows) {
+    planOverridesByDate[row.plan_date] = row.activity_types as ActivityType[]
+  }
+  return planOverridesByDate
+}
+
+export async function fetchPlanOverridesFromCloud(
+  userId: string,
+): Promise<Record<string, ActivityType[]>> {
+  const supabase = getSupabase()
+  const { data, error } = await supabase
+    .from('plan_overrides')
+    .select('plan_date, activity_types')
+    .eq('user_id', userId)
+
+  if (error) {
+    // Table may not exist until migration 003 is applied — don't block history sync.
+    console.warn('[sync] could not fetch plan overrides:', error.message)
+    return {}
+  }
+  return rowsToPlanOverrides((data ?? []) as PlanOverrideRow[])
+}
+
+export async function replacePlanOverrideOnCloud(
+  userId: string,
+  date: string,
+  activityTypes: ActivityType[],
+): Promise<void> {
+  const supabase = getSupabase()
+
+  if (activityTypes.length === 0) {
+    const { error } = await supabase
+      .from('plan_overrides')
+      .delete()
+      .eq('user_id', userId)
+      .eq('plan_date', date)
+    if (error) throw error
+    return
+  }
+
+  const { error } = await supabase.from('plan_overrides').upsert(
+    {
+      user_id: userId,
+      plan_date: date,
+      activity_types: activityTypes,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id,plan_date' },
+  )
+  if (error) throw error
+}
+
 export async function fetchLedgerFromCloud(userId: string): Promise<TrainingLedger> {
   const supabase = getSupabase()
 
-  const [sessionsResult, manualResult] = await Promise.all([
+  const [sessionsResult, manualResult, planOverridesByDate] = await Promise.all([
     supabase
       .from('workout_sessions')
       .select('*')
@@ -85,6 +145,7 @@ export async function fetchLedgerFromCloud(userId: string): Promise<TrainingLedg
       .in('status', ['completed', 'partial'])
       .order('updated_at', { ascending: false }),
     supabase.from('manual_activities').select('*').eq('user_id', userId),
+    fetchPlanOverridesFromCloud(userId),
   ])
 
   if (sessionsResult.error) throw sessionsResult.error
@@ -99,7 +160,7 @@ export async function fetchLedgerFromCloud(userId: string): Promise<TrainingLedg
     manualByDate[row.activity_date].push(entry)
   }
 
-  return { version: 4, sessions, manualByDate }
+  return { version: 4, sessions, manualByDate, planOverridesByDate }
 }
 
 export async function isCloudLedgerEmpty(userId: string): Promise<boolean> {
@@ -207,18 +268,24 @@ export async function importLedgerToCloud(userId: string, ledger: TrainingLedger
       .upsert(manualRows, { onConflict: 'id' })
     if (error) throw error
   }
+
+  for (const [date, types] of Object.entries(ledger.planOverridesByDate ?? {})) {
+    await replacePlanOverrideOnCloud(userId, date, types)
+  }
 }
 
 export async function clearCloudLedgerForUser(userId: string): Promise<void> {
   const supabase = getSupabase()
 
-  const [sessionsError, manualError] = await Promise.all([
+  const [sessionsError, manualError, planError] = await Promise.all([
     supabase.from('workout_sessions').delete().eq('user_id', userId).then((r) => r.error),
     supabase.from('manual_activities').delete().eq('user_id', userId).then((r) => r.error),
+    supabase.from('plan_overrides').delete().eq('user_id', userId).then((r) => r.error),
   ])
 
   if (sessionsError) throw sessionsError
   if (manualError) throw manualError
+  if (planError) throw planError
 }
 
 export async function replaceCloudLedgerWithLocal(

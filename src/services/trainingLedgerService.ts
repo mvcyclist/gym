@@ -4,12 +4,14 @@
  * For reads, use historyQueryService — the single front door for ledger queries.
  */
 import {
+  getPlanOverrides,
   removeSession as removeSessionFromLedger,
   replaceManualActivities,
+  replacePlanOverride,
   upsertSession,
 } from './ledgerRepository'
-import { getManualActivitiesForDate } from './historyQueryService'
-import type { ActivityEntry } from '../types/training'
+import { getManualActivitiesForDate, getSessionsForDate } from './historyQueryService'
+import type { ActivityEntry, ActivityType } from '../types/training'
 import type { WorkoutSession } from '../types/workout'
 import { createActivityEntry } from '../utils/activityHistory'
 
@@ -20,7 +22,7 @@ export {
   getSessionsForDate,
 } from './historyQueryService'
 
-export { upsertSession }
+export { getPlanOverrides, upsertSession }
 
 export function removeSession(sessionId: string): void {
   removeSessionFromLedger(sessionId)
@@ -83,6 +85,36 @@ export function updateManualActivities(date: string, activities: ActivityEntry[]
       }),
     ),
   )
+}
+
+/**
+ * Replace everything logged for a calendar day with manual entries for the selected types.
+ * Clears workout sessions for that date so edits match what the user sees.
+ */
+export function replaceDayLog(date: string, types: ActivityType[]): void {
+  for (const session of getSessionsForDate(date)) {
+    removeSessionFromLedger(session.id)
+  }
+
+  if (types.length === 0) {
+    replaceManualActivities(date, [])
+    return
+  }
+
+  replaceManualActivities(
+    date,
+    types.map((type) =>
+      createActivityEntry(date, type, {
+        intensity: 'Moderate',
+        durationMinutes: 45,
+        source: 'manual',
+      }),
+    ),
+  )
+}
+
+export function updatePlanOverride(date: string, activityTypes: ActivityType[]): void {
+  replacePlanOverride(date, activityTypes)
 }
 
 export function appendManualActivity(date: string, entry: ActivityEntry): void {

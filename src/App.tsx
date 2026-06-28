@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AuthGate } from './components/AuthGate'
-import { UserMenu } from './components/UserMenu'
-import { SyncStatusBanner } from './components/SyncStatusBanner'
+import { HomeScreen } from './components/HomeScreen'
 import { useAuth } from './hooks/useAuth'
 import { getWorkoutById } from './data/workouts'
 import { getCatalogExerciseById, getDefaultRestSeconds } from './data/exerciseCatalog'
 import { MobilityView } from './components/MobilityView'
+import { CoreView } from './components/CoreView'
 import { LeaveWorkoutDialog } from './components/LeaveWorkoutDialog'
 import { PriorDayDraftDialog } from './components/PriorDayDraftDialog'
 import { SaveProgressDialog } from './components/SaveProgressDialog'
@@ -13,7 +13,6 @@ import { WorkoutCompleteSummaryDialog } from './components/WorkoutCompleteSummar
 import { TimerBar } from './components/TimerBar'
 import { TimerOnlyView } from './components/TimerOnlyView'
 import { WorkoutDeck } from './components/WorkoutDeck'
-import { WorkoutSelector } from './components/WorkoutSelector'
 import { WorkoutStartView } from './components/WorkoutStartView'
 import { CardioLogScreen } from './components/CardioLogScreen'
 import { useAccurateTimer } from './hooks/useAccurateTimer'
@@ -41,7 +40,7 @@ import type { WorkoutRecommendation, WorkoutType } from './types/training'
 import type { WorkoutCategory, WorkoutSession } from './types/workout'
 import type { TodaySummary } from './utils/workoutSummary'
 
-type AppScreen = 'home' | 'workout' | 'timer-only' | 'mobility' | 'cardio-log'
+type AppScreen = 'home' | 'workout' | 'timer-only' | 'mobility' | 'core-view' | 'cardio-log'
 
 function WorkoutApp() {
   const { configured, user, signOut, ledgerReady } = useAuth()
@@ -71,8 +70,9 @@ function WorkoutApp() {
     todaySummary,
     tomorrowRecommendation,
     weeklyPlan,
-    updateDayActivities,
-    deleteWorkoutSession,
+    planOverrides,
+    replaceDayActivities,
+    setPlanOverride,
     saveBackfill,
     refresh,
   } = useActivityHistory()
@@ -130,6 +130,12 @@ function WorkoutApp() {
   useEffect(() => {
     scrollToTopAfterLayout()
   }, [screen, workoutStarted])
+
+  useEffect(() => {
+    if (screen === 'workout' && !selectedWorkoutType) {
+      setScreen('home')
+    }
+  }, [screen, selectedWorkoutType])
 
   const goHome = useCallback(() => {
     setScreen('home')
@@ -281,6 +287,11 @@ function WorkoutApp() {
     setScreen('mobility')
   }, [])
 
+  const handleSelectCore = useCallback(() => {
+    scrollToTop()
+    setScreen('core-view')
+  }, [])
+
   const handleSelectCardio = useCallback((type: WorkoutType) => {
     scrollToTop()
     setSelectedCardioType(type)
@@ -300,9 +311,13 @@ function WorkoutApp() {
       }
       if (navigation.action === 'mobility') {
         handleSelectMobility()
+        return
+      }
+      if (navigation.action === 'core') {
+        handleSelectCore()
       }
     },
-    [handleSelectCardio, handleSelectMobility, handleSelectWorkout],
+    [handleSelectCardio, handleSelectCore, handleSelectMobility, handleSelectWorkout],
   )
 
   const handleStartRecommendation = useCallback(() => {
@@ -614,9 +629,6 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
 
   return (
     <div className="flex min-h-full flex-col">
-      {configured && user && <UserMenu email={user.email} onSignOut={() => void signOut()} />}
-      {configured && user && screen === 'home' && <SyncStatusBanner />}
-
       {showWorkoutTimers && (
         <TimerBar
           remaining={timerRemaining}
@@ -651,21 +663,23 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
 
       <main className="flex-1">
         {screen === 'home' && (
-          <WorkoutSelector
+          <HomeScreen
+            userEmail={user?.email}
             activityHistory={activityHistory}
-            activeDaysCount={activeDaysCount}
             recommendationReady={recommendationReady}
             recommendation={recommendation}
             todayLogged={todayLogged}
             todaySummary={todaySummary}
             tomorrowRecommendation={tomorrowRecommendation}
             weeklyPlan={weeklyPlan}
-            onUpdateDayActivities={updateDayActivities}
-            onDeleteWorkoutSession={deleteWorkoutSession}
-            onSaveBackfill={saveBackfill}
+            planOverrides={planOverrides}
+            onSignOut={() => void signOut()}
+            onUpdateDayActivities={replaceDayActivities}
+            onSetPlanOverride={setPlanOverride}
             onStartRecommendation={handleStartRecommendation}
             onSelectWorkout={handleSelectWorkout}
             onSelectCardio={handleSelectCardio}
+            onSelectCore={handleSelectCore}
             onSelectTimer={handleSelectTimer}
             onSelectMobility={handleSelectMobility}
           />
@@ -705,7 +719,39 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
 
         {screen === 'timer-only' && <TimerOnlyView onBack={goHome} />}
 
-        {screen === 'mobility' && <MobilityView onBack={goHome} />}
+        {screen === 'core-view' && (
+          <CoreView
+            onBack={goHome}
+            onLog={(durationMinutes) => {
+              const date = toDateString(new Date())
+              appendManualActivity(date, {
+                id: `${date}-Core-${crypto.randomUUID().slice(0, 8)}`,
+                date,
+                type: 'Core',
+                durationMinutes,
+                source: 'manual',
+              })
+              refresh()
+            }}
+          />
+        )}
+
+        {screen === 'mobility' && (
+          <MobilityView
+            onBack={goHome}
+            onLog={(durationMinutes) => {
+              const date = toDateString(new Date())
+              appendManualActivity(date, {
+                id: `${date}-Mobility-${crypto.randomUUID().slice(0, 8)}`,
+                date,
+                type: 'Mobility',
+                durationMinutes,
+                source: 'manual',
+              })
+              refresh()
+            }}
+          />
+        )}
 
         {screen === 'cardio-log' && selectedCardioType && (
           <CardioLogScreen
@@ -770,7 +816,13 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
           open={workoutCompleteOpen}
           todaySummary={workoutCompleteData.todaySummary}
           tomorrowRecommendation={workoutCompleteData.tomorrowRecommendation}
+          coreLoggedToday={activityHistory.at(-1)?.activities.some((a) => a.type === 'Core') ?? false}
           onDismiss={handleDismissWorkoutComplete}
+          onAddCore={() => {
+            setWorkoutCompleteOpen(false)
+            setWorkoutCompleteData(null)
+            setScreen('core-view')
+          }}
           onStartTomorrow={() => {
             const target = workoutCompleteData.tomorrowRecommendation
             setWorkoutCompleteOpen(false)

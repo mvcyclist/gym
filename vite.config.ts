@@ -5,4 +5,8 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig(({ mode }) => ({
   base: mode === 'production' ? '/gym/' : '/',
   plugins: [react(), tailwindcss()],
+  server: {
+    port: 5173,
+    strictPort: true,
+  },
 }))

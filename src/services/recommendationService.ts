@@ -155,5 +155,38 @@ export function getWeeklyPlan(activityHistory: DayActivity[]): WeeklyPlanDay[] {
     })
   }
 
+  // Post-generation: force-insert Core if missing from plan
+  const hasCore = plan.some((d) => d.displayType === 'Core')
+  if (!hasCore) {
+    const CORE_DONOR_TYPES = ['Walk', 'Rest', 'Swim', 'Bike', 'Run']
+    const donorIndex = plan.findIndex((d) => CORE_DONOR_TYPES.includes(d.displayType))
+    if (donorIndex !== -1) {
+      const donor = plan[donorIndex]
+      const isCardio = ['Swim', 'Bike', 'Run'].includes(donor.displayType)
+      if (isCardio) {
+        // Pair Core with the cardio day — note it in the title
+        plan[donorIndex] = {
+          ...donor,
+          recommendation: {
+            ...donor.recommendation,
+            title: `${donor.displayType} + Core`,
+            reason: `${donor.recommendation.reason} — Good day to add 15 min Core after.`,
+          },
+        }
+      } else {
+        // Walk/Rest day → replace with Core standalone
+        plan[donorIndex] = {
+          ...donor,
+          displayType: 'Core',
+          recommendation: {
+            workoutType: 'Core',
+            title: 'Core',
+            reason: 'Core is due this week — good slot for a 25 min session.',
+          },
+        }
+      }
+    }
+  }
+
   return plan
 }

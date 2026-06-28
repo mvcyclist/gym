@@ -8,6 +8,8 @@ interface WorkoutCompleteSummaryDialogProps {
   tomorrowRecommendation: WorkoutRecommendation
   onDismiss: () => void
   onStartTomorrow?: () => void
+  onAddCore?: () => void
+  coreLoggedToday?: boolean
 }
 
 export function WorkoutCompleteSummaryDialog({
@@ -16,6 +18,8 @@ export function WorkoutCompleteSummaryDialog({
   tomorrowRecommendation,
   onDismiss,
   onStartTomorrow,
+  onAddCore,
+  coreLoggedToday,
 }: WorkoutCompleteSummaryDialogProps) {
   if (!open) return null
 
@@ -36,6 +40,8 @@ export function WorkoutCompleteSummaryDialog({
           tomorrowRecommendation={tomorrowRecommendation}
           onDismiss={onDismiss}
           onStartTomorrow={onStartTomorrow}
+          onAddCore={onAddCore}
+          coreLoggedToday={coreLoggedToday}
         />
       </div>
     </div>

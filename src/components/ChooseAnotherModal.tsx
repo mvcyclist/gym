@@ -2,6 +2,18 @@ import { useEffect } from 'react'
 import type { WorkoutCategory } from '../types/workout'
 import type { ScoredWorkout, QualityBucket, WorkoutType } from '../types/training'
 
+const FALLBACK_OPTIONS: Array<{ type: string; label: string }> = [
+  { type: 'Push',     label: 'Push — Chest, shoulders, triceps' },
+  { type: 'Pull',     label: 'Pull — Back, biceps, rear delts' },
+  { type: 'Leg',      label: 'Leg — Quads, hamstrings, glutes' },
+  { type: 'Core',     label: 'Core — Stability and anti-rotation' },
+  { type: 'Run',      label: 'Run' },
+  { type: 'Swim',     label: 'Swim' },
+  { type: 'Bike',     label: 'Bike' },
+  { type: 'Walk',     label: 'Walk' },
+  { type: 'Mobility', label: 'Mobility — Movement prep & recovery' },
+]
+
 const BUCKET_DOT: Record<QualityBucket, string> = {
   Best:     'bg-emerald-400',
   Good:     'bg-sky-400',
@@ -22,6 +34,7 @@ interface ChooseAnotherModalProps {
   onClose: () => void
   onSelectWorkout: (id: WorkoutCategory) => void
   onSelectCardio: (type: WorkoutType) => void
+  onSelectCore: () => void
   onSelectMobility: () => void
   onSelectTimer: () => void
 }
@@ -32,13 +45,14 @@ function typeToAction(
   type: string,
   onSelectWorkout: (id: WorkoutCategory) => void,
   onSelectCardio: (type: WorkoutType) => void,
+  onSelectCore: () => void,
   onSelectMobility: () => void,
 ) {
   switch (type) {
     case 'Push': return () => onSelectWorkout('push')
     case 'Pull': return () => onSelectWorkout('pull')
     case 'Leg':  return () => onSelectWorkout('leg')
-    case 'Core': return () => onSelectWorkout('core')
+    case 'Core': return onSelectCore
     default:
       if (CARDIO_TYPES.has(type)) return () => onSelectCardio(type as WorkoutType)
       return () => onSelectMobility()
@@ -51,6 +65,7 @@ export function ChooseAnotherModal({
   onClose,
   onSelectWorkout,
   onSelectCardio,
+  onSelectCore,
   onSelectMobility,
   onSelectTimer,
 }: ChooseAnotherModalProps) {
@@ -63,12 +78,13 @@ export function ChooseAnotherModal({
 
   if (!open) return null
 
+  const hasAlternatives = alternatives.length > 0
   const goodOptions = alternatives.filter((a) => a.bucket === 'Best' || a.bucket === 'Good')
   const marginalOptions = alternatives.filter((a) => a.bucket === 'Marginal')
   const skipOptions = alternatives.filter((a) => a.bucket === 'Skip')
 
   const renderRow = (item: ScoredWorkout) => {
-    const action = typeToAction(item.type, onSelectWorkout, onSelectCardio, onSelectMobility)
+    const action = typeToAction(item.type, onSelectWorkout, onSelectCardio, onSelectCore, onSelectMobility)
     const isSkip = item.bucket === 'Skip'
 
     return (
@@ -126,22 +142,44 @@ export function ChooseAnotherModal({
         </div>
 
         <div className="flex flex-col gap-4">
-          {goodOptions.length > 0 && (
+          {hasAlternatives ? (
+            <>
+              {goodOptions.length > 0 && (
+                <div>
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Good ideas</p>
+                  <div className="flex flex-col gap-2">{goodOptions.map(renderRow)}</div>
+                </div>
+              )}
+              {marginalOptions.length > 0 && (
+                <div>
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-amber-500/70">Will work, quality may suffer</p>
+                  <div className="flex flex-col gap-2">{marginalOptions.map(renderRow)}</div>
+                </div>
+              )}
+              {skipOptions.length > 0 && (
+                <div>
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-red-500/70">Not recommended</p>
+                  <div className="flex flex-col gap-2">{skipOptions.map(renderRow)}</div>
+                </div>
+              )}
+            </>
+          ) : (
             <div>
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Good ideas</p>
-              <div className="flex flex-col gap-2">{goodOptions.map(renderRow)}</div>
-            </div>
-          )}
-          {marginalOptions.length > 0 && (
-            <div>
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-amber-500/70">Will work, quality may suffer</p>
-              <div className="flex flex-col gap-2">{marginalOptions.map(renderRow)}</div>
-            </div>
-          )}
-          {skipOptions.length > 0 && (
-            <div>
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-red-500/70">Not recommended</p>
-              <div className="flex flex-col gap-2">{skipOptions.map(renderRow)}</div>
+              <div className="flex flex-col gap-2">
+                {FALLBACK_OPTIONS.map(({ type, label }) => {
+                  const action = typeToAction(type, onSelectWorkout, onSelectCardio, onSelectCore, onSelectMobility)
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => { action(); onClose() }}
+                      className="flex w-full items-center rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-left text-sm font-semibold text-white transition hover:border-zinc-600 hover:bg-zinc-800"
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
           )}
           <div>

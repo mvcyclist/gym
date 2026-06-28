@@ -22,7 +22,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (loading) {
     return (
       <div className="flex min-h-[70vh] items-center justify-center px-4">
-        <p className="text-sm text-zinc-400">Loading your workout history…</p>
+        <p className="text-sm text-zinc-400">Checking sign-in…</p>
       </div>
     )
   }

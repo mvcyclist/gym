@@ -11,12 +11,15 @@ import {
 } from '../services/historyQueryService'
 import {
   deleteCompletedSession,
+  getPlanOverrides,
+  replaceDayLog,
   saveBackfillDays,
   updateManualActivities,
+  updatePlanOverride,
 } from '../services/trainingLedgerService'
 import type { BackfillRow } from '../components/BackfillRecentActivityModal'
 import { useAuth } from './useAuth'
-import type { ActivityEntry, DayActivity, RecommendationResult, WorkoutRecommendation } from '../types/training'
+import type { ActivityEntry, ActivityType, DayActivity, RecommendationResult, WorkoutRecommendation } from '../types/training'
 import { toDateString } from '../utils/activityHistory'
 import {
   buildTodayActivitySummary,
@@ -93,9 +96,31 @@ export function useActivityHistory() {
     return getWeeklyPlan(activityHistory)
   }, [activityHistory, recommendationReady])
 
+  const planOverrides = useMemo((): Record<string, ActivityType[]> => {
+    void revision
+    void ledgerVersion
+    return getPlanOverrides()
+  }, [ledgerVersion, revision])
+
+  const replaceDayActivities = useCallback(
+    (date: string, types: ActivityType[]) => {
+      replaceDayLog(date, types)
+      refresh()
+    },
+    [refresh],
+  )
+
   const updateDayActivities = useCallback(
     (date: string, activities: ActivityEntry[]) => {
       updateManualActivities(date, activities)
+      refresh()
+    },
+    [refresh],
+  )
+
+  const setPlanOverride = useCallback(
+    (date: string, activityTypes: ActivityType[]) => {
+      updatePlanOverride(date, activityTypes)
       refresh()
     },
     [refresh],
@@ -138,7 +163,10 @@ export function useActivityHistory() {
     todaySummary,
     tomorrowRecommendation,
     weeklyPlan,
+    planOverrides,
+    replaceDayActivities,
     updateDayActivities,
+    setPlanOverride,
     deleteWorkoutSession,
     saveBackfill,
     refresh,

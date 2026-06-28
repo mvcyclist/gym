@@ -31,7 +31,7 @@ function migrateLegacyGlobalLedger(userId: string): void {
 const LEDGER_VERSION = 4
 
 function emptyLedger(): TrainingLedger {
-  return { version: LEDGER_VERSION, sessions: [], manualByDate: {} }
+  return { version: LEDGER_VERSION, sessions: [], manualByDate: {}, planOverridesByDate: {} }
 }
 
 function normalizeLedger(parsed: Partial<TrainingLedger>): TrainingLedger {
@@ -60,6 +60,7 @@ function normalizeLedger(parsed: Partial<TrainingLedger>): TrainingLedger {
     version: LEDGER_VERSION,
     sessions,
     manualByDate: manualByDateCleaned,
+    planOverridesByDate: parsed.planOverridesByDate ?? {},
   }
 }
 

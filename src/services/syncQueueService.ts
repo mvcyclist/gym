@@ -7,11 +7,12 @@
 import {
   deleteSessionFromCloud,
   replaceManualDayOnCloud,
+  replacePlanOverrideOnCloud,
   upsertSessionToCloud,
 } from '../adapters/supabaseLedgerStorage'
 import { kvGet, kvSet } from '../adapters/localKeyValueStorage'
 import { isSupabaseConfigured } from '../lib/supabase'
-import type { ActivityEntry } from '../types/training'
+import type { ActivityEntry, ActivityType } from '../types/training'
 import type { WorkoutSession } from '../types/workout'
 
 const QUEUE_KEY_BASE = 'workout-deck-sync-queue'
@@ -43,6 +44,15 @@ type SyncOp =
       userId: string
       date: string
       activities: ActivityEntry[]
+      enqueuedAt: string
+      attempts: number
+      nextRetryAt: number
+    }
+  | {
+      type: 'replace-plan-override'
+      userId: string
+      date: string
+      activityTypes: ActivityType[]
       enqueuedAt: string
       attempts: number
       nextRetryAt: number
@@ -193,9 +203,14 @@ function enqueueOp(userId: string, op: SyncOp): void {
     )
     withoutDupes.push(op)
     saveQueue(userId, withoutDupes)
-  } else {
+  } else if (op.type === 'replace-manual-day' || op.type === 'replace-plan-override') {
     const withoutDupes = queue.filter(
-      (item) => !(item.type === 'replace-manual-day' && item.date === op.date),
+      (item) =>
+        !(
+          (item.type === 'replace-manual-day' || item.type === 'replace-plan-override') &&
+          item.date === op.date &&
+          item.type === op.type
+        ),
     )
     withoutDupes.push(op)
     saveQueue(userId, withoutDupes)
@@ -231,6 +246,19 @@ export function enqueueManualDayReplace(
   enqueueOp(userId, { type: 'replace-manual-day', date, activities, ...createOpBase(userId) })
 }
 
+export function enqueuePlanOverrideReplace(
+  userId: string,
+  date: string,
+  activityTypes: ActivityType[],
+): void {
+  enqueueOp(userId, {
+    type: 'replace-plan-override',
+    date,
+    activityTypes,
+    ...createOpBase(userId),
+  })
+}
+
 async function executeOp(op: SyncOp): Promise<void> {
   if (op.type === 'upsert-session') {
     await upsertSessionToCloud(op.session, op.userId)
@@ -238,6 +266,10 @@ async function executeOp(op: SyncOp): Promise<void> {
   }
   if (op.type === 'delete-session') {
     await deleteSessionFromCloud(op.sessionId, op.userId)
+    return
+  }
+  if (op.type === 'replace-plan-override') {
+    await replacePlanOverrideOnCloud(op.userId, op.date, op.activityTypes)
     return
   }
   await replaceManualDayOnCloud(op.userId, op.date, op.activities)
@@ -305,7 +337,41 @@ export async function syncLedgerWithCloud(
   refreshMerged: (userId: string, options?: { force?: boolean }) => Promise<unknown>,
 ): Promise<void> {
   await processSyncQueue(userId)
-  await refreshMerged(userId)
+  try {
+    await refreshMerged(userId)
+    if (loadQueue(userId).length === 0) {
+      recordHydrateSuccess(userId)
+    }
+  } catch (error) {
+    recordHydrateFailure(userId, error)
+    throw error
+  }
+  refreshStatus()
+}
+
+/** Manual retry: reset backoff timers, drain queue, then pull from cloud. */
+export async function retrySyncLedger(
+  userId: string,
+  refreshMerged: (userId: string, options?: { force?: boolean }) => Promise<unknown>,
+): Promise<void> {
+  const queue = loadQueue(userId).map((op) => ({ ...op, nextRetryAt: 0 }))
+  saveQueue(userId, queue)
+  saveMeta(userId, { ...loadMeta(userId), lastError: null })
+  refreshStatus()
+
+  await processSyncQueue(userId)
+
+  const remaining = loadQueue(userId)
+
+  try {
+    await refreshMerged(userId)
+    saveMeta(userId, {
+      lastSuccessAt: remaining.length === 0 ? new Date().toISOString() : loadMeta(userId).lastSuccessAt,
+      lastError: remaining.length > 0 ? loadMeta(userId).lastError : null,
+    })
+  } catch (error) {
+    recordHydrateFailure(userId, error)
+  }
   refreshStatus()
 }
 

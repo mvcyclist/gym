@@ -26,6 +26,7 @@ interface WorkoutSelectorProps {
   onSelectWorkout: (workoutId: WorkoutCategory) => void
   onSelectCardio: (type: WorkoutType) => void
   onSelectTimer: () => void
+  onSelectCore: () => void
   onSelectMobility: () => void
 }
 
@@ -45,6 +46,7 @@ export function WorkoutSelector({
   onSelectWorkout,
   onSelectCardio,
   onSelectTimer,
+  onSelectCore,
   onSelectMobility,
 }: WorkoutSelectorProps) {
   const [editingDay, setEditingDay] = useState<DayActivity | null>(null)
@@ -179,6 +181,7 @@ export function WorkoutSelector({
         onClose={() => setChooseOpen(false)}
         onSelectWorkout={onSelectWorkout}
         onSelectCardio={onSelectCardio}
+        onSelectCore={onSelectCore}
         onSelectMobility={onSelectMobility}
         onSelectTimer={onSelectTimer}
       />

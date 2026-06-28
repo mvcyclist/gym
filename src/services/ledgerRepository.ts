@@ -15,13 +15,14 @@ import {
   bindSyncQueueUser,
   clearSyncQueue,
   enqueueManualDayReplace,
+  enqueuePlanOverrideReplace,
   enqueueSessionDelete,
   enqueueSessionUpsert,
   processSyncQueue,
   recordHydrateSuccess,
 } from './syncQueueService'
 import { isSupabaseConfigured } from '../lib/supabase'
-import type { ActivityEntry } from '../types/training'
+import type { ActivityEntry, ActivityType } from '../types/training'
 import type { TrainingLedger } from '../types/ledger'
 import type { WorkoutSession } from '../types/workout'
 import {
@@ -212,6 +213,29 @@ export function replaceManualActivities(date: string, activities: ActivityEntry[
 
   if (syncUserId) {
     enqueueManualDayReplace(syncUserId, date, activities)
+    void processSyncQueue(syncUserId)
+  }
+}
+
+export function getPlanOverrides(): Record<string, ActivityType[]> {
+  return { ...(loadLedger().planOverridesByDate ?? {}) }
+}
+
+export function replacePlanOverride(date: string, activityTypes: ActivityType[]): void {
+  const ledger = loadLedger()
+  const next = { ...(ledger.planOverridesByDate ?? {}) }
+
+  if (activityTypes.length === 0) {
+    delete next[date]
+  } else {
+    next[date] = activityTypes
+  }
+
+  ledger.planOverridesByDate = next
+  persistLedger(ledger)
+
+  if (syncUserId) {
+    enqueuePlanOverrideReplace(syncUserId, date, activityTypes)
     void processSyncQueue(syncUserId)
   }
 }

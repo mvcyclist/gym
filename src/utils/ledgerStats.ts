@@ -1,6 +1,6 @@
 import type { TrainingLedger } from '../types/ledger'
 import type { WorkoutSession } from '../types/workout'
-import type { ActivityEntry } from '../types/training'
+import type { ActivityEntry, ActivityType } from '../types/training'
 import { filterCalendarSessions } from '../services/historyQueryPolicy'
 
 /** Merge rules documented in services/ledgerMergePolicy.ts */
@@ -57,5 +57,12 @@ export function mergeLedgers(local: TrainingLedger, cloud: TrainingLedger): Trai
     manualByDate[date] = [...merged.values()]
   }
 
-  return { version: 4, sessions, manualByDate }
+  const planOverridesByDate: Record<string, ActivityType[]> = {
+    ...(cloud.planOverridesByDate ?? {}),
+  }
+  for (const [date, types] of Object.entries(local.planOverridesByDate ?? {})) {
+    planOverridesByDate[date] = types
+  }
+
+  return { version: 4, sessions, manualByDate, planOverridesByDate }
 }

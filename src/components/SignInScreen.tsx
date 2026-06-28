@@ -1,9 +1,13 @@
+import { getLocalOAuthSetupHint } from '../lib/authRedirect'
+
 interface SignInScreenProps {
   onSignIn: () => Promise<void>
   error?: string | null
 }
 
 export function SignInScreen({ onSignIn, error }: SignInScreenProps) {
+  const devHint = getLocalOAuthSetupHint()
+
   return (
     <div className="mx-auto flex min-h-[70vh] w-full max-w-md flex-col items-center justify-center px-4 py-12">
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-red-500">Workout Deck</p>
@@ -11,6 +15,12 @@ export function SignInScreen({ onSignIn, error }: SignInScreenProps) {
       <p className="mt-3 text-center text-sm leading-relaxed text-zinc-400">
         Your workout history and calendar sync across devices. Sign in with Google to get started.
       </p>
+
+      {devHint && (
+        <p className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs leading-relaxed text-amber-100/90">
+          {devHint}
+        </p>
+      )}
 
       {error && (
         <p className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">

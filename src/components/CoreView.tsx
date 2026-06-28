@@ -1,15 +1,17 @@
 import { useRef, useState } from 'react'
-import { mobilityExercises } from '../data/mobility'
+import { getWorkoutById } from '../data/workouts'
 
-interface MobilityViewProps {
+interface CoreViewProps {
   onBack: () => void
   onLog: (durationMinutes: number) => void
 }
 
-export function MobilityView({ onBack, onLog }: MobilityViewProps) {
+const coreExercises = getWorkoutById('core')?.exercises ?? []
+
+export function CoreView({ onBack, onLog }: CoreViewProps) {
   const mountedAt = useRef(Date.now())
   const [showPrompt, setShowPrompt] = useState(false)
-  const [duration, setDuration] = useState(15)
+  const [duration, setDuration] = useState(25)
 
   const handleBack = () => {
     const elapsed = (Date.now() - mountedAt.current) / 1000
@@ -30,7 +32,7 @@ export function MobilityView({ onBack, onLog }: MobilityViewProps) {
       {showPrompt && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center">
           <div className="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-950 p-6">
-            <h2 className="text-lg font-bold text-white">Log mobility session?</h2>
+            <h2 className="text-lg font-bold text-white">Log core session?</h2>
             <p className="mt-1 text-sm text-zinc-400">How long did you spend?</p>
             <div className="mt-5 flex items-center gap-4">
               <button
@@ -43,7 +45,7 @@ export function MobilityView({ onBack, onLog }: MobilityViewProps) {
               <span className="min-w-[6rem] text-center text-2xl font-bold text-white">{duration} min</span>
               <button
                 type="button"
-                onClick={() => setDuration((d) => Math.min(120, d + 5))}
+                onClick={() => setDuration((d) => Math.min(60, d + 5))}
                 className="flex h-10 w-10 items-center justify-center rounded-xl border border-zinc-700 text-lg font-bold text-zinc-300 hover:border-zinc-500 hover:bg-zinc-800"
               >
                 +
@@ -78,15 +80,15 @@ export function MobilityView({ onBack, onLog }: MobilityViewProps) {
       </button>
 
       <div className="mb-8">
-        <p className="text-sm font-semibold uppercase tracking-wider text-zinc-500">Mobility</p>
-        <h1 className="mt-1 text-3xl font-bold text-white">Movement prep & recovery</h1>
+        <p className="text-sm font-semibold uppercase tracking-wider text-zinc-500">Core</p>
+        <h1 className="mt-1 text-3xl font-bold text-white">Core session</h1>
         <p className="mt-2 text-zinc-400">
-          Stretching, warm-ups, and recovery. Use Timer Only if you want a rest clock.
+          Anti-extension, rotation, and stability. Aim for 3 rounds of each.
         </p>
       </div>
 
       <ol className="space-y-3">
-        {mobilityExercises.map((exercise, index) => (
+        {coreExercises.map((exercise, index) => (
           <li
             key={exercise.id}
             className="rounded-xl border border-zinc-800 bg-zinc-900/80 px-5 py-4"
@@ -96,16 +98,16 @@ export function MobilityView({ onBack, onLog }: MobilityViewProps) {
                 <p className="text-xs font-semibold text-zinc-500">#{index + 1}</p>
                 <h2 className="text-lg font-semibold text-white">{exercise.name}</h2>
               </div>
-              <span className="shrink-0 text-xs font-medium text-zinc-400">{exercise.duration}</span>
+              <span className="shrink-0 text-xs font-medium text-zinc-400">
+                {exercise.sets} × {exercise.reps}
+              </span>
             </div>
-            <p className="mt-1 text-sm text-zinc-500">{exercise.focus}</p>
+            {exercise.primaryMuscles.length > 0 && (
+              <p className="mt-1 text-sm text-zinc-500">{exercise.primaryMuscles.join(', ')}</p>
+            )}
           </li>
         ))}
       </ol>
-
-      <p className="mt-6 text-center text-xs text-zinc-600">
-        Detailed mobility videos and cues coming soon.
-      </p>
     </section>
   )
 }

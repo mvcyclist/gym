@@ -18,16 +18,13 @@ import {
   recordHydrateFailure,
   subscribeSyncStatus,
   syncLedgerWithCloud,
+  retrySyncLedger,
 } from '../services/syncQueueService'
 import type { SyncStatus } from '../services/syncQueueService'
 import { AuthContext, type AuthContextValue } from './authContext'
+import { getAuthRedirectUrl } from '../lib/authRedirect'
 
-function getAuthRedirectUrl(): string {
-  return `${window.location.origin}${import.meta.env.BASE_URL}`
-}
-
-async function loadLedgerForUser(userId: string): Promise<boolean> {
-  bindLedgerToUser(userId)
+async function syncLedgerFromCloud(userId: string): Promise<boolean> {
   await hydrateLedgerFromCloud(userId)
   await processSyncQueue(userId)
   return shouldOfferLocalImport(userId)
@@ -55,26 +52,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [configured])
 
   const handleSignedIn = useCallback(async (userId: string) => {
-    const isFirstLoadForUser = hydratedUserIdRef.current !== userId
-    if (isFirstLoadForUser && !initialLedgerLoadedRef.current) {
-      setLedgerReady(false)
-    }
+    bindLedgerToUser(userId)
+    hydratedUserIdRef.current = userId
+    initialLedgerLoadedRef.current = true
+    setLedgerReady(true)
+    setInitialLedgerLoaded(true)
+
     try {
-      const offerImport = await loadLedgerForUser(userId)
-      hydratedUserIdRef.current = userId
-      initialLedgerLoadedRef.current = true
-      setLedgerReady(true)
-      setInitialLedgerLoaded(true)
+      const offerImport = await syncLedgerFromCloud(userId)
       setLedgerVersion((value) => value + 1)
       setImportOfferOpen(offerImport)
     } catch (error) {
       console.error('[auth] failed to load cloud ledger', error)
       recordHydrateFailure(userId, error)
-      setLedgerReady(true)
-      if (hydratedUserIdRef.current === userId) {
-        initialLedgerLoadedRef.current = true
-        setInitialLedgerLoaded(true)
-      }
     }
   }, [])
 
@@ -102,9 +92,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       void handleSignedIn(userId)
     }
 
-    supabase.auth.getSession().then(({ data }) => {
-      applySession(data.session)
-    })
+    const authTimeout = window.setTimeout(() => {
+      if (!cancelled) {
+        console.warn('[auth] session check timed out — showing sign-in')
+        setAuthLoading(false)
+      }
+    }, 10_000)
+
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        applySession(data.session)
+      })
+      .catch((error) => {
+        console.error('[auth] getSession failed', error)
+        if (!cancelled) setAuthLoading(false)
+      })
 
     const {
       data: { subscription },
@@ -114,6 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       cancelled = true
+      window.clearTimeout(authTimeout)
       subscription.unsubscribe()
     }
   }, [configured, handleSignedIn, handleSignedOut])
@@ -149,10 +153,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = useCallback(async () => {
     const supabase = getSupabase()
+    const redirectTo = getAuthRedirectUrl()
+    if (import.meta.env.DEV) {
+      console.info('[auth] OAuth redirectTo:', redirectTo)
+    }
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: getAuthRedirectUrl(),
+        redirectTo,
         queryParams: { prompt: 'select_account' },
       },
     })
@@ -180,8 +188,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const retrySync = useCallback(async () => {
     const userId = session?.user?.id
     if (!userId) return
-    await syncLedgerWithCloud(userId, refreshMergedLedgerFromCloud)
-    setLedgerVersion((value) => value + 1)
+    try {
+      await retrySyncLedger(userId, refreshMergedLedgerFromCloud)
+      setLedgerVersion((value) => value + 1)
+    } catch (error) {
+      console.error('[auth] retry sync failed', error)
+    }
   }, [session])
 
   const pushDeviceHistory = useCallback(async () => {
@@ -225,9 +237,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     (): AuthContextValue => ({
       configured,
-      loading:
-        authLoading ||
-        (configured && !!session?.user && !ledgerReady && !initialLedgerLoaded),
+      loading: authLoading,
       user: session?.user ?? null,
       ledgerReady: !configured || ledgerReady,
       ledgerVersion,

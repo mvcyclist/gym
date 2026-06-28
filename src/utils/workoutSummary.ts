@@ -1,6 +1,6 @@
 import { getWorkoutById } from '../data/workouts'
 import type { DayActivity } from '../types/training'
-import type { WorkoutSession } from '../types/workout'
+import type { WorkoutCategory, WorkoutSession } from '../types/workout'
 import {
   countCompletedSets,
   countExercisesWithCompletedSets,
@@ -10,6 +10,7 @@ import {
 
 export interface WorkoutSessionSummary {
   workoutTitle: string
+  workoutType: WorkoutCategory
   status: 'completed' | 'partial'
   durationMinutes?: number
   completedSets: number
@@ -39,6 +40,7 @@ export function buildWorkoutSessionSummary(session: WorkoutSession): WorkoutSess
 
   return {
     workoutTitle: workout?.title ?? session.workoutType,
+    workoutType: session.workoutType,
     status: session.status === 'partial' ? 'partial' : 'completed',
     durationMinutes: getSessionDurationMinutes(session),
     completedSets: countCompletedSets(session),
