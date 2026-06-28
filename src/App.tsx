@@ -43,7 +43,7 @@ import type { TodaySummary } from './utils/workoutSummary'
 type AppScreen = 'home' | 'workout' | 'timer-only' | 'mobility' | 'core-view' | 'cardio-log'
 
 function WorkoutApp() {
-  const { configured, user, signOut, ledgerReady } = useAuth()
+  const { user, signOut, ledgerReady } = useAuth()
   const [screen, setScreen] = useState<AppScreen>('home')
   const [selectedCardioType, setSelectedCardioType] = useState<WorkoutType | null>(null)
   const [resumeChecked, setResumeChecked] = useState(false)
@@ -63,7 +63,6 @@ function WorkoutApp() {
 
   const {
     activityHistory,
-    activeDaysCount,
     recommendationReady,
     recommendation,
     todayLogged,
@@ -73,7 +72,6 @@ function WorkoutApp() {
     planOverrides,
     replaceDayActivities,
     setPlanOverride,
-    saveBackfill,
     refresh,
   } = useActivityHistory()
 
