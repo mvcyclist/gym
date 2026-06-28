@@ -106,20 +106,6 @@ export function SignInScreen({ onSignIn, error }: SignInScreenProps) {
           minHeight: 'calc(100vh - 60px)',
         }}
       >
-        <div
-          aria-hidden
-          style={{
-            position: 'absolute',
-            top: '10%',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: 500,
-            height: 500,
-            background: `radial-gradient(ellipse at center, rgba(184,134,11,0.12) 0%, rgba(139,26,26,0.08) 40%, transparent 70%)`,
-            pointerEvents: 'none',
-          }}
-        />
-
         <img
           src="/bd-gym-logo.png"
           alt="BusyDad Gym"
@@ -132,7 +118,6 @@ export function SignInScreen({ onSignIn, error }: SignInScreenProps) {
             marginBottom: '2rem',
             position: 'relative',
             zIndex: 1,
-            filter: 'drop-shadow(0 0 30px rgba(184,134,11,0.25)) drop-shadow(0 0 60px rgba(139,26,26,0.15))',
           }}
         />
 
