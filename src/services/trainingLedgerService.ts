@@ -14,6 +14,7 @@ import { getManualActivitiesForDate, getSessionsForDate } from './historyQuerySe
 import type { ActivityEntry, ActivityType } from '../types/training'
 import type { WorkoutSession } from '../types/workout'
 import { createActivityEntry } from '../utils/activityHistory'
+import { workoutCategoryToActivityType } from '../utils/workoutCategoryMap'
 
 export {
   getLastSevenDays,
@@ -92,18 +93,20 @@ export function updateManualActivities(date: string, activities: ActivityEntry[]
  * Clears workout sessions for that date so edits match what the user sees.
  */
 export function replaceDayLog(date: string, types: ActivityType[]): void {
+  const uniqueTypes = [...new Set(types)]
+
   for (const session of getSessionsForDate(date)) {
     removeSessionFromLedger(session.id)
   }
 
-  if (types.length === 0) {
+  if (uniqueTypes.length === 0) {
     replaceManualActivities(date, [])
     return
   }
 
   replaceManualActivities(
     date,
-    types.map((type) =>
+    uniqueTypes.map((type) =>
       createActivityEntry(date, type, {
         intensity: 'Moderate',
         durationMinutes: 45,
@@ -118,6 +121,15 @@ export function updatePlanOverride(date: string, activityTypes: ActivityType[]):
 }
 
 export function appendManualActivity(date: string, entry: ActivityEntry): void {
-  const existing = getManualActivitiesForDate(date)
-  replaceManualActivities(date, [...existing, entry])
+  for (const session of getSessionsForDate(date)) {
+    const sessionType = workoutCategoryToActivityType(session.workoutType)
+    if (sessionType === entry.type) {
+      removeSessionFromLedger(session.id)
+    }
+  }
+
+  const withoutSameType = getManualActivitiesForDate(date).filter(
+    (existing) => existing.type !== entry.type,
+  )
+  replaceManualActivities(date, [...withoutSameType, entry])
 }

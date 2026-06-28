@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AuthGate } from './components/AuthGate'
+import { AiCoachLayout } from './components/AiCoachLayout'
 import { HomeScreen } from './components/HomeScreen'
 import { useAuth } from './hooks/useAuth'
 import { getWorkoutById } from './data/workouts'
@@ -626,7 +627,7 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
   })
 
   return (
-    <div className="flex min-h-full flex-col">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
       {showWorkoutTimers && (
         <TimerBar
           remaining={timerRemaining}
@@ -659,7 +660,7 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
         />
       )}
 
-      <main className="flex-1">
+      <main className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
         {screen === 'home' && (
           <HomeScreen
             userEmail={user?.email}
@@ -683,95 +684,99 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
           />
         )}
 
-        {screen === 'workout' && selectedWorkoutType && workoutStarted && (
-          <WorkoutDeck
-            workoutId={selectedWorkoutType}
-            exercises={effectiveExercises}
-            currentExerciseIndex={currentExerciseIndex}
-            getExerciseLog={getExerciseLog}
-            onUpdateSet={handleUpdateSet}
-            onPrefillSets={(exerciseId, weight, reps) => prefillExerciseSets(exerciseId, weight, reps)}
-            onCompleteSet={handleCompleteSet}
-            onAddSet={handleAddSet}
-            onDeleteSet={handleDeleteSet}
-            onSkipExercise={handleSkipExercise}
-            onRemoveExercise={handleRemoveExercise}
-            onReorderExercises={handleReorderExercises}
-            onJumpToExercise={handleJumpToExercise}
-            isExerciseLogged={isExerciseLogged}
-            isExerciseSkipped={isExerciseSkipped}
-            onPrevious={handlePrevious}
-            onNext={handleNext}
-            onBack={handleBackFromWorkout}
-            onFinish={handleFinish}
-          />
-        )}
+        {screen !== 'home' && (
+          <AiCoachLayout showFloatingTrigger>
+            {screen === 'workout' && selectedWorkoutType && workoutStarted && (
+              <WorkoutDeck
+                workoutId={selectedWorkoutType}
+                exercises={effectiveExercises}
+                currentExerciseIndex={currentExerciseIndex}
+                getExerciseLog={getExerciseLog}
+                onUpdateSet={handleUpdateSet}
+                onPrefillSets={(exerciseId, weight, reps) => prefillExerciseSets(exerciseId, weight, reps)}
+                onCompleteSet={handleCompleteSet}
+                onAddSet={handleAddSet}
+                onDeleteSet={handleDeleteSet}
+                onSkipExercise={handleSkipExercise}
+                onRemoveExercise={handleRemoveExercise}
+                onReorderExercises={handleReorderExercises}
+                onJumpToExercise={handleJumpToExercise}
+                isExerciseLogged={isExerciseLogged}
+                isExerciseSkipped={isExerciseSkipped}
+                onPrevious={handlePrevious}
+                onNext={handleNext}
+                onBack={handleBackFromWorkout}
+                onFinish={handleFinish}
+              />
+            )}
 
-        {screen === 'workout' && selectedWorkoutType && !workoutStarted && (
-          <WorkoutStartView
-            workoutId={selectedWorkoutType}
-            onStart={handleStartWorkout}
-            onBack={handleBackFromWorkoutPreview}
-          />
-        )}
+            {screen === 'workout' && selectedWorkoutType && !workoutStarted && (
+              <WorkoutStartView
+                workoutId={selectedWorkoutType}
+                onStart={handleStartWorkout}
+                onBack={handleBackFromWorkoutPreview}
+              />
+            )}
 
-        {screen === 'timer-only' && <TimerOnlyView onBack={goHome} />}
+            {screen === 'timer-only' && <TimerOnlyView onBack={goHome} />}
 
-        {screen === 'core-view' && (
-          <CoreView
-            onBack={goHome}
-            onLog={(durationMinutes) => {
-              const date = toDateString(new Date())
-              appendManualActivity(date, {
-                id: `${date}-Core-${crypto.randomUUID().slice(0, 8)}`,
-                date,
-                type: 'Core',
-                durationMinutes,
-                source: 'manual',
-              })
-              refresh()
-            }}
-          />
-        )}
+            {screen === 'core-view' && (
+              <CoreView
+                onBack={goHome}
+                onLog={(durationMinutes) => {
+                  const date = toDateString(new Date())
+                  appendManualActivity(date, {
+                    id: `${date}-Core-${crypto.randomUUID().slice(0, 8)}`,
+                    date,
+                    type: 'Core',
+                    durationMinutes,
+                    source: 'manual',
+                  })
+                  refresh()
+                }}
+              />
+            )}
 
-        {screen === 'mobility' && (
-          <MobilityView
-            onBack={goHome}
-            onLog={(durationMinutes) => {
-              const date = toDateString(new Date())
-              appendManualActivity(date, {
-                id: `${date}-Mobility-${crypto.randomUUID().slice(0, 8)}`,
-                date,
-                type: 'Mobility',
-                durationMinutes,
-                source: 'manual',
-              })
-              refresh()
-            }}
-          />
-        )}
+            {screen === 'mobility' && (
+              <MobilityView
+                onBack={goHome}
+                onLog={(durationMinutes) => {
+                  const date = toDateString(new Date())
+                  appendManualActivity(date, {
+                    id: `${date}-Mobility-${crypto.randomUUID().slice(0, 8)}`,
+                    date,
+                    type: 'Mobility',
+                    durationMinutes,
+                    source: 'manual',
+                  })
+                  refresh()
+                }}
+              />
+            )}
 
-        {screen === 'cardio-log' && selectedCardioType && (
-          <CardioLogScreen
-            type={selectedCardioType}
-            history={activityHistory}
-            onBack={goHome}
-            onLog={({ type, durationMinutes, intensity, distanceMeters, distanceMiles }) => {
-              const date = toDateString(new Date())
-              appendManualActivity(date, {
-                id: `${date}-${type}-${crypto.randomUUID().slice(0, 8)}`,
-                date,
-                type,
-                intensity,
-                durationMinutes,
-                distanceMeters,
-                distanceMiles,
-                source: 'manual',
-              })
-              refresh()
-              goHome()
-            }}
-          />
+            {screen === 'cardio-log' && selectedCardioType && (
+              <CardioLogScreen
+                type={selectedCardioType}
+                history={activityHistory}
+                onBack={goHome}
+                onLog={({ type, durationMinutes, intensity, distanceMeters, distanceMiles }) => {
+                  const date = toDateString(new Date())
+                  appendManualActivity(date, {
+                    id: `${date}-${type}-${crypto.randomUUID().slice(0, 8)}`,
+                    date,
+                    type,
+                    intensity,
+                    durationMinutes,
+                    distanceMeters,
+                    distanceMiles,
+                    source: 'manual',
+                  })
+                  refresh()
+                  goHome()
+                }}
+              />
+            )}
+          </AiCoachLayout>
         )}
       </main>
 
@@ -838,9 +843,11 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
 
 function App() {
   return (
-    <AuthGate>
-      <WorkoutApp />
-    </AuthGate>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <AuthGate>
+        <WorkoutApp />
+      </AuthGate>
+    </div>
   )
 }
 

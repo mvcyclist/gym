@@ -12,6 +12,7 @@ import {
   buildLastSevenDays,
   resolveManualStorageKey,
 } from '../utils/activityHistory'
+import { dedupeDayActivities } from '../utils/dedupeDayActivities'
 import { getSessionCalendarDate } from '../utils/sessionMetrics'
 import { sessionToActivityEntry } from '../utils/sessionToActivity'
 
@@ -51,6 +52,10 @@ function buildActivitiesByDate(): Record<string, ActivityEntry[]> {
       })
     })
   })
+
+  for (const date of Object.keys(byDate)) {
+    byDate[date] = dedupeDayActivities(byDate[date])
+  }
 
   return byDate
 }

@@ -3,6 +3,7 @@ import { isDraftableSessionStatus } from '../types/draft'
 import type { ActivityEntry, ActivityType } from '../types/training'
 import type { TrainingLedger } from '../types/ledger'
 import type { WorkoutSession } from '../types/workout'
+import { getSessionCalendarDate } from '../utils/sessionMetrics'
 
 interface WorkoutSessionRow {
   id: string
@@ -225,12 +226,30 @@ export async function purgeInProgressSessionsFromCloud(userId: string): Promise<
   return removedIds
 }
 
+async function deleteSessionsForCalendarDateOnCloud(userId: string, date: string): Promise<void> {
+  const supabase = getSupabase()
+  const { data, error } = await supabase
+    .from('workout_sessions')
+    .select('id, workout_type, status, started_at, updated_at, completed_at, exercises')
+    .eq('user_id', userId)
+
+  if (error) throw error
+
+  for (const row of data ?? []) {
+    const session = rowToSession(row as WorkoutSessionRow)
+    if (getSessionCalendarDate(session) !== date) continue
+    await deleteSessionFromCloud(session.id, userId)
+  }
+}
+
 export async function replaceManualDayOnCloud(
   userId: string,
   date: string,
   activities: ActivityEntry[],
 ): Promise<void> {
   const supabase = getSupabase()
+
+  await deleteSessionsForCalendarDateOnCloud(userId, date)
 
   const { error: deleteError } = await supabase
     .from('manual_activities')
