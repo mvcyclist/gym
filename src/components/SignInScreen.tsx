@@ -5,28 +5,34 @@ interface SignInScreenProps {
   error?: string | null
 }
 
-const GOLD = '#B8860B'
+const RED = '#ef4444'
+const BLUE = '#378ADD'
+const GREEN = '#0F6E56'
 
-const VALUE_PROPS = [
+const KEYWORD_LINES = [
+  { keyword: 'Custom', color: RED, rest: 'strength training.' },
+  { keyword: 'Scheduled', color: BLUE, rest: 'cardio.' },
+  { keyword: 'Built-in', color: GREEN, rest: 'mobility.' },
+] as const
+
+const PILLAR_CARDS = [
   {
-    num: '01',
-    title: 'Instant routine',
-    body: 'Pick Push / Pull / Legs or cardio. First session starts immediately — no setup required.',
+    title: 'Strength',
+    body: 'A training program built around the equipment you actually have.',
+    accent: RED,
+    icon: <StrengthIcon />,
   },
   {
-    num: '02',
-    title: 'Always know what to lift',
-    body: 'Last session remembered. Weight suggested. No guessing, no mental math mid-workout.',
+    title: 'Cardio',
+    body: 'Scheduled on the right days so it never competes with your lifting.',
+    accent: BLUE,
+    icon: <CardioIcon />,
   },
   {
-    num: '03',
-    title: 'Log in seconds',
-    body: 'Built-in rest timers. One tap per set. Get in, log it, get out — no friction.',
-  },
-  {
-    num: '04',
-    title: 'Progress automatically',
-    body: 'Hit your reps and the app tells you to go heavier next time. You just show up.',
+    title: 'Mobility',
+    body: 'Built into your week so it stops being the thing you skip.',
+    accent: GREEN,
+    icon: <MobilityIcon />,
   },
 ] as const
 
@@ -35,251 +41,68 @@ export function SignInScreen({ onSignIn, error }: SignInScreenProps) {
 
   return (
     <div className="landing-page">
-      {/* Nav */}
-      <nav
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '1rem 2rem',
-          background: 'rgba(0,0,0,0.8)',
-          backdropFilter: 'blur(10px)',
-          WebkitBackdropFilter: 'blur(10px)',
-          borderBottom: '0.5px solid rgba(255,255,255,0.06)',
-          position: 'sticky',
-          top: 0,
-          zIndex: 10,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <img
-            src="/bd-gym-logo.png"
-            alt=""
-            width={38}
-            height={38}
-            style={{ height: 38, width: 38, objectFit: 'contain' }}
-          />
-          <span style={{
-            fontSize: 15,
-            fontWeight: 700,
-            color: '#fff',
-            letterSpacing: '-0.01em',
-          }}>
-            BusyDad Gym
-          </span>
+      <nav className="landing-nav">
+        <div className="landing-nav-brand">
+          <img src="/bd-gym-logo.png" alt="" width={32} height={32} className="landing-nav-logo" />
+          <span className="landing-nav-wordmark">BusyDad Gym</span>
         </div>
-
-        <button
-          type="button"
-          onClick={() => void onSignIn()}
-          style={{
-            background: '#fff',
-            border: 'none',
-            borderRadius: 8,
-            padding: '9px 20px',
-            color: '#111',
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-          }}
-        >
+        <button type="button" className="landing-nav-signin" onClick={() => void onSignIn()}>
           <GoogleIcon size={16} />
           Sign in
         </button>
       </nav>
 
-      {/* Hero */}
-      <section
-        style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          textAlign: 'center',
-          padding: '3rem 2rem 4rem',
-          position: 'relative',
-          overflow: 'hidden',
-          minHeight: 'calc(100vh - 60px)',
-        }}
-      >
+      <section className="landing-hero">
+        <div className="landing-hero-tint" aria-hidden />
+
         <img
           src="/bd-gym-logo.png"
           alt="BusyDad Gym"
-          width={220}
-          height={220}
-          style={{
-            width: 220,
-            height: 220,
-            objectFit: 'contain',
-            marginBottom: '2rem',
-            position: 'relative',
-            zIndex: 1,
-          }}
+          width={200}
+          height={200}
+          className="landing-hero-logo"
         />
 
-        <p style={{
-          fontSize: 11,
-          color: GOLD,
-          textTransform: 'uppercase',
-          letterSpacing: '0.2em',
-          fontWeight: 600,
-          marginBottom: '1rem',
-          position: 'relative',
-          zIndex: 1,
-        }}>
-          Crafted strength for busy dads
-        </p>
+        <p className="landing-eyebrow">Crafted strength for busy dads</p>
 
-        <h1 style={{
-          fontSize: 'clamp(36px, 8vw, 52px)',
-          fontWeight: 800,
-          color: '#fff',
-          letterSpacing: '-1.5px',
-          lineHeight: 1.05,
-          marginBottom: '1.25rem',
-          position: 'relative',
-          zIndex: 1,
-          margin: '0 0 1.25rem',
-        }}>
-          Train like a dad.
-          <br />
-          <span style={{ color: GOLD }}>Think like an athlete.</span>
-        </h1>
-
-        <p style={{
-          fontSize: 17,
-          color: 'rgba(255,255,255,0.4)',
-          maxWidth: 440,
-          lineHeight: 1.65,
-          marginBottom: '2.5rem',
-          position: 'relative',
-          zIndex: 1,
-        }}>
-          Efficient workouts, intelligent progression. Open it,
-          know what to do, log it fast — done in 45 minutes.
-        </p>
-
-        {devHint && (
-          <p style={{
-            position: 'relative',
-            zIndex: 1,
-            marginBottom: '1.25rem',
-            maxWidth: 440,
-            borderRadius: 8,
-            border: '0.5px solid rgba(245,158,11,0.3)',
-            background: 'rgba(245,158,11,0.08)',
-            padding: '10px 14px',
-            fontSize: 12,
-            lineHeight: 1.55,
-            color: 'rgba(254,243,199,0.9)',
-          }}>
-            {devHint}
-          </p>
-        )}
-
-        {error && (
-          <p style={{
-            position: 'relative',
-            zIndex: 1,
-            marginBottom: '1.25rem',
-            maxWidth: 440,
-            borderRadius: 8,
-            border: '0.5px solid rgba(239,68,68,0.4)',
-            background: 'rgba(239,68,68,0.1)',
-            padding: '10px 14px',
-            fontSize: 13,
-            color: '#fca5a5',
-          }}>
-            {error}
-          </p>
-        )}
-
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '0.875rem',
-          position: 'relative',
-          zIndex: 1,
-        }}>
-          <button
-            type="button"
-            onClick={() => void onSignIn()}
-            style={{
-              background: '#fff',
-              border: 'none',
-              borderRadius: 10,
-              padding: '14px 32px',
-              color: '#111',
-              fontSize: 15,
-              fontWeight: 700,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              letterSpacing: '-0.01em',
-            }}
-          >
-            <GoogleIcon size={17} />
-            Continue with Google
-          </button>
-          <p style={{
-            fontSize: 12,
-            color: 'rgba(255,255,255,0.2)',
-            letterSpacing: '0.02em',
-            margin: 0,
-          }}>
-            Free · No credit card · First session in 2 minutes
-          </p>
-        </div>
-      </section>
-
-      {/* Value props */}
-      <section className="landing-value-props">
-        {VALUE_PROPS.map((prop, index) => (
-          <div
-            key={prop.num}
-            className="landing-value-prop"
-            style={{
-              padding: '1.5rem',
-              borderRight: index < VALUE_PROPS.length - 1
-                ? '0.5px solid rgba(255,255,255,0.06)'
-                : undefined,
-            }}
-          >
-            <div style={{
-              fontSize: 10,
-              color: GOLD,
-              fontWeight: 700,
-              letterSpacing: '0.12em',
-              marginBottom: 6,
-              fontFamily: "'Courier New', Courier, monospace",
-            }}>
-              {prop.num}
-            </div>
-            <div style={{
-              fontSize: 14,
-              fontWeight: 600,
-              color: '#fff',
-              marginBottom: 5,
-              lineHeight: 1.2,
-            }}>
-              {prop.title}
-            </div>
-            <p style={{
-              fontSize: 12,
-              color: 'rgba(255,255,255,0.32)',
-              lineHeight: 1.55,
-              margin: 0,
-            }}>
-              {prop.body}
+        <div className="landing-keywords">
+          {KEYWORD_LINES.map((line) => (
+            <p key={line.keyword} className="landing-keyword-line">
+              <span className="landing-keyword" style={{ color: line.color }}>
+                {line.keyword}
+              </span>{' '}
+              <span className="landing-keyword-rest">{line.rest}</span>
             </p>
-          </div>
-        ))}
+          ))}
+        </div>
+
+        <p className="landing-closer">
+          Balanced the way a coach would. Open it, know what to do, log it fast — done in 45 minutes.
+        </p>
+
+        {devHint && <p className="landing-dev-hint">{devHint}</p>}
+        {error && <p className="landing-error">{error}</p>}
+
+        <button type="button" className="landing-google-cta" onClick={() => void onSignIn()}>
+          <GoogleIcon size={20} />
+          Continue with Google
+        </button>
+
+        <p className="landing-fine-print">Free · No credit card · First session in 2 minutes</p>
+
+        <div className="landing-pillars">
+          {PILLAR_CARDS.map((card) => (
+            <div
+              key={card.title}
+              className="landing-pillar-card"
+              style={{ ['--pillar-accent' as string]: card.accent }}
+            >
+              <div className="landing-pillar-icon">{card.icon}</div>
+              <div className="landing-pillar-title">{card.title}</div>
+              <p className="landing-pillar-body">{card.body}</p>
+            </div>
+          ))}
+        </div>
       </section>
 
       <style>{`
@@ -289,39 +112,345 @@ export function SignInScreen({ onSignIn, error }: SignInScreenProps) {
           font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
           min-height: 100vh;
           min-height: 100dvh;
-          height: 100%;
+          height: 100dvh;
+          width: 100%;
+          overflow-x: hidden;
           overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
           display: flex;
           flex-direction: column;
         }
-        .landing-value-props {
+
+        .landing-nav {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: max(1rem, env(safe-area-inset-top)) 2.5rem 1rem;
+          background: rgba(0,0,0,0.9);
+          border-bottom: 0.5px solid rgba(255,255,255,0.06);
+          position: sticky;
+          top: 0;
+          z-index: 50;
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          flex-shrink: 0;
+        }
+
+        .landing-nav-brand {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          min-width: 0;
+          flex-shrink: 1;
+        }
+
+        .landing-nav-logo {
+          height: 32px;
+          width: 32px;
+          flex-shrink: 0;
+          object-fit: contain;
+          mix-blend-mode: screen;
+        }
+
+        .landing-nav-wordmark {
+          font-size: 15px;
+          font-weight: 700;
+          color: #fff;
+          letter-spacing: -0.01em;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .landing-nav-signin {
+          background: #fff;
+          border: none;
+          border-radius: 8px;
+          padding: 8px 18px;
+          color: #111;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          flex-shrink: 0;
+        }
+
+        .landing-hero {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: flex-start;
+          text-align: center;
+          flex: 0 0 auto;
+          width: 100%;
+          padding: 2.5rem 2rem 3rem;
+          padding-bottom: max(3rem, env(safe-area-inset-bottom));
+          position: relative;
+          overflow: visible;
+        }
+
+        .landing-hero-tint {
+          position: absolute;
+          top: 0;
+          left: 50%;
+          transform: translateX(-50%);
+          width: min(600px, 100vw);
+          height: 400px;
+          background: radial-gradient(ellipse at center, rgba(139,26,26,0.14) 0%, transparent 70%);
+          pointer-events: none;
+        }
+
+        .landing-hero-logo {
+          width: clamp(140px, 42vw, 200px);
+          height: clamp(140px, 42vw, 200px);
+          max-width: 100%;
+          object-fit: contain;
+          margin-bottom: 1.75rem;
+          position: relative;
+          z-index: 1;
+          mix-blend-mode: screen;
+          flex-shrink: 0;
+        }
+
+        .landing-eyebrow {
+          font-size: 11px;
+          color: rgba(239,68,68,0.65);
+          text-transform: uppercase;
+          letter-spacing: 0.2em;
+          font-weight: 600;
+          margin: 0 0 1.25rem;
+          position: relative;
+          z-index: 1;
+        }
+
+        .landing-keywords {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 3px;
+          margin-bottom: 1.25rem;
+          position: relative;
+          z-index: 1;
+        }
+
+        .landing-keyword-line {
+          font-size: 26px;
+          line-height: 1.3;
+          margin: 0;
+        }
+
+        .landing-keyword {
+          font-weight: 800;
+        }
+
+        .landing-keyword-rest {
+          color: rgba(255,255,255,0.65);
+          font-weight: 400;
+        }
+
+        .landing-closer {
+          font-size: 16px;
+          color: rgba(255,255,255,0.38);
+          line-height: 1.65;
+          margin: 0 0 2rem;
+          position: relative;
+          z-index: 1;
+          max-width: 420px;
+          padding: 0 0.25rem;
+        }
+
+        .landing-dev-hint {
+          position: relative;
+          z-index: 1;
+          margin: 0 0 1.25rem;
+          max-width: 420px;
+          border-radius: 8px;
+          border: 0.5px solid rgba(245,158,11,0.3);
+          background: rgba(245,158,11,0.08);
+          padding: 10px 14px;
+          font-size: 12px;
+          line-height: 1.55;
+          color: rgba(254,243,199,0.9);
+        }
+
+        .landing-error {
+          position: relative;
+          z-index: 1;
+          margin: 0 0 1.25rem;
+          max-width: 420px;
+          border-radius: 8px;
+          border: 0.5px solid rgba(239,68,68,0.4);
+          background: rgba(239,68,68,0.1);
+          padding: 10px 14px;
+          font-size: 13px;
+          color: #fca5a5;
+        }
+
+        .landing-google-cta {
+          background: #fff;
+          border: none;
+          border-radius: 10px;
+          padding: 14px 32px;
+          color: #111;
+          font-size: 16px;
+          font-weight: 700;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+          position: relative;
+          z-index: 1;
+          transition: all 0.15s;
+          letter-spacing: -0.01em;
+          width: min(100%, 360px);
+          max-width: 100%;
+        }
+
+        .landing-google-cta:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+
+        .landing-fine-print {
+          font-size: 12px;
+          color: rgba(255,255,255,0.2);
+          margin: 0.875rem 0 0;
+          position: relative;
+          z-index: 1;
+        }
+
+        .landing-pillars {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          border-top: 0.5px solid rgba(255,255,255,0.07);
-          background: #080808;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 12px;
+          width: 100%;
+          max-width: 680px;
+          margin-top: 2rem;
+          position: relative;
+          z-index: 1;
+          padding: 0 0.25rem;
         }
-        @media (max-width: 900px) {
-          .landing-value-props {
-            grid-template-columns: repeat(2, 1fr);
-          }
-          .landing-value-prop:nth-child(2) {
-            border-right: none !important;
-          }
-          .landing-value-prop:nth-child(1),
-          .landing-value-prop:nth-child(3) {
-            border-bottom: 0.5px solid rgba(255,255,255,0.06);
-          }
+
+        .landing-pillar-card {
+          background: #0d0d0d;
+          border: 0.5px solid rgba(255,255,255,0.07);
+          border-radius: 11px;
+          padding: 1.5rem 1.25rem;
+          text-align: center;
+          position: relative;
+          overflow: hidden;
+          transition: border-color 0.15s;
         }
-        @media (max-width: 520px) {
-          .landing-value-props {
+
+        .landing-pillar-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 2px;
+          background: linear-gradient(90deg, var(--pillar-accent), transparent);
+        }
+
+        .landing-pillar-card:hover {
+          border-color: rgba(255,255,255,0.13);
+        }
+
+        .landing-pillar-icon {
+          width: 44px;
+          height: 44px;
+          margin: 0 auto 1rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .landing-pillar-icon svg {
+          width: 36px;
+          height: 36px;
+        }
+
+        .landing-mobility-icon {
+          width: 44px;
+          height: 44px;
+          object-fit: contain;
+          mix-blend-mode: screen;
+        }
+
+        .landing-pillar-title {
+          font-size: 17px;
+          font-weight: 700;
+          color: #fff;
+          margin-bottom: 8px;
+        }
+
+        .landing-pillar-body {
+          font-size: 14px;
+          color: rgba(255,255,255,0.38);
+          line-height: 1.6;
+          margin: 0;
+        }
+
+        @media (max-width: 720px) {
+          .landing-hero {
+            padding: 2rem 1.25rem 2.5rem;
+          }
+
+          .landing-keywords {
+            padding: 0 0.25rem;
+          }
+
+          .landing-keyword-line {
+            font-size: clamp(20px, 5.5vw, 22px);
+          }
+
+          .landing-pillars {
             grid-template-columns: 1fr;
+            max-width: 420px;
           }
-          .landing-value-prop {
-            border-right: none !important;
-            border-bottom: 0.5px solid rgba(255,255,255,0.06);
+
+          .landing-pillar-body {
+            font-size: 13px;
           }
-          .landing-value-prop:last-child {
-            border-bottom: none;
+        }
+
+        @media (max-width: 520px) {
+          .landing-nav {
+            padding: max(0.875rem, env(safe-area-inset-top)) 1rem 0.875rem;
+          }
+
+          .landing-nav-signin {
+            padding: 8px 14px;
+            font-size: 12px;
+          }
+
+          .landing-hero {
+            padding: 1.5rem 1rem 2rem;
+          }
+
+          .landing-eyebrow {
+            letter-spacing: 0.14em;
+            font-size: 10px;
+          }
+
+          .landing-closer {
+            font-size: 15px;
+          }
+
+          .landing-google-cta {
+            padding: 13px 20px;
+            font-size: 15px;
+          }
+
+          .landing-fine-print {
+            font-size: 11px;
+            padding: 0 0.5rem;
+            line-height: 1.5;
           }
         }
       `}</style>
@@ -331,23 +460,56 @@ export function SignInScreen({ onSignIn, error }: SignInScreenProps) {
 
 function GoogleIcon({ size }: { size: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden>
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden>
       <path
-        fill="#FFC107"
-        d="M43.611 20.083H42V20H24v8h11.303C33.654 32.657 29.223 36 24 36c-5.522 0-10-4.478-10-10s4.478-10 10-10c2.837 0 5.36 1.18 7.188 3.07l5.657-5.657C33.64 10.053 29.082 8 24 8 12.955 8 4 16.955 4 28s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"
+        fill="#4285F4"
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
       />
       <path
-        fill="#FF3D00"
-        d="M6.306 14.691l6.571 4.819C14.655 16.108 18.961 13 24 13c2.837 0 5.36 1.18 7.188 3.07l5.657-5.657C33.64 10.053 29.082 8 24 8 12.955 8 4 16.955 4 28c0 3.998 1.524 7.64 4.009 10.386l6.297-4.695z"
+        fill="#34A853"
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
       />
       <path
-        fill="#4CAF50"
-        d="M24 48c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 38.808 26.715 40 24 40c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 43.556 16.227 48 24 48z"
+        fill="#FBBC05"
+        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"
       />
       <path
-        fill="#1976D2"
-        d="M43.611 20.083H42V20H24v8h11.303c-1.009 2.785-3.043 5.06-5.697 6.52l6.19 5.238C42.022 35.026 44 31.806 44 28c0-2.748-.722-5.328-1.989-7.583z"
+        fill="#EA4335"
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
       />
     </svg>
+  )
+}
+
+function StrengthIcon() {
+  return (
+    <svg viewBox="0 0 36 36" fill="none" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="2" y="14" width="4" height="8" rx="1.5" />
+      <rect x="30" y="14" width="4" height="8" rx="1.5" />
+      <rect x="6" y="11" width="4" height="14" rx="1.5" />
+      <rect x="26" y="11" width="4" height="14" rx="1.5" />
+      <line x1="10" y1="18" x2="26" y2="18" />
+    </svg>
+  )
+}
+
+function CardioIcon() {
+  return (
+    <svg viewBox="0 0 36 36" fill="none" stroke="#378ADD" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M18 30s-14-8.5-14-17a8 8 0 0 1 14-5.3A8 8 0 0 1 32 13c0 8.5-14 17-14 17z" />
+      <polyline points="6,18 11,14 15,22 20,10 24,18 30,18" />
+    </svg>
+  )
+}
+
+function MobilityIcon() {
+  return (
+    <img
+      src="/mobility-icon.png"
+      alt=""
+      width={44}
+      height={44}
+      className="landing-mobility-icon"
+    />
   )
 }
