@@ -3,7 +3,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useUserProfile } from '../hooks/useUserProfile'
 import { UserProfileProvider } from '../contexts/UserProfileContext'
 import { ImportLocalHistoryModal } from './ImportLocalHistoryModal'
-import { OnboardingFlow } from './OnboardingFlow'
+import { NewUserSetupFlow } from './NewUserSetupFlow'
 import { SignInScreen } from './SignInScreen'
 
 export function AuthGate({ children }: { children: ReactNode }) {
@@ -27,8 +27,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (!configured) {
     if (showOnboarding) {
       return (
-        <OnboardingFlow
-          initialProfile={profile}
+        <NewUserSetupFlow
+          profile={profile}
           onComplete={refresh}
           onCancel={refresh}
         />
@@ -74,8 +74,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   if (signedInOrLocal && showOnboarding) {
     return (
-      <OnboardingFlow
-        initialProfile={profile}
+      <NewUserSetupFlow
+        profile={profile}
         onComplete={refresh}
         onCancel={refresh}
       />
