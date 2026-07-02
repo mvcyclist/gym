@@ -30,16 +30,24 @@ export function EducationWelcomeScreen({ onContinue }: EducationWelcomeScreenPro
     <div
       style={{
         background: '#000',
-        minHeight: '100dvh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
+        height: '100dvh',
+        maxHeight: '100dvh',
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
         padding: '3rem 2rem',
         textAlign: 'center',
       }}
     >
-      <div style={{ width: '100%', maxWidth: 520 }}>
+      <div
+        style={{
+          width: '100%',
+          maxWidth: 520,
+          margin: '0 auto',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+        }}
+      >
         <img
           src="/bd-gym-logo.png"
           alt=""

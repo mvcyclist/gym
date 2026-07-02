@@ -193,9 +193,11 @@ export function OnboardingFlow({ initialProfile, onComplete, onCancel }: Onboard
     <div style={{
       background: '#0a0a0a',
       color: '#fff',
-      minHeight: '100dvh',
+      height: '100dvh',
+      maxHeight: '100dvh',
       display: 'flex',
       flexDirection: 'column',
+      overflow: 'hidden',
       fontFamily: 'system-ui, -apple-system, sans-serif',
     }}>
       <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 3, background: 'rgba(255,255,255,0.06)', zIndex: 100 }}>
@@ -203,6 +205,7 @@ export function OnboardingFlow({ initialProfile, onComplete, onCancel }: Onboard
       </div>
 
       <nav style={{
+        flexShrink: 0,
         display: 'flex',
         alignItems: 'center',
         padding: '1rem 2rem',
@@ -236,7 +239,15 @@ export function OnboardingFlow({ initialProfile, onComplete, onCancel }: Onboard
         )}
       </nav>
 
-      <div style={{ flex: 1, display: 'flex', justifyContent: 'center', padding: '3rem 2rem' }}>
+      <div style={{
+        flex: 1,
+        minHeight: 0,
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        display: 'flex',
+        justifyContent: 'center',
+        padding: '3rem 2rem',
+      }}>
         <div style={{ width: '100%', maxWidth: 860 }}>
           {step === 1 && (
             <>
