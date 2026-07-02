@@ -108,6 +108,7 @@ function WorkoutApp() {
     pause,
     reset,
     setDuration,
+    setDurationPreset,
     startWithDuration,
     adjustRemaining,
   } = useAccurateTimer({ muted })
@@ -228,16 +229,6 @@ function WorkoutApp() {
     setPriorDayDraftSession(null)
   }, [])
 
-  const startRestForExercise = useCallback(
-    (exerciseIndex: number) => {
-      const exercise = effectiveExercises[exerciseIndex]
-      if (!exercise) return
-      const catalog = getCatalogExerciseById(exercise.catalogExerciseId)
-      const seconds = catalog ? getDefaultRestSeconds(catalog) : exercise.suggestedRestSeconds
-      startWithDuration(seconds)
-    },
-    [effectiveExercises, startWithDuration],
-  )
 
   useEffect(() => {
     if (screen !== 'workout') return
@@ -245,8 +236,8 @@ function WorkoutApp() {
     if (!exercise) return
     const catalog = getCatalogExerciseById(exercise.catalogExerciseId)
     const seconds = catalog ? getDefaultRestSeconds(catalog) : exercise.suggestedRestSeconds
-    setDuration(seconds)
-  }, [screen, effectiveExercises, currentExerciseIndex, setDuration])
+    setDurationPreset(seconds)
+  }, [screen, effectiveExercises, currentExerciseIndex, setDurationPreset])
 
   const handleSelectWorkout = useCallback(
     (workoutId: WorkoutCategory) => {
@@ -469,9 +460,8 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
     const nextIndex = Math.min(effectiveExercises.length - 1, currentExerciseIndex + 1)
     if (nextIndex === currentExerciseIndex) return
 
-    startRestForExercise(nextIndex)
     setCurrentExerciseIndex(nextIndex)
-  }, [currentExerciseIndex, effectiveExercises, getExerciseLog, startRestForExercise])
+  }, [currentExerciseIndex, effectiveExercises, getExerciseLog])
 
   const handleFinish = useCallback(() => {
     if (!session) return

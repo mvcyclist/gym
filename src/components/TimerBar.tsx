@@ -30,15 +30,20 @@ const SEGS = ['a', 'b', 'c', 'd', 'e', 'f', 'g'] as const
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-function SevenSegDigit({ digit, color }: { digit: string; color: 'amber' | 'red' }) {
+function SevenSegDigit({ digit, color }: { digit: string; color: 'amber' | 'red' | 'green' }) {
   const activeSegs = SEGMENT_MAP[digit] ?? []
-  const isAmber = color === 'amber'
-  const onStyle: React.CSSProperties = isAmber
-    ? { background: '#e08800', boxShadow: '0 0 2px rgba(224,136,0,0.8), 0 0 4px rgba(200,120,0,0.3)' }
-    : { background: '#dd1515', boxShadow: '0 0 2px rgba(220,20,20,0.8), 0 0 4px rgba(200,0,0,0.3)' }
-  const offStyle: React.CSSProperties = isAmber
-    ? { background: 'rgba(80,40,0,0.15)' }
-    : { background: 'rgba(100,0,0,0.15)' }
+  const onStyle: React.CSSProperties =
+    color === 'amber'
+      ? { background: '#e08800', boxShadow: '0 0 2px rgba(224,136,0,0.8), 0 0 4px rgba(200,120,0,0.3)' }
+      : color === 'green'
+        ? { background: '#22c55e', boxShadow: '0 0 2px rgba(34,197,94,0.8), 0 0 4px rgba(34,197,94,0.35)' }
+        : { background: '#dd1515', boxShadow: '0 0 2px rgba(220,20,20,0.8), 0 0 4px rgba(200,0,0,0.3)' }
+  const offStyle: React.CSSProperties =
+    color === 'amber'
+      ? { background: 'rgba(80,40,0,0.15)' }
+      : color === 'green'
+        ? { background: 'rgba(0,80,40,0.15)' }
+        : { background: 'rgba(100,0,0,0.15)' }
 
   return (
     <div style={{ position: 'relative', width: 52, height: 90, flexShrink: 0 }}>
@@ -49,14 +54,19 @@ function SevenSegDigit({ digit, color }: { digit: string; color: 'amber' | 'red'
   )
 }
 
-function LedColon({ color, on }: { color: 'amber' | 'red'; on: boolean }) {
-  const isAmber = color === 'amber'
-  const dotOn: React.CSSProperties = isAmber
-    ? { background: '#e08800', boxShadow: '0 0 2px rgba(224,136,0,0.7)' }
-    : { background: '#dd1515', boxShadow: '0 0 2px rgba(220,20,20,0.7)' }
-  const dotOff: React.CSSProperties = isAmber
-    ? { background: 'rgba(80,40,0,0.2)' }
-    : { background: 'rgba(100,0,0,0.18)' }
+function LedColon({ color, on }: { color: 'amber' | 'red' | 'green'; on: boolean }) {
+  const dotOn: React.CSSProperties =
+    color === 'amber'
+      ? { background: '#e08800', boxShadow: '0 0 2px rgba(224,136,0,0.7)' }
+      : color === 'green'
+        ? { background: '#22c55e', boxShadow: '0 0 2px rgba(34,197,94,0.7)' }
+        : { background: '#dd1515', boxShadow: '0 0 2px rgba(220,20,20,0.7)' }
+  const dotOff: React.CSSProperties =
+    color === 'amber'
+      ? { background: 'rgba(80,40,0,0.2)' }
+      : color === 'green'
+        ? { background: 'rgba(0,80,40,0.18)' }
+        : { background: 'rgba(100,0,0,0.18)' }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 18, height: 90, width: 20, paddingBottom: 4, flexShrink: 0 }}>
       <div style={{ width: 8, height: 8, borderRadius: '50%', ...(on ? dotOn : dotOff) }} />
@@ -77,7 +87,7 @@ function toDigits(totalSeconds: number): [string, string, string, string] {
   ]
 }
 
-function TimerDisplay({ seconds, color, colonOn }: { seconds: number; color: 'amber' | 'red'; colonOn: boolean }) {
+function TimerDisplay({ seconds, color, colonOn }: { seconds: number; color: 'amber' | 'red' | 'green'; colonOn: boolean }) {
   const [d0, d1, d2, d3] = toDigits(seconds)
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
@@ -134,8 +144,10 @@ export function TimerBar({
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   const isRunning = status === 'running'
+  const isComplete = status === 'complete'
   const restSeconds = status === 'idle' ? duration : remaining
   const workoutSeconds = elapsedSeconds ?? 0
+  const restColor: 'red' | 'green' = isComplete ? 'green' : 'red'
 
   // Colon blinks every second when running
   const workoutColonOn = Math.floor(workoutSeconds) % 2 === 0
@@ -174,7 +186,9 @@ export function TimerBar({
       <div style={{
         position: 'absolute',
         inset: 0,
-        background: 'radial-gradient(ellipse 40% 60% at 25% 50%, rgba(255,160,0,0.025) 0%, transparent 70%), radial-gradient(ellipse 40% 60% at 75% 50%, rgba(220,20,20,0.035) 0%, transparent 70%)',
+        background: isComplete
+          ? 'radial-gradient(ellipse 40% 60% at 25% 50%, rgba(255,160,0,0.025) 0%, transparent 70%), radial-gradient(ellipse 40% 60% at 75% 50%, rgba(34,197,94,0.04) 0%, transparent 70%)'
+          : 'radial-gradient(ellipse 40% 60% at 25% 50%, rgba(255,160,0,0.025) 0%, transparent 70%), radial-gradient(ellipse 40% 60% at 75% 50%, rgba(220,20,20,0.035) 0%, transparent 70%)',
         pointerEvents: 'none',
         zIndex: 1,
       }} />
@@ -196,7 +210,7 @@ export function TimerBar({
         <div style={{ width: 1, height: 100, background: 'rgba(255,255,255,0.04)', alignSelf: 'center' }} />
 
         {/* Rest column */}
-        <TimerDisplay seconds={restSeconds} color="red" colonOn={restColonOn} />
+        <TimerDisplay seconds={restSeconds} color={restColor} colonOn={restColonOn} />
       </div>
 
       {/* Legend row */}
@@ -220,8 +234,23 @@ export function TimerBar({
 
         {/* Rest legend */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#dd1515', boxShadow: '0 0 4px rgba(220,20,20,0.7)', flexShrink: 0 }} />
-          <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: 600, color: 'rgba(220,20,20,0.45)' }}>Rest timer</span>
+          <div style={{
+            width: 7,
+            height: 7,
+            borderRadius: '50%',
+            background: isComplete ? '#22c55e' : '#dd1515',
+            boxShadow: isComplete ? '0 0 4px rgba(34,197,94,0.7)' : '0 0 4px rgba(220,20,20,0.7)',
+            flexShrink: 0,
+          }} />
+          <span style={{
+            fontSize: 10,
+            textTransform: 'uppercase',
+            letterSpacing: '0.15em',
+            fontWeight: 600,
+            color: isComplete ? 'rgba(34,197,94,0.55)' : 'rgba(220,20,20,0.45)',
+          }}>
+            {isComplete ? 'Rest complete' : 'Rest timer'}
+          </span>
         </div>
       </div>
 
