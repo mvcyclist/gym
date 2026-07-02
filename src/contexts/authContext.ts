@@ -8,6 +8,8 @@ export interface AuthContextValue {
   user: User | null
   ledgerReady: boolean
   ledgerVersion: number
+  profileReady: boolean
+  profileVersion: number
   syncStatus: SyncStatus
   importOfferOpen: boolean
   signInWithGoogle: () => Promise<void>

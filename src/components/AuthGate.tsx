@@ -11,6 +11,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     configured,
     loading,
     user,
+    profileReady,
     importOfferOpen,
     signInWithGoogle,
     importLocalHistory,
@@ -40,7 +41,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     )
   }
 
-  if (loading) {
+  if (loading || (configured && user && !profileReady)) {
     return (
       <div style={{
         minHeight: '100dvh',

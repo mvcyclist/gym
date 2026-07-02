@@ -12,6 +12,7 @@ import {
   shouldOfferLocalImport,
   skipLocalImport,
 } from '../services/ledgerRepository'
+import { hydrateProfileFromCloud } from '../services/userProfileRepository'
 import {
   getSyncStatus,
   processSyncQueue,
@@ -24,10 +25,16 @@ import type { SyncStatus } from '../services/syncQueueService'
 import { AuthContext, type AuthContextValue } from './authContext'
 import { getAuthRedirectUrl } from '../lib/authRedirect'
 
-async function syncLedgerFromCloud(userId: string): Promise<boolean> {
-  await hydrateLedgerFromCloud(userId)
-  await processSyncQueue(userId)
-  return shouldOfferLocalImport(userId)
+async function syncAccountFromCloud(userId: string): Promise<boolean> {
+  const [, offerImport] = await Promise.all([
+    hydrateProfileFromCloud(userId),
+    (async () => {
+      await hydrateLedgerFromCloud(userId)
+      await processSyncQueue(userId)
+      return shouldOfferLocalImport(userId)
+    })(),
+  ])
+  return offerImport
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -37,6 +44,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [ledgerReady, setLedgerReady] = useState(!configured)
   const [initialLedgerLoaded, setInitialLedgerLoaded] = useState(!configured)
   const [ledgerVersion, setLedgerVersion] = useState(0)
+  const [profileReady, setProfileReady] = useState(!configured)
+  const [profileVersion, setProfileVersion] = useState(0)
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(getSyncStatus)
   const [importOfferOpen, setImportOfferOpen] = useState(false)
   const hydratedUserIdRef = useRef<string | null>(null)
@@ -48,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initialLedgerLoadedRef.current = !configured
     setInitialLedgerLoaded(!configured)
     setLedgerReady(!configured)
+    setProfileReady(!configured)
     setImportOfferOpen(false)
   }, [configured])
 
@@ -57,14 +67,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initialLedgerLoadedRef.current = true
     setLedgerReady(true)
     setInitialLedgerLoaded(true)
+    setProfileReady(false)
 
     try {
-      const offerImport = await syncLedgerFromCloud(userId)
+      const offerImport = await syncAccountFromCloud(userId)
       setLedgerVersion((value) => value + 1)
+      setProfileVersion((value) => value + 1)
       setImportOfferOpen(offerImport)
     } catch (error) {
-      console.error('[auth] failed to load cloud ledger', error)
+      console.error('[auth] failed to load cloud account data', error)
       recordHydrateFailure(userId, error)
+    } finally {
+      setProfileReady(true)
     }
   }, [])
 
@@ -129,8 +143,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const runSync = () => {
       if (document.visibilityState !== 'visible') return
-      void syncLedgerWithCloud(session.user.id, refreshMergedLedgerFromCloud)
-        .then(() => setLedgerVersion((value) => value + 1))
+      void Promise.all([
+        hydrateProfileFromCloud(session.user.id),
+        syncLedgerWithCloud(session.user.id, refreshMergedLedgerFromCloud),
+      ])
+        .then(() => {
+          setLedgerVersion((value) => value + 1)
+          setProfileVersion((value) => value + 1)
+        })
         .catch((error) => {
           recordHydrateFailure(session.user.id, error)
           console.error('[auth] failed to refresh from cloud', error)
@@ -241,6 +261,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: session?.user ?? null,
       ledgerReady: !configured || ledgerReady,
       ledgerVersion,
+      profileReady: !configured || profileReady,
+      profileVersion,
       syncStatus,
       importOfferOpen,
       signInWithGoogle,
@@ -262,6 +284,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       initialLedgerLoaded,
       ledgerReady,
       ledgerVersion,
+      profileReady,
+      profileVersion,
       refreshLedger,
       retrySync,
       pushDeviceHistory,
