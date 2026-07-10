@@ -19,9 +19,15 @@ export function countExercisesWithCompletedSets(session: WorkoutSession): number
   ).length
 }
 
+/** Calendar day the workout belongs to — uses start day for completed/partial sessions. */
 export function getSessionCalendarDate(session: WorkoutSession): string {
-  const timestamp = session.completedAt ?? session.updatedAt ?? session.startedAt
-  return toDateString(new Date(timestamp))
+  const timestamp =
+    session.status === 'completed' || session.status === 'partial'
+      ? session.startedAt
+      : session.completedAt ?? session.updatedAt ?? session.startedAt
+  const date = new Date(timestamp)
+  if (Number.isNaN(date.getTime())) return ''
+  return toDateString(date)
 }
 
 export function deriveSessionIntensity(session: WorkoutSession): Intensity {

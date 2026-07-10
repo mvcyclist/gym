@@ -37,6 +37,7 @@ import { getRecommendationNavigation } from './utils/recommendationNavigation'
 import { buildWorkoutSessionSummary } from './utils/workoutSummary'
 import { isWorkoutInProgress } from './utils/workoutTimer'
 import { findResumeExerciseIndex, findTodaysResumableSession } from './utils/workoutResume'
+import { buildDisplayExercisesForSession, sessionExerciseOrder } from './utils/sessionExercises'
 import { scrollToTop, scrollToTopAfterLayout } from './utils/scrollToTop'
 import type { WorkoutRecommendation, WorkoutType } from './types/training'
 import type { WorkoutCategory, WorkoutSession } from './types/workout'
@@ -121,13 +122,15 @@ function WorkoutApp() {
 
   const effectiveExercises = useMemo(() => {
     if (!selectedWorkoutType) return []
+
+    if (session && session.workoutType === selectedWorkoutType) {
+      return buildDisplayExercisesForSession(session)
+    }
+
     const workout = getWorkoutById(selectedWorkoutType)
     if (!workout) return []
-    const order = session?.exerciseOrder ?? workout.exercises.map((e) => e.id)
-    return order
-      .map((id) => workout.exercises.find((e) => e.id === id))
-      .filter(Boolean) as typeof workout.exercises
-  }, [selectedWorkoutType, session?.exerciseOrder])
+    return workout.exercises
+  }, [selectedWorkoutType, session])
 
   useEffect(() => {
     scrollToTopAfterLayout()
@@ -169,9 +172,9 @@ function WorkoutApp() {
     (resumed: WorkoutSession) => {
       scrollToTop()
       setSelectedWorkoutType(resumed.workoutType)
-      const workout = getWorkoutById(resumed.workoutType)
-      const templateExerciseIds = workout?.exercises.map((item) => item.id) ?? []
-      setCurrentExerciseIndex(findResumeExerciseIndex(resumed, templateExerciseIds))
+      setCurrentExerciseIndex(
+        findResumeExerciseIndex(resumed, sessionExerciseOrder(resumed)),
+      )
       setScreen('workout')
       reset()
     },
@@ -505,11 +508,15 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
   )
 
   const handleCompleteSet = useCallback(
-    (exerciseId: string, setNumber: number) => {
+    (
+      exerciseId: string,
+      setNumber: number,
+      updates?: Parameters<typeof completeSet>[2],
+    ) => {
       const exercise = effectiveExercises.find((item) => item.id === exerciseId)
       if (!exercise) return
 
-      completeSet(exerciseId, setNumber)
+      completeSet(exerciseId, setNumber, updates)
       const catalog = getCatalogExerciseById(exercise.catalogExerciseId)
       const seconds = catalog ? getDefaultRestSeconds(catalog) : exercise.suggestedRestSeconds
       startWithDuration(seconds)

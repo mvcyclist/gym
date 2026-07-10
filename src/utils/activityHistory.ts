@@ -4,10 +4,66 @@ const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
 
 /** Calendar date in the user's local timezone (YYYY-MM-DD). */
 export function toDateString(date: Date): string {
+  if (Number.isNaN(date.getTime())) return ''
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+const CALENDAR_DATE_KEY = /^(\d{4})-(\d{2})-(\d{2})$/
+
+/** Parse YYYY-MM-DD (or ISO timestamp) to local noon for stable day diffs. */
+export function parseCalendarDateKey(dateKey: string): Date | null {
+  const trimmed = dateKey.trim()
+  const match = CALENDAR_DATE_KEY.exec(trimmed)
+  if (match) {
+    const year = Number(match[1])
+    const month = Number(match[2])
+    const day = Number(match[3])
+    const date = new Date(year, month - 1, day, 12, 0, 0, 0)
+    if (
+      date.getFullYear() !== year ||
+      date.getMonth() !== month - 1 ||
+      date.getDate() !== day
+    ) {
+      return null
+    }
+    return date
+  }
+
+  const parsed = new Date(trimmed)
+  if (Number.isNaN(parsed.getTime())) return null
+  return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), 12, 0, 0, 0)
+}
+
+export function daysSinceDateKey(dateKey: string, now: Date = new Date()): number | null {
+  const then = parseCalendarDateKey(dateKey)
+  if (!then) return null
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0, 0)
+  const diff = Math.floor((today.getTime() - then.getTime()) / (1000 * 60 * 60 * 24))
+  return diff < 0 ? 0 : diff
+}
+
+export function formatCalendarDateLabel(dateKey: string): string {
+  const date = parseCalendarDateKey(dateKey)
+  if (!date) return dateKey
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+export function formatDaysAgo(days: number): string {
+  if (days === 0) return 'today'
+  if (days === 1) return '1 day ago'
+  return `${days} days ago`
+}
+
+/** e.g. "Jul 5, 2026 · 3 days ago" or "today" */
+export function formatLastWorkoutMeta(dateKey: string, now: Date = new Date()): string {
+  const days = daysSinceDateKey(dateKey, now)
+  if (days === null) return formatCalendarDateLabel(dateKey)
+  if (days === 0) return 'Today'
+  if (days === 1) return 'Yesterday'
+  return `${formatCalendarDateLabel(dateKey)} · ${formatDaysAgo(days)}`
 }
 
 export function formatDayLabel(date: Date): string {

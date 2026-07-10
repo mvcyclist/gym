@@ -13,7 +13,11 @@ interface WorkoutDeckProps {
     updates: Partial<Pick<SetLog, 'weight' | 'reps'>>,
   ) => void
   onPrefillSets: (exerciseId: string, weight: string, reps: string) => void
-  onCompleteSet: (exerciseId: string, setNumber: number) => void
+  onCompleteSet: (
+    exerciseId: string,
+    setNumber: number,
+    updates?: Partial<Pick<SetLog, 'weight' | 'reps'>>,
+  ) => void
   onAddSet: (exerciseId: string) => void
   onDeleteSet: (exerciseId: string, setNumber: number) => void
   onSkipExercise: (exerciseId: string) => void

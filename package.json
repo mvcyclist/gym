@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "preview:gym": "vite preview --base /gym/",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "inspect:workouts": "node scripts/inspect-supabase-workouts.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",

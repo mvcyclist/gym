@@ -10,6 +10,7 @@
  */
 import type { CatalogExercise } from '../data/exerciseCatalog'
 import { getRepRangeForCatalog } from '../data/exerciseCatalog'
+import { daysSinceDateKey } from '../utils/activityHistory'
 import type { LastExercisePerformance } from './exerciseHistoryService'
 
 export type ProgressionCase = 1 | 2 | 3 | 4 | 5
@@ -225,12 +226,6 @@ export function getPostSessionNextCard(
 
 const STALE_DAYS = 14
 
-function daysSince(isoDate: string, now: Date): number {
-  const then = new Date(isoDate + 'T12:00:00')
-  const today = new Date(now.toDateString() + 'T12:00:00')
-  return Math.floor((today.getTime() - then.getTime()) / (1000 * 60 * 60 * 24))
-}
-
 function formatSetLine(weight: number | 'BW', reps: number): string {
   if (weight === 'BW') return `BW × ${reps}`
   return `${weight} × ${reps}`
@@ -325,7 +320,7 @@ export function getProgressionRecommendation(
     return buildFirstSession(repFloor, repCeiling, targetSets, increment)
   }
 
-  const daysAgo = daysSince(lastPerformance.lastPerformedAt, now)
+  const daysAgo = daysSinceDateKey(lastPerformance.lastPerformedAt, now)
   const lastLines = lastPerformance.sets.map((set) =>
     formatSetLine(set.weight, set.reps),
   )
@@ -334,7 +329,7 @@ export function getProgressionRecommendation(
   const topNumericWeight =
     numericWeight(lastPerformance.topSet?.weight ?? lastPerformance.sets[0]?.weight ?? null) ?? 0
 
-  if (isWeighted && daysAgo > STALE_DAYS && topNumericWeight > 0) {
+  if (isWeighted && daysAgo !== null && daysAgo > STALE_DAYS && topNumericWeight > 0) {
     const resetWeight = roundToIncrement(topNumericWeight * 0.9, 5)
     return {
       case: 4,

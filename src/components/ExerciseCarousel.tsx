@@ -14,7 +14,11 @@ interface ExerciseCarouselProps {
     updates: Partial<Pick<SetLog, 'weight' | 'reps'>>,
   ) => void
   onPrefillSets: (exerciseId: string, weight: string, reps: string) => void
-  onCompleteSet: (exerciseId: string, setNumber: number) => void
+  onCompleteSet: (
+    exerciseId: string,
+    setNumber: number,
+    updates?: Partial<Pick<SetLog, 'weight' | 'reps'>>,
+  ) => void
   onAddSet: (exerciseId: string) => void
   onDeleteSet: (exerciseId: string, setNumber: number) => void
   onSkipExercise: (exerciseId: string) => void
@@ -139,7 +143,7 @@ export function ExerciseCarousel({
             totalExercises={exercises.length}
             onUpdateSet={(setNumber, updates) => onUpdateSet(exercise.id, setNumber, updates)}
             onPrefillSets={(weight, reps) => onPrefillSets(exercise.id, weight, reps)}
-            onCompleteSet={(setNumber) => onCompleteSet(exercise.id, setNumber)}
+            onCompleteSet={(setNumber, updates) => onCompleteSet(exercise.id, setNumber, updates)}
             onAddSet={() => onAddSet(exercise.id)}
             onDeleteSet={(setNumber) => onDeleteSet(exercise.id, setNumber)}
           />

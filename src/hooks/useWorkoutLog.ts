@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { clearDraft, loadDraft, saveDraft } from '../adapters/workoutDraftStorage'
 import { getWorkoutById } from '../data/workouts'
 import {
@@ -75,7 +75,11 @@ interface UseWorkoutLogReturn {
     updates: Partial<Pick<SetLog, 'weight' | 'reps'>>,
   ) => void
   prefillExerciseSets: (exerciseId: string, weight: string, reps: string) => void
-  completeSet: (exerciseId: string, setNumber: number) => void
+  completeSet: (
+    exerciseId: string,
+    setNumber: number,
+    updates?: Partial<Pick<SetLog, 'weight' | 'reps'>>,
+  ) => void
   addSet: (exerciseId: string) => void
   deleteSet: (exerciseId: string, setNumber: number) => void
   skipExercise: (exerciseId: string) => WorkoutSession | null
@@ -93,20 +97,32 @@ interface UseWorkoutLogReturn {
 
 export function useWorkoutLog(): UseWorkoutLogReturn {
   const [session, setSession] = useState<WorkoutSession | null>(null)
+  const sessionRef = useRef<WorkoutSession | null>(null)
 
-  const persistDraft = useCallback((nextSession: WorkoutSession) => {
+  const commitSession = useCallback((nextSession: WorkoutSession): WorkoutSession => {
     const updatedSession = {
       ...nextSession,
       updatedAt: new Date().toISOString(),
     }
+    sessionRef.current = updatedSession
     saveDraft(updatedSession)
     setSession(updatedSession)
     return updatedSession
   }, [])
 
+  const mutateSession = useCallback(
+    (mutator: (current: WorkoutSession) => WorkoutSession): WorkoutSession | null => {
+      const current = sessionRef.current
+      if (!current) return null
+      return commitSession(mutator(current))
+    },
+    [commitSession],
+  )
+
   const startSession = useCallback(
     (workoutType: WorkoutCategory, exerciseOrder?: string[]) => {
       const nextSession = createSession(workoutType, exerciseOrder)
+      sessionRef.current = nextSession
       saveDraft(nextSession)
       setSession(nextSession)
       return nextSession
@@ -124,6 +140,7 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
         !shouldActivate ||
         (existing.status !== 'active' && existing.status !== 'paused')
       ) {
+        sessionRef.current = existing
         setSession(existing)
         return existing
       }
@@ -134,11 +151,15 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
         status: 'active',
         workoutElapsedMs: existing.workoutElapsedMs ?? 0,
         workoutTimerStartedAt: now,
+        updatedAt: now,
       }
 
-      return persistDraft(activated)
+      sessionRef.current = activated
+      saveDraft(activated)
+      setSession(activated)
+      return activated
     },
-    [persistDraft],
+    [],
   )
 
   const updateSet = useCallback(
@@ -147,11 +168,9 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
       setNumber: number,
       updates: Partial<Pick<SetLog, 'weight' | 'reps'>>,
     ) => {
-      if (!session) return
-
-      const nextSession: WorkoutSession = {
-        ...session,
-        exercises: session.exercises.map((exerciseLog) => {
+      mutateSession((current) => ({
+        ...current,
+        exercises: current.exercises.map((exerciseLog) => {
           if (exerciseLog.exerciseId !== exerciseId) return exerciseLog
 
           return {
@@ -161,19 +180,16 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
             ),
           }
         }),
-      }
-
-      persistDraft(nextSession)
+      }))
     },
-    [persistDraft, session],
+    [mutateSession],
   )
 
   const prefillExerciseSets = useCallback(
     (exerciseId: string, weight: string, reps: string) => {
-      if (!session) return
-      const nextSession: WorkoutSession = {
-        ...session,
-        exercises: session.exercises.map((exerciseLog) => {
+      mutateSession((current) => ({
+        ...current,
+        exercises: current.exercises.map((exerciseLog) => {
           if (exerciseLog.exerciseId !== exerciseId) return exerciseLog
           return {
             ...exerciseLog,
@@ -184,19 +200,20 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
             ),
           }
         }),
-      }
-      persistDraft(nextSession)
+      }))
     },
-    [persistDraft, session],
+    [mutateSession],
   )
 
   const completeSet = useCallback(
-    (exerciseId: string, setNumber: number) => {
-      if (!session) return
-
-      const nextSession: WorkoutSession = {
-        ...session,
-        exercises: session.exercises.map((exerciseLog) => {
+    (
+      exerciseId: string,
+      setNumber: number,
+      updates?: Partial<Pick<SetLog, 'weight' | 'reps'>>,
+    ) => {
+      mutateSession((current) => ({
+        ...current,
+        exercises: current.exercises.map((exerciseLog) => {
           if (exerciseLog.exerciseId !== exerciseId) return exerciseLog
 
           return {
@@ -205,6 +222,7 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
               setLog.setNumber === setNumber
                 ? {
                     ...setLog,
+                    ...updates,
                     completed: true,
                     completedAt: new Date().toISOString(),
                   }
@@ -212,20 +230,16 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
             ),
           }
         }),
-      }
-
-      persistDraft(nextSession)
+      }))
     },
-    [persistDraft, session],
+    [mutateSession],
   )
 
   const addSet = useCallback(
     (exerciseId: string) => {
-      if (!session) return
-
-      const nextSession: WorkoutSession = {
-        ...session,
-        exercises: session.exercises.map((exerciseLog) => {
+      mutateSession((current) => ({
+        ...current,
+        exercises: current.exercises.map((exerciseLog) => {
           if (exerciseLog.exerciseId !== exerciseId) return exerciseLog
 
           const lastSet = exerciseLog.sets.at(-1)
@@ -243,20 +257,16 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
             sets: [...exerciseLog.sets, newSet],
           }
         }),
-      }
-
-      persistDraft(nextSession)
+      }))
     },
-    [persistDraft, session],
+    [mutateSession],
   )
 
   const deleteSet = useCallback(
     (exerciseId: string, setNumber: number) => {
-      if (!session) return
-
-      const nextSession: WorkoutSession = {
-        ...session,
-        exercises: session.exercises.map((exerciseLog) => {
+      mutateSession((current) => ({
+        ...current,
+        exercises: current.exercises.map((exerciseLog) => {
           if (exerciseLog.exerciseId !== exerciseId) return exerciseLog
           if (exerciseLog.sets.length <= MIN_SET_COUNT) return exerciseLog
 
@@ -265,29 +275,23 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
             sets: renumberSets(exerciseLog.sets.filter((setLog) => setLog.setNumber !== setNumber)),
           }
         }),
-      }
-
-      persistDraft(nextSession)
+      }))
     },
-    [persistDraft, session],
+    [mutateSession],
   )
 
   const skipExercise = useCallback(
     (exerciseId: string) => {
-      if (!session) return null
-
-      const nextSession: WorkoutSession = {
-        ...session,
-        exercises: session.exercises.map((log) =>
+      return mutateSession((current) => ({
+        ...current,
+        exercises: current.exercises.map((log) =>
           log.exerciseId === exerciseId
             ? { ...log, skipped: true, sets: createDefaultSets() }
             : log,
         ),
-      }
-
-      return persistDraft(nextSession)
+      }))
     },
-    [persistDraft, session],
+    [mutateSession],
   )
 
   const isExerciseSkipped = useCallback(
@@ -298,36 +302,30 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
 
   const reorderExercises = useCallback(
     (newOrder: string[]) => {
-      if (!session) return
+      mutateSession((current) => {
+        const reordered = newOrder
+          .map((id) => current.exercises.find((log) => log.exerciseId === id))
+          .filter(Boolean) as typeof current.exercises
 
-      const reordered = newOrder
-        .map((id) => session.exercises.find((log) => log.exerciseId === id))
-        .filter(Boolean) as typeof session.exercises
-
-      const nextSession: WorkoutSession = {
-        ...session,
-        exercises: reordered,
-        exerciseOrder: newOrder,
-      }
-
-      persistDraft(nextSession)
+        return {
+          ...current,
+          exercises: reordered,
+          exerciseOrder: newOrder,
+        }
+      })
     },
-    [persistDraft, session],
+    [mutateSession],
   )
 
   const removeExerciseFromSession = useCallback(
     (exerciseId: string) => {
-      if (!session) return null
-
-      const nextSession: WorkoutSession = {
-        ...session,
-        exercises: session.exercises.filter((log) => log.exerciseId !== exerciseId),
-        exerciseOrder: session.exerciseOrder?.filter((id) => id !== exerciseId),
-      }
-
-      return persistDraft(nextSession)
+      return mutateSession((current) => ({
+        ...current,
+        exercises: current.exercises.filter((log) => log.exerciseId !== exerciseId),
+        exerciseOrder: current.exerciseOrder?.filter((id) => id !== exerciseId),
+      }))
     },
-    [persistDraft, session],
+    [mutateSession],
   )
 
   const getExerciseLog = useCallback(
@@ -342,7 +340,7 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
   )
 
   const finishWorkout = useCallback(async (sessionOverride?: WorkoutSession) => {
-    const source = sessionOverride ?? session
+    const source = sessionOverride ?? sessionRef.current
     if (!source) return null
     const completed: WorkoutSession = {
       ...source,
@@ -354,48 +352,59 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
     }
     await recordCompletedWorkout(completed)
     clearDraft()
+    sessionRef.current = completed
     setSession(completed)
     return completed
-  }, [session])
+  }, [])
 
   const savePartialWorkout = useCallback(async () => {
-    if (!session) return null
+    const source = sessionRef.current
+    if (!source) return null
     const partial: WorkoutSession = {
-      ...session,
+      ...source,
       status: 'partial',
       completedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      workoutElapsedMs: getWorkoutElapsedMs(session),
+      workoutElapsedMs: getWorkoutElapsedMs(source),
       workoutTimerStartedAt: null,
     }
     await recordPartialWorkout(partial)
     clearDraft()
+    sessionRef.current = partial
     setSession(partial)
     return partial
-  }, [session])
+  }, [])
 
   const pauseWorkout = useCallback(() => {
-    if (!session) return null
-    if (session.status !== 'active') return session
+    const source = sessionRef.current
+    if (!source) return null
+    if (source.status !== 'active') return source
 
     const paused: WorkoutSession = {
-      ...session,
+      ...source,
       status: 'paused',
-      workoutElapsedMs: getWorkoutElapsedMs(session),
+      workoutElapsedMs: getWorkoutElapsedMs(source),
       workoutTimerStartedAt: null,
+      updatedAt: new Date().toISOString(),
     }
 
-    return persistDraft(paused)
-  }, [persistDraft, session])
+    sessionRef.current = paused
+    saveDraft(paused)
+    setSession(paused)
+    return paused
+  }, [])
 
   const discardActiveWorkout = useCallback(() => {
-    if (!session) return
-    removeSession(session.id)
+    const source = sessionRef.current
+    if (!source) return
+    removeSession(source.id)
     clearDraft()
+    sessionRef.current = null
     setSession(null)
-  }, [session])
+  }, [])
 
   const clearSession = useCallback(() => {
+    sessionRef.current = null
     setSession(null)
   }, [])
 

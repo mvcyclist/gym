@@ -48,7 +48,7 @@ export async function recordPartialWorkout(session: WorkoutSession): Promise<voi
   const partial: WorkoutSession = {
     ...session,
     status: 'partial',
-    completedAt: new Date().toISOString(),
+    completedAt: session.completedAt ?? new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }
   await upsertSession(partial)

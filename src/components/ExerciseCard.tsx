@@ -8,6 +8,7 @@ import { getLastExercisePerformance } from '../services/exerciseHistoryService'
 import {
   getProgressionRecommendation,
 } from '../services/sessionCoaching'
+import { formatLastWorkoutMeta } from '../utils/activityHistory'
 import { SetLogger } from './SetLogger'
 
 interface ExerciseCardProps {
@@ -18,7 +19,7 @@ interface ExerciseCardProps {
   totalExercises: number
   onUpdateSet: (setNumber: number, updates: Partial<Pick<SetLog, 'weight' | 'reps'>>) => void
   onPrefillSets: (weight: string, reps: string) => void
-  onCompleteSet: (setNumber: number) => void
+  onCompleteSet: (setNumber: number, updates?: Partial<Pick<SetLog, 'weight' | 'reps'>>) => void
   onAddSet: () => void
   onDeleteSet: (setNumber: number) => void
 }
@@ -160,8 +161,7 @@ export function ExerciseCard({
                 Last workout
                 {lastPerformance?.lastPerformedAt && (
                   <span style={{ color: 'rgba(255,255,255,0.18)', marginLeft: 6 }}>
-                    · {lastPerformance.lastPerformedAt}
-                    {recommendation.daysSinceLastWorkout !== null && ` (${recommendation.daysSinceLastWorkout}d ago)`}
+                    · {formatLastWorkoutMeta(lastPerformance.lastPerformedAt)}
                   </span>
                 )}
               </p>

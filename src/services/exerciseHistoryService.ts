@@ -105,6 +105,9 @@ export function getLastExercisePerformance(
     const sets = completedSetsFromLog(log)
     if (sets.length === 0) continue
 
+    const calendarDate = getSessionCalendarDate(session)
+    if (!calendarDate) continue
+
     const numericSets = sets.map((set) => ({ weight: set.weight, reps: set.reps }))
     const top = findTopSet(numericSets)
 
@@ -112,7 +115,7 @@ export function getLastExercisePerformance(
       historyExerciseKey,
       keyKind: HISTORY_KEY_KIND,
       exerciseName: resolveHistoryExerciseName(historyExerciseKey, log),
-      lastPerformedAt: getSessionCalendarDate(session),
+      lastPerformedAt: calendarDate,
       sets,
       totalReps: sumReps(sets),
       topSet: top,

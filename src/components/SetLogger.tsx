@@ -15,7 +15,7 @@ interface SetLoggerProps {
   targetWeight: string | null
   repRangeLabel: string
   onUpdateSet: (setNumber: number, updates: Partial<Pick<SetLog, 'weight' | 'reps'>>) => void
-  onCompleteSet: (setNumber: number) => void
+  onCompleteSet: (setNumber: number, updates?: Partial<Pick<SetLog, 'weight' | 'reps'>>) => void
   onAddSet: () => void
   onDeleteSet: (setNumber: number) => void
 }
@@ -57,14 +57,15 @@ export function SetLogger({
     const set = sets.find((item) => item.setNumber === setNumber)
     if (!set) return
 
+    const updates: Partial<Pick<SetLog, 'weight' | 'reps'>> = {}
     if (isWeighted && targetWeight && !set.weight) {
-      onUpdateSet(setNumber, { weight: targetWeight })
+      updates.weight = targetWeight
     }
     if (coachingMode === 'bodyweight_reps' && !set.weight) {
-      onUpdateSet(setNumber, { weight: 'BW' })
+      updates.weight = 'BW'
     }
 
-    onCompleteSet(setNumber)
+    onCompleteSet(setNumber, updates)
   }
 
   const nextSessionCard = allCompleted
