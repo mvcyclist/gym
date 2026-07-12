@@ -38,18 +38,21 @@ export interface LastExercisePerformance {
   totalVolume: number | null
 }
 
+function parsedPerformanceSet(
+  set: SetLog,
+  catalogExerciseId?: string,
+): LastExercisePerformanceSet | null {
+  const { weight, reps } = parseSetLoad(set, catalogExerciseId)
+  if (weight === null || reps === null) return null
+  return { setNumber: set.setNumber, weight, reps }
+}
+
 function completedSetsFromLog(log: ExerciseLog): LastExercisePerformanceSet[] {
   return log.sets
     .filter((set) => set.completed)
-    .map((set) => parsedPerformanceSet(set))
+    .map((set) => parsedPerformanceSet(set, log.catalogExerciseId))
     .filter((set): set is LastExercisePerformanceSet => set !== null)
     .sort((a, b) => a.setNumber - b.setNumber)
-}
-
-function parsedPerformanceSet(set: SetLog): LastExercisePerformanceSet | null {
-  const { weight, reps } = parseSetLoad(set)
-  if (weight === null || reps === null) return null
-  return { setNumber: set.setNumber, weight, reps }
 }
 
 function sortSessionsByRecency(sessions: WorkoutSession[]): WorkoutSession[] {

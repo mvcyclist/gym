@@ -1,5 +1,5 @@
 import type { ActivityType } from '../types/training'
-import type { CardioModalityKey, UserProfile, WeeklyPlanSlot } from '../types/userProfile'
+import { getProgramType, type CardioModalityKey, type UserProfile, type WeeklyPlanSlot } from '../types/userProfile'
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
 
@@ -22,8 +22,31 @@ function slot(type: ActivityType, meta?: string): WeeklyPlanSlot {
   return { type, label, meta }
 }
 
+function flexCardioSlot(profile: UserProfile): WeeklyPlanSlot {
+  const cardio = activeCardio(profile)
+  const hardCardio = cardio.filter((type) => type !== 'Walk')
+  const type = hardCardio[0] ?? cardio[0] ?? 'Rest'
+  return slot(type, 'Cardio or Rest')
+}
+
 /**
- * Default weekly plan from onboarding spec (Screen 4).
+ * Full-body program week — Sun=0 … Sat=6
+ */
+export function generateFullBodyWeeklyPlan(profile: UserProfile): WeeklyPlanSlot[] {
+  const flex = flexCardioSlot(profile)
+  return [
+    flex,
+    slot('Full Body', '~80 min'),
+    flex,
+    slot('Full Body', '~80 min'),
+    flex,
+    slot('Full Body', '~80 min'),
+    flex,
+  ]
+}
+
+/**
+ * PPL weekly plan from onboarding spec (Screen 4).
  * Sun=0 … Sat=6
  */
 export function generateDefaultWeeklyPlan(profile: UserProfile): WeeklyPlanSlot[] {
@@ -56,6 +79,13 @@ export function generateDefaultWeeklyPlan(profile: UserProfile): WeeklyPlanSlot[
     slot('Leg', '~60 min'),
     sat,
   ]
+}
+
+export function generateWeeklyPlan(profile: UserProfile): WeeklyPlanSlot[] {
+  if (getProgramType(profile) === 'full_body') {
+    return generateFullBodyWeeklyPlan(profile)
+  }
+  return generateDefaultWeeklyPlan(profile)
 }
 
 export function weeklyPlanWithDayLabels(plan: WeeklyPlanSlot[]): Array<WeeklyPlanSlot & { dayLabel: string }> {

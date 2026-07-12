@@ -1,20 +1,24 @@
 import type { UserPalette, WorkoutType } from '../types/training'
 import { DEFAULT_PALETTE } from '../types/training'
-import type { UserProfile } from '../types/userProfile'
+import { getProgramType, type UserProfile } from '../types/userProfile'
 import { cardioTypesFromProfile } from './weeklyPlanFromProfile'
 
-const STRENGTH_TYPES: WorkoutType[] = ['Push', 'Pull', 'Leg', 'Core']
+const PPL_STRENGTH_TYPES: WorkoutType[] = ['Push', 'Pull', 'Leg', 'Core']
 
 /**
  * Derive recommendation palette from onboarding profile.
- * Strength types always included; cardio from user selection; mobility optional.
+ * PPL: Push/Pull/Leg/Core + cardio + Rest.
+ * Full body: Full Body + cardio + Rest (core/mobility are in-session).
  */
 export function paletteFromProfile(profile: UserProfile | null): UserPalette {
   if (!profile?.onboardingComplete) {
     return DEFAULT_PALETTE
   }
 
-  const types: WorkoutType[] = [...STRENGTH_TYPES]
+  const strengthTypes: WorkoutType[] =
+    getProgramType(profile) === 'full_body' ? ['Full Body'] : [...PPL_STRENGTH_TYPES]
+
+  const types: WorkoutType[] = [...strengthTypes]
 
   for (const cardio of cardioTypesFromProfile(profile)) {
     if (!types.includes(cardio as WorkoutType)) {
@@ -22,7 +26,7 @@ export function paletteFromProfile(profile: UserProfile | null): UserPalette {
     }
   }
 
-  if (profile.wantsMobility && !types.includes('Mobility')) {
+  if (getProgramType(profile) === 'ppl' && profile.wantsMobility && !types.includes('Mobility')) {
     types.push('Mobility')
   }
 

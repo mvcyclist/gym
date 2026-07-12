@@ -3,6 +3,7 @@ import type { WorkoutCategory } from '../types/workout'
 import type { ScoredWorkout, QualityBucket, WorkoutType } from '../types/training'
 
 const FALLBACK_OPTIONS: Array<{ type: string; label: string }> = [
+  { type: 'Full Body', label: 'Full Body — Mobility, six lifts, core' },
   { type: 'Push',     label: 'Push — Chest, shoulders, triceps' },
   { type: 'Pull',     label: 'Pull — Back, biceps, rear delts' },
   { type: 'Leg',      label: 'Leg — Quads, hamstrings, glutes' },
@@ -49,6 +50,7 @@ function typeToAction(
   onSelectMobility: () => void,
 ) {
   switch (type) {
+    case 'Full Body': return () => onSelectWorkout('full_body')
     case 'Push': return () => onSelectWorkout('push')
     case 'Pull': return () => onSelectWorkout('pull')
     case 'Leg':  return () => onSelectWorkout('leg')
@@ -78,10 +80,16 @@ export function ChooseAnotherModal({
 
   if (!open) return null
 
-  const hasAlternatives = alternatives.length > 0
-  const goodOptions = alternatives.filter((a) => a.bucket === 'Best' || a.bucket === 'Good')
-  const marginalOptions = alternatives.filter((a) => a.bucket === 'Marginal')
-  const skipOptions = alternatives.filter((a) => a.bucket === 'Skip')
+  const alternativesWithoutFullBody = alternatives.filter((item) => item.type !== 'Full Body')
+  const hasAlternatives = alternativesWithoutFullBody.length > 0
+  const goodOptions = alternativesWithoutFullBody.filter((a) => a.bucket === 'Best' || a.bucket === 'Good')
+  const marginalOptions = alternativesWithoutFullBody.filter((a) => a.bucket === 'Marginal')
+  const skipOptions = alternativesWithoutFullBody.filter((a) => a.bucket === 'Skip')
+
+  const startFullBody = () => {
+    onSelectWorkout('full_body')
+    onClose()
+  }
 
   const renderRow = (item: ScoredWorkout) => {
     const action = typeToAction(item.type, onSelectWorkout, onSelectCardio, onSelectCore, onSelectMobility)
@@ -142,6 +150,19 @@ export function ChooseAnotherModal({
         </div>
 
         <div className="flex flex-col gap-4">
+          <div>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+              Full body
+            </p>
+            <button
+              type="button"
+              onClick={startFullBody}
+              className="flex w-full items-center rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-left text-sm font-semibold text-red-200 transition hover:border-red-500/50 hover:bg-red-500/15"
+            >
+              Full Body — Warm-up, six lifts, core, mobility
+            </button>
+          </div>
+
           {hasAlternatives ? (
             <>
               {goodOptions.length > 0 && (
@@ -166,7 +187,7 @@ export function ChooseAnotherModal({
           ) : (
             <div>
               <div className="flex flex-col gap-2">
-                {FALLBACK_OPTIONS.map(({ type, label }) => {
+                {FALLBACK_OPTIONS.filter(({ type }) => type !== 'Full Body').map(({ type, label }) => {
                   const action = typeToAction(type, onSelectWorkout, onSelectCardio, onSelectCore, onSelectMobility)
                   return (
                     <button

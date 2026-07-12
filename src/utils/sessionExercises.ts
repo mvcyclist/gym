@@ -44,8 +44,8 @@ function exerciseFromLog(
 }
 
 /**
- * Build carousel exercises from the session snapshot (catalog + names frozen at log time).
- * Avoids re-binding slot ids through the current profile template, which can swap exercises.
+ * Build carousel/overview exercises from the session snapshot (catalog + names frozen at log time).
+ * Skipped exercises stay in the list so the overview plan remains stable for jump-back navigation.
  */
 export function buildDisplayExercisesForSession(session: WorkoutSession): Exercise[] {
   const order =
@@ -53,12 +53,17 @@ export function buildDisplayExercisesForSession(session: WorkoutSession): Exerci
 
   return order.flatMap((exerciseId) => {
     const log = session.exercises.find((item) => item.exerciseId === exerciseId)
-    if (!log || log.skipped) return []
+    if (!log || log.isGuidedSegment) return []
     const exercise = exerciseFromLog(log, session.workoutType)
     return exercise ? [exercise] : []
   })
 }
 
 export function sessionExerciseOrder(session: WorkoutSession): string[] {
-  return session.exerciseOrder ?? session.exercises.map((log) => log.exerciseId)
+  const order =
+    session.exerciseOrder ?? session.exercises.map((log) => log.exerciseId)
+  return order.filter((exerciseId) => {
+    const log = session.exercises.find((item) => item.exerciseId === exerciseId)
+    return log && !log.isGuidedSegment
+  })
 }

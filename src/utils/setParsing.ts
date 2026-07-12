@@ -1,4 +1,5 @@
 import type { SetLog } from '../types/workout'
+import { getCatalogExerciseById } from '../data/exerciseCatalog'
 
 export type ParsedWeight = number | 'BW'
 
@@ -27,10 +28,17 @@ export function parseReps(value: string): number | null {
   return reps
 }
 
-export function parseSetLoad(set: SetLog): ParsedSetLoad {
+export function parseSetLoad(set: SetLog, catalogExerciseId?: string): ParsedSetLoad {
+  const reps = parseReps(set.reps)
+  if (catalogExerciseId) {
+    const catalog = getCatalogExerciseById(catalogExerciseId)
+    if (catalog?.coachingMode === 'time') {
+      return { weight: reps !== null ? 'BW' : null, reps }
+    }
+  }
   return {
     weight: parseWeight(set.weight),
-    reps: parseReps(set.reps),
+    reps,
   }
 }
 

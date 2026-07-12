@@ -7,6 +7,7 @@ export function workoutCategoryToActivityType(category: WorkoutCategory): Activi
     pull: 'Pull',
     leg: 'Leg',
     core: 'Core',
+    full_body: 'Full Body',
   }
   return map[category]
 }

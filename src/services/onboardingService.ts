@@ -1,8 +1,8 @@
 import { toDateString } from '../utils/activityHistory'
-import type { UserProfile } from '../types/userProfile'
+import { getProgramType, type UserProfile } from '../types/userProfile'
 import { clearUserProfile, getUserProfile, saveUserProfile } from './userProfileRepository'
 import { generateWorkoutTemplates } from './workoutGeneratorService'
-import { generateDefaultWeeklyPlan } from './weeklyPlanFromProfile'
+import { generateWeeklyPlan } from './weeklyPlanFromProfile'
 import { paletteFromProfile } from './paletteFromProfile'
 import { saveUserPalette } from './preferencesRepository'
 import { updatePlanOverride } from './trainingLedgerService'
@@ -37,11 +37,8 @@ function datesForCurrentWeek(reference = new Date()): string[] {
   })
 }
 
-export function seedPlanOverridesFromProfile(profile: UserProfile): void {
-  const existing = getPlanOverrides()
-  if (Object.keys(existing).length > 0) return
-
-  const plan = profile.defaultWeeklyPlan ?? generateDefaultWeeklyPlan(profile)
+export function reseedPlanOverridesFromProfile(profile: UserProfile): void {
+  const plan = profile.defaultWeeklyPlan ?? generateWeeklyPlan(profile)
   const dates = datesForCurrentWeek()
   dates.forEach((date, index) => {
     const slot = plan[index]
@@ -49,12 +46,19 @@ export function seedPlanOverridesFromProfile(profile: UserProfile): void {
   })
 }
 
+export function seedPlanOverridesFromProfile(profile: UserProfile): void {
+  const existing = getPlanOverrides()
+  if (Object.keys(existing).length > 0) return
+
+  reseedPlanOverridesFromProfile(profile)
+}
+
 export function completeOnboarding(
   profile: UserProfile,
   options?: { templateSources?: UserProfile['templateSources'] },
 ): UserProfile {
   const templates = generateWorkoutTemplates(profile)
-  const weeklyPlan = generateDefaultWeeklyPlan(profile)
+  const weeklyPlan = generateWeeklyPlan(profile)
   const templateSources =
     options?.templateSources ??
     profile.templateSources ??
@@ -125,4 +129,31 @@ export function devStartFromScratch(clearHistory: boolean): void {
       planOverridesByDate: {},
     })
   }
+}
+
+/** Switch from PPL to the static full-body program. Past ledger sessions are unchanged. */
+export function migrateToFullBodyProgram(): UserProfile {
+  const profile = getUserProfile()
+  const weeklyPlan = generateWeeklyPlan({ ...profile, programType: 'full_body' })
+  const migrated: UserProfile = {
+    ...profile,
+    programType: 'full_body',
+    defaultWeeklyPlan: weeklyPlan,
+    templateSources: {
+      ...profile.templateSources,
+      full_body: 'default',
+    },
+    onboardingComplete: true,
+    editRoutineSnapshot: undefined,
+    onboardingDraft: undefined,
+    onboardingStep: undefined,
+  }
+  saveUserProfile(migrated)
+  saveUserPalette(paletteFromProfile(migrated))
+  reseedPlanOverridesFromProfile(migrated)
+  return migrated
+}
+
+export function canMigrateToFullBody(profile: UserProfile = getUserProfile()): boolean {
+  return profile.onboardingComplete && getProgramType(profile) === 'ppl'
 }

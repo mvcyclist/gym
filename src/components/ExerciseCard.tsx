@@ -57,7 +57,9 @@ export function ExerciseCard({
       matchedExerciseName: lastPerformance.exerciseName,
       lastPerformedAt: lastPerformance.lastPerformedAt,
       daysSince: lastPerformance.lastPerformedAt,
-      sets: lastPerformance.sets.map((s) => `${s.weight} × ${s.reps}`),
+      sets: lastPerformance.sets.map((s) =>
+        catalog?.coachingMode === 'time' ? `${s.reps}s` : `${s.weight} × ${s.reps}`,
+      ),
       topSet: lastPerformance.topSet,
     })
   }, [exercise.catalogExerciseId, lastPerformance])

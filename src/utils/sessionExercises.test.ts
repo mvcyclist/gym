@@ -29,6 +29,46 @@ describe('buildDisplayExercisesForSession', () => {
     expect(exercises[0]?.catalogExerciseId).toBe('barbell_bench_press')
     expect(exercises[0]?.name).toBe('Barbell Bench Press')
   })
+
+  it('keeps skipped exercises in the plan list', () => {
+    const session: WorkoutSession = {
+      id: 'full_body-1',
+      workoutType: 'full_body',
+      status: 'active',
+      startedAt: '2026-06-22T18:00:00.000Z',
+      updatedAt: '2026-06-22T18:00:00.000Z',
+      completedAt: null,
+      exercises: [
+        {
+          exerciseId: 'full_body-1',
+          catalogExerciseId: 'worlds_greatest_stretch',
+          exerciseName: "World's Greatest Stretch",
+          sets: [{ setNumber: 1, weight: '', reps: '30', completed: true, completedAt: 't' }],
+        },
+        {
+          exerciseId: 'full_body-2',
+          catalogExerciseId: 'hip_90_90_switch',
+          exerciseName: '90/90 Hip Switch',
+          sets: [],
+          skipped: true,
+        },
+        {
+          exerciseId: 'full_body-3',
+          catalogExerciseId: 'thoracic_rotation',
+          exerciseName: 'Thoracic Rotation',
+          sets: [],
+        },
+      ],
+      exerciseOrder: ['full_body-1', 'full_body-2', 'full_body-3'],
+    }
+
+    const exercises = buildDisplayExercisesForSession(session)
+    expect(exercises.map((e) => e.id)).toEqual([
+      'full_body-1',
+      'full_body-2',
+      'full_body-3',
+    ])
+  })
 })
 
 describe('getSessionCalendarDate', () => {

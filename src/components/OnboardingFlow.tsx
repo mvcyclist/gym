@@ -24,7 +24,7 @@ import {
 } from '../services/workoutTemplateService'
 import type { StrengthTemplateKey, TemplateSource } from '../types/userProfile'
 import {
-  generateDefaultWeeklyPlan,
+  generateWeeklyPlan,
   weeklyPlanWithDayLabels,
 } from '../services/weeklyPlanFromProfile'
 import { completeOnboarding, saveOnboardingDraft, cancelEditRoutine, isEditingRoutine } from '../services/onboardingService'
@@ -106,8 +106,11 @@ export function OnboardingFlow({ initialProfile, onComplete, onCancel }: Onboard
     [previewProfile, templateSources],
   )
   const weeklyPlan = useMemo(
-    () => weeklyPlanWithDayLabels(generateDefaultWeeklyPlan(draftProfile)),
-    [draftProfile],
+    () =>
+      weeklyPlanWithDayLabels(
+        generateWeeklyPlan({ ...draftProfile, programType: initialProfile.programType }),
+      ),
+    [draftProfile, initialProfile.programType],
   )
 
   const persistStep = (nextStep: OnboardingStep) => {

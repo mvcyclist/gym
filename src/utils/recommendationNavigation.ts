@@ -15,6 +15,7 @@ export function getRecommendationNavigation(type: WorkoutType): RecommendationNa
   if (type === 'Push') return { action: 'workout', workoutId: 'push' }
   if (type === 'Pull') return { action: 'workout', workoutId: 'pull' }
   if (type === 'Leg')  return { action: 'workout', workoutId: 'leg' }
+  if (type === 'Full Body') return { action: 'workout', workoutId: 'full_body' }
   if (type === 'Core') return { action: 'core' }
   if (CARDIO_TYPES.includes(type)) return { action: 'cardio', cardioType: type }
   return { action: 'mobility' }

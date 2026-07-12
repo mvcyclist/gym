@@ -5,6 +5,7 @@ import { getDefaultRestSeconds, getCatalogExerciseById } from '../data/exerciseC
 import { workouts } from '../data/workouts'
 import type { Exercise, WorkoutCategory } from '../types/workout'
 import type { StrengthTemplateKey, TemplateSource, UserProfile } from '../types/userProfile'
+import { getProgramType } from '../types/userProfile'
 import { getLastCompletedSessionByWorkoutType } from './exerciseHistoryService'
 import { resolveExerciseLogCatalogId } from './exerciseIdentity'
 import { generateWorkoutTemplates } from './workoutGeneratorService'
@@ -17,7 +18,16 @@ export interface TemplateVariant {
   available: boolean
 }
 
-const STRENGTH_CATEGORIES: StrengthTemplateKey[] = ['push', 'pull', 'leg', 'core']
+const PPL_STRENGTH_CATEGORIES: StrengthTemplateKey[] = ['push', 'pull', 'leg', 'core']
+const FULL_BODY_CYCLE_ORDER: TemplateSource[] = ['history', 'default']
+
+function strengthCategoriesForProfile(profile: UserProfile): StrengthTemplateKey[] {
+  return getProgramType(profile) === 'full_body' ? ['full_body'] : PPL_STRENGTH_CATEGORIES
+}
+
+function cycleOrderForCategory(category: StrengthTemplateKey): TemplateSource[] {
+  return category === 'full_body' ? FULL_BODY_CYCLE_ORDER : CYCLE_ORDER
+}
 
 const SOURCE_LABELS: Record<TemplateSource, string> = {
   history: 'Your last session',
@@ -68,7 +78,8 @@ export function hasHistoryForWorkoutType(category: WorkoutCategory): boolean {
 }
 
 export function hasAnyStrengthHistory(): boolean {
-  return STRENGTH_CATEGORIES.some(hasHistoryForWorkoutType)
+  const categories: WorkoutCategory[] = ['push', 'pull', 'leg', 'core', 'full_body']
+  return categories.some(hasHistoryForWorkoutType)
 }
 
 export function buildExercisesFromHistory(category: WorkoutCategory): Exercise[] | null {
@@ -101,6 +112,7 @@ export function buildExercisesFromHistory(category: WorkoutCategory): Exercise[]
 }
 
 function generatedExercises(category: WorkoutCategory, profile: UserProfile): Exercise[] {
+  if (category === 'full_body') return staticExercises(category)
   const templates =
     profile.generatedTemplates ?? generateWorkoutTemplates(profile)
   return templates[category]
@@ -171,6 +183,9 @@ export function isSourceAvailable(
   source: TemplateSource,
   profile: UserProfile,
 ): boolean {
+  if (category === 'full_body' && (source === 'generated' || source === 'random')) {
+    return false
+  }
   if (source === 'history') return hasHistoryForWorkoutType(category)
   if (source === 'generated') {
     return profile.equipment.length > 0 || Boolean(profile.generatedTemplates)
@@ -182,7 +197,8 @@ export function getTemplateVariants(
   category: WorkoutCategory,
   profile: UserProfile,
 ): TemplateVariant[] {
-  return CYCLE_ORDER.map((source) => ({
+  const order = cycleOrderForCategory(category as StrengthTemplateKey)
+  return order.map((source) => ({
     source,
     label: SOURCE_LABELS[source],
     exercises: getExercisesForSource(category, source, profile),
@@ -194,6 +210,15 @@ export function resolveTemplateSource(
   category: WorkoutCategory,
   profile: UserProfile,
 ): TemplateSource {
+  if (category === 'full_body') {
+    const selected = profile.templateSources?.full_body
+    if (selected && isSourceAvailable(category, selected, profile)) {
+      return selected
+    }
+    if (hasHistoryForWorkoutType(category)) return 'history'
+    return 'default'
+  }
+
   const selected = profile.templateSources?.[category]
   if (selected && isSourceAvailable(category, selected, profile)) {
     return selected
@@ -205,7 +230,7 @@ export function resolveTemplateSource(
 
 export function defaultTemplateSources(profile: UserProfile): Partial<Record<StrengthTemplateKey, TemplateSource>> {
   const sources: Partial<Record<StrengthTemplateKey, TemplateSource>> = {}
-  for (const category of STRENGTH_CATEGORIES) {
+  for (const category of strengthCategoriesForProfile(profile)) {
     sources[category] = resolveTemplateSource(category, profile)
   }
   return sources
@@ -233,10 +258,11 @@ export function setTemplateSource(category: StrengthTemplateKey, source: Templat
 }
 
 export function cycleTemplateSource(category: StrengthTemplateKey, profile: UserProfile): TemplateSource {
+  const order = cycleOrderForCategory(category)
   const current = resolveTemplateSource(category, profile)
-  const currentIndex = CYCLE_ORDER.indexOf(current)
-  for (let offset = 1; offset <= CYCLE_ORDER.length; offset += 1) {
-    const candidate = CYCLE_ORDER[(currentIndex + offset) % CYCLE_ORDER.length]
+  const currentIndex = order.indexOf(current)
+  for (let offset = 1; offset <= order.length; offset += 1) {
+    const candidate = order[(currentIndex + offset) % order.length]
     if (isSourceAvailable(category, candidate, profile)) {
       setTemplateSource(category, candidate)
       return candidate
@@ -245,4 +271,4 @@ export function cycleTemplateSource(category: StrengthTemplateKey, profile: User
   return current
 }
 
-export { SOURCE_LABELS, CYCLE_ORDER, STRENGTH_CATEGORIES }
+export { SOURCE_LABELS, CYCLE_ORDER, PPL_STRENGTH_CATEGORIES as STRENGTH_CATEGORIES }

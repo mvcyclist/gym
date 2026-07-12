@@ -1,4 +1,7 @@
-export type WorkoutCategory = 'push' | 'pull' | 'leg' | 'core'
+export type WorkoutCategory = 'push' | 'pull' | 'leg' | 'core' | 'full_body'
+
+export type { FullBodySessionState, GuidedSegmentStatus } from './fullBodySession'
+import type { FullBodySessionState, GuidedSegmentStatus } from './fullBodySession'
 
 export type TimerStatus = 'idle' | 'running' | 'paused' | 'complete'
 
@@ -42,6 +45,10 @@ export interface ExerciseLog {
   exerciseName: string
   sets: SetLog[]
   skipped?: boolean
+  /** Guided segment (warm-up / core / mobility) — one log per segment. */
+  isGuidedSegment?: boolean
+  segmentDurationSeconds?: number
+  segmentStatus?: GuidedSegmentStatus
 }
 
 export interface WorkoutSession {
@@ -58,6 +65,8 @@ export interface WorkoutSession {
   exercises: ExerciseLog[]
   /** Custom exercise ordering/filtering — IDs in the order to show them. If absent, use template order. */
   exerciseOrder?: string[]
+  /** Structured full-body flow (warm-up → main → core → mobility). */
+  fullBody?: FullBodySessionState
 }
 
 export interface AppState {

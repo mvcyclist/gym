@@ -15,7 +15,12 @@ export type CardioModalityKey = 'swim' | 'bike' | 'run' | 'walk' | 'hiit' | 'non
 
 export type OnboardingStep = 1 | 2 | 3 | 4
 
-export type StrengthTemplateKey = Extract<WorkoutCategory, 'push' | 'pull' | 'leg' | 'core'>
+export type ProgramType = 'ppl' | 'full_body'
+
+export type StrengthTemplateKey = Extract<
+  WorkoutCategory,
+  'push' | 'pull' | 'leg' | 'core' | 'full_body'
+>
 
 /** Where strength templates are resolved from. */
 export type TemplateSource = 'history' | 'default' | 'generated' | 'random'
@@ -35,6 +40,8 @@ export interface WeeklyPlanSlot {
 }
 
 export interface UserProfile {
+  /** Strength program layout; defaults to PPL for existing profiles. */
+  programType?: ProgramType
   equipment: EquipmentKey[]
   /** Set when barbell+bench without rack; null if question not shown. */
   canBench: boolean | null
@@ -57,6 +64,10 @@ export interface UserProfile {
   templateSources?: Partial<Record<StrengthTemplateKey, TemplateSource>>
   /** Completed profile snapshot while editing routine; restored on cancel. */
   editRoutineSnapshot?: UserProfile
+}
+
+export function getProgramType(profile: UserProfile): ProgramType {
+  return profile.programType ?? 'ppl'
 }
 
 export const EQUIPMENT_OPTIONS: Array<{

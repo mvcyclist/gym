@@ -31,6 +31,9 @@ interface ExerciseCarouselProps {
   onNext: () => void
   onBack: () => void
   onFinish: () => void
+  lastExerciseActionLabel?: string
+  hideOverview?: boolean
+  skipFinishesWorkout?: boolean
 }
 
 function DragHandle() {
@@ -63,6 +66,9 @@ export function ExerciseCarousel({
   onNext,
   onBack,
   onFinish,
+  lastExerciseActionLabel = 'Finish workout',
+  hideOverview = false,
+  skipFinishesWorkout,
 }: ExerciseCarouselProps) {
   const [skipConfirmOpen, setSkipConfirmOpen] = useState(false)
   const [editingOrder, setEditingOrder] = useState(false)
@@ -94,9 +100,17 @@ export function ExerciseCarousel({
   const progressLabel = `Exercise ${currentIndex + 1} of ${exercises.length}`
 
   const allSetsComplete =
-    !isSkipped &&
     (exerciseLog?.sets.length ?? 0) > 0 &&
     (exerciseLog?.sets.every((set) => set.completed) ?? false)
+
+  const canProceed = isSkipped || allSetsComplete
+
+  const skipBannerMessage =
+    isLast && skipFinishesWorkout === false
+      ? 'You skipped this exercise. Log sets below if you want to do it, or continue to Core.'
+      : isLast
+        ? 'You skipped this exercise. Log sets below to complete it, or finish the workout.'
+        : 'You skipped this exercise. Log sets below if you want to do it, or go to the next exercise.'
 
   if (!exercise) {
     return (
@@ -110,7 +124,13 @@ export function ExerciseCarousel({
   }
 
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
+    <section
+      className={
+        hideOverview
+          ? 'w-full'
+          : 'mx-auto w-full max-w-6xl px-4 py-6 sm:px-6'
+      }
+    >
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm font-semibold uppercase tracking-wider text-red-500">
@@ -127,11 +147,11 @@ export function ExerciseCarousel({
         </button>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+      <div className={hideOverview ? '' : 'grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]'}>
         <div className="min-w-0">
           {isSkipped && (
             <div className="mb-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-300">
-              You skipped this exercise. Log sets below to complete it, or skip again to move on.
+              {skipBannerMessage}
             </div>
           )}
 
@@ -148,14 +168,14 @@ export function ExerciseCarousel({
             onDeleteSet={(setNumber) => onDeleteSet(exercise.id, setNumber)}
           />
 
-          {exerciseLog && (
+          {exerciseLog && !isSkipped && (
             <div className="mt-4 px-5 sm:px-6">
               <button
                 type="button"
                 onClick={() => setSkipConfirmOpen(true)}
                 className="w-full rounded-lg bg-zinc-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-500"
               >
-                {isSkipped ? 'Skip again' : 'Skip exercise'}
+                Skip exercise
               </button>
             </div>
           )}
@@ -164,6 +184,7 @@ export function ExerciseCarousel({
             open={skipConfirmOpen}
             exerciseName={exercise.name}
             isLastExercise={isLast}
+            skipFinishesWorkout={skipFinishesWorkout}
             onConfirm={() => {
               setSkipConfirmOpen(false)
               onSkipExercise(exercise.id)
@@ -184,16 +205,16 @@ export function ExerciseCarousel({
               <button
                 type="button"
                 onClick={onFinish}
-                disabled={!allSetsComplete}
+                disabled={!canProceed}
                 className="rounded-xl bg-green-600 px-4 py-4 text-base font-semibold text-white transition enabled:hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Finish workout
+                {lastExerciseActionLabel}
               </button>
             ) : (
               <button
                 type="button"
                 onClick={onNext}
-                disabled={!allSetsComplete}
+                disabled={!canProceed}
                 className="rounded-xl bg-red-600 px-4 py-4 text-base font-semibold text-white transition enabled:hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Next exercise
@@ -202,6 +223,7 @@ export function ExerciseCarousel({
           </div>
         </div>
 
+        {!hideOverview && (
         <aside className="hidden lg:block">
           <div className="sticky top-44 rounded-2xl border border-zinc-800 bg-zinc-900/80 p-4">
             <div className="mb-3 flex items-center justify-between">
@@ -277,6 +299,7 @@ export function ExerciseCarousel({
             </ol>
           </div>
         </aside>
+        )}
       </div>
     </section>
   )

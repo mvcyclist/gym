@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { isDevAccount } from '../constants/devAccount'
-import { devStartFromScratch, startEditRoutine } from '../services/onboardingService'
+import { devStartFromScratch, startEditRoutine, migrateToFullBodyProgram, canMigrateToFullBody } from '../services/onboardingService'
+import { SwitchToFullBodyModal } from './SwitchToFullBodyModal'
 import { hasAnyStrengthHistory, defaultTemplateSources } from '../services/workoutTemplateService'
 import { getUserProfile, saveUserProfile } from '../services/userProfileRepository'
 import { SyncHistoryModal } from './SyncHistoryModal'
@@ -10,9 +11,10 @@ interface UserMenuProps {
   email?: string | null
   onSignOut: () => void
   onEditRoutine: () => void
+  onProgramChanged?: () => void
 }
 
-export function UserMenu({ email, onSignOut, onEditRoutine }: UserMenuProps) {
+export function UserMenu({ email, onSignOut, onEditRoutine, onProgramChanged }: UserMenuProps) {
   const {
     deviceLedgerSummary,
     pushDeviceHistoryToCloud,
@@ -23,6 +25,8 @@ export function UserMenu({ email, onSignOut, onEditRoutine }: UserMenuProps) {
   const [syncMode, setSyncMode] = useState<'push' | 'pull' | null>(null)
   const [busy, setBusy] = useState(false)
   const [syncError, setSyncError] = useState<string | null>(null)
+  const [migrateOpen, setMigrateOpen] = useState(false)
+  const [migrateBusy, setMigrateBusy] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -83,6 +87,20 @@ export function UserMenu({ email, onSignOut, onEditRoutine }: UserMenuProps) {
     onEditRoutine()
     setOpen(false)
   }
+
+  const handleMigrateToFullBody = async () => {
+    setMigrateBusy(true)
+    try {
+      migrateToFullBodyProgram()
+      setMigrateOpen(false)
+      setOpen(false)
+      onProgramChanged?.()
+    } finally {
+      setMigrateBusy(false)
+    }
+  }
+
+  const showMigrate = canMigrateToFullBody(getUserProfile())
 
   return (
     <>
@@ -155,6 +173,9 @@ export function UserMenu({ email, onSignOut, onEditRoutine }: UserMenuProps) {
             boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
           }}>
             <MenuItem onClick={handleEditRoutine}>Edit routine</MenuItem>
+            {showMigrate && (
+              <MenuItem onClick={() => setMigrateOpen(true)}>Switch to Full Body</MenuItem>
+            )}
             {hasAnyStrengthHistory() && (
               <MenuItem onClick={handleRestoreFromHistory}>Use my logged routines</MenuItem>
             )}
@@ -183,6 +204,13 @@ export function UserMenu({ email, onSignOut, onEditRoutine }: UserMenuProps) {
         busy={busy}
         onConfirm={() => void handleConfirm()}
         onCancel={() => setSyncMode(null)}
+      />
+
+      <SwitchToFullBodyModal
+        open={migrateOpen}
+        busy={migrateBusy}
+        onConfirm={() => void handleMigrateToFullBody()}
+        onCancel={() => setMigrateOpen(false)}
       />
     </>
   )

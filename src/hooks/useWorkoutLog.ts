@@ -1,6 +1,8 @@
 import { useCallback, useRef, useState } from 'react'
 import { clearDraft, loadDraft, saveDraft } from '../adapters/workoutDraftStorage'
 import { getWorkoutById } from '../data/workouts'
+import { parseTemplateSetCount } from '../data/exerciseCatalog'
+import { getGuidedSegmentForId, isGuidedSegmentDone, isGuidedSegmentId } from '../utils/fullBodySessionState'
 import {
   recordCompletedWorkout,
   recordPartialWorkout,
@@ -8,6 +10,7 @@ import {
 } from '../services/trainingLedgerService'
 import { getWorkoutElapsedMs } from '../utils/workoutTimer'
 import type { ExerciseLog, SetLog, WorkoutCategory, WorkoutSession } from '../types/workout'
+import type { FullBodySegmentId, GuidedSegmentStatus } from '../types/fullBodySession'
 
 const DEFAULT_SET_COUNT = 3
 const MIN_SET_COUNT = 1
@@ -45,13 +48,13 @@ function createExerciseLogs(workoutType: WorkoutCategory, exerciseOrder?: string
     exerciseId: exercise.id,
     catalogExerciseId: exercise.catalogExerciseId,
     exerciseName: exercise.name,
-    sets: createDefaultSets(),
+    sets: createDefaultSets(parseTemplateSetCount(exercise.sets)),
   }))
 }
 
 function createSession(workoutType: WorkoutCategory, exerciseOrder?: string[]): WorkoutSession {
   const now = new Date().toISOString()
-  return {
+  const session: WorkoutSession = {
     id: `${workoutType}-${Date.now()}`,
     workoutType,
     status: 'active',
@@ -63,6 +66,16 @@ function createSession(workoutType: WorkoutCategory, exerciseOrder?: string[]): 
     exercises: createExerciseLogs(workoutType, exerciseOrder),
     exerciseOrder,
   }
+
+  if (workoutType === 'full_body') {
+    session.fullBody = {
+      currentSegment: 'warmup',
+      guidedMovementIndex: 0,
+      guidedSegmentStartedAt: null,
+    }
+  }
+
+  return session
 }
 
 interface UseWorkoutLogReturn {
@@ -93,6 +106,17 @@ interface UseWorkoutLogReturn {
   pauseWorkout: () => WorkoutSession | null
   discardActiveWorkout: () => void
   clearSession: () => void
+  setFullBodySegment: (segment: FullBodySegmentId) => WorkoutSession | null
+  updateFullBodyGuidedState: (
+    updates: Partial<NonNullable<WorkoutSession['fullBody']>>,
+  ) => WorkoutSession | null
+  completeGuidedSegment: (
+    segmentId: Exclude<FullBodySegmentId, 'main'>,
+    durationSeconds: number,
+    status: GuidedSegmentStatus,
+    nextSegment?: FullBodySegmentId,
+  ) => WorkoutSession | null
+  flushActiveGuidedSegment: () => WorkoutSession | null
 }
 
 export function useWorkoutLog(): UseWorkoutLogReturn {
@@ -218,6 +242,7 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
 
           return {
             ...exerciseLog,
+            skipped: false,
             sets: exerciseLog.sets.map((setLog) =>
               setLog.setNumber === setNumber
                 ? {
@@ -286,7 +311,11 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
         ...current,
         exercises: current.exercises.map((log) =>
           log.exerciseId === exerciseId
-            ? { ...log, skipped: true, sets: createDefaultSets() }
+            ? {
+                ...log,
+                skipped: true,
+                sets: createDefaultSets(Math.max(MIN_SET_COUNT, log.sets.length)),
+              }
             : log,
         ),
       }))
@@ -408,6 +437,81 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
     setSession(null)
   }, [])
 
+  const setFullBodySegment = useCallback(
+    (segment: FullBodySegmentId) => {
+      return mutateSession((current) => ({
+        ...current,
+        fullBody: {
+          currentSegment: segment,
+          guidedMovementIndex: 0,
+          guidedSegmentStartedAt: null,
+        },
+      }))
+    },
+    [mutateSession],
+  )
+
+  const updateFullBodyGuidedState = useCallback(
+    (updates: Partial<NonNullable<WorkoutSession['fullBody']>>) => {
+      return mutateSession((current) => {
+        if (!current.fullBody) return current
+        return {
+          ...current,
+          fullBody: { ...current.fullBody, ...updates },
+        }
+      })
+    },
+    [mutateSession],
+  )
+
+  const completeGuidedSegment = useCallback(
+    (
+      segmentId: Exclude<FullBodySegmentId, 'main'>,
+      durationSeconds: number,
+      status: GuidedSegmentStatus,
+      nextSegment?: FullBodySegmentId,
+    ) => {
+      return mutateSession((current) => {
+        const def = getGuidedSegmentForId(segmentId)
+        const without = current.exercises.filter((log) => log.exerciseId !== def.exerciseId)
+        const guidedLog: ExerciseLog = {
+          exerciseId: def.exerciseId,
+          catalogExerciseId: def.catalogExerciseId,
+          exerciseName: def.title,
+          sets: [],
+          isGuidedSegment: true,
+          segmentDurationSeconds: Math.max(1, Math.round(durationSeconds)),
+          segmentStatus: status,
+        }
+        return {
+          ...current,
+          exercises: [...without, guidedLog],
+          fullBody: {
+            currentSegment: nextSegment ?? current.fullBody?.currentSegment ?? 'warmup',
+            guidedMovementIndex: 0,
+            guidedSegmentStartedAt: null,
+          },
+        }
+      })
+    },
+    [mutateSession],
+  )
+
+  const flushActiveGuidedSegment = useCallback(() => {
+    const current = sessionRef.current
+    if (!current?.fullBody) return null
+
+    const segment = current.fullBody.currentSegment
+    if (!isGuidedSegmentId(segment)) return current
+    if (isGuidedSegmentDone(current, segment)) return current
+
+    const startedAt = current.fullBody.guidedSegmentStartedAt
+    if (!startedAt) return current
+
+    const durationSeconds = Math.max(1, (Date.now() - new Date(startedAt).getTime()) / 1000)
+    return completeGuidedSegment(segment, durationSeconds, 'partial', segment)
+  }, [completeGuidedSegment])
+
   return {
     session,
     startSession,
@@ -428,5 +532,9 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
     pauseWorkout,
     discardActiveWorkout,
     clearSession,
+    setFullBodySegment,
+    updateFullBodyGuidedState,
+    completeGuidedSegment,
+    flushActiveGuidedSegment,
   }
 }

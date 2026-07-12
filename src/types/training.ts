@@ -2,6 +2,7 @@ export type ActivityType =
   | 'Push'
   | 'Pull'
   | 'Leg'
+  | 'Full Body'
   | 'Core'
   | 'Mobility'
   | 'Swim'
@@ -14,7 +15,14 @@ export type ActivityType =
 
 export type Intensity = 'Easy' | 'Moderate' | 'Hard'
 
-export type RecommendedWorkoutType = 'Push' | 'Pull' | 'Leg' | 'Core' | 'Mobility' | 'Rest'
+export type RecommendedWorkoutType =
+  | 'Push'
+  | 'Pull'
+  | 'Leg'
+  | 'Full Body'
+  | 'Core'
+  | 'Mobility'
+  | 'Rest'
 
 export type RecommendationVariant = 'Full' | 'Lite' | 'Short'
 
@@ -50,6 +58,7 @@ export const ACTIVITY_TYPES: ActivityType[] = [
   'Push',
   'Pull',
   'Leg',
+  'Full Body',
   'Core',
   'Mobility',
   'Swim',
@@ -69,6 +78,7 @@ export type WorkoutType =
   | 'Push'
   | 'Pull'
   | 'Leg'
+  | 'Full Body'
   | 'Core'
   | 'Run'
   | 'Bike'
@@ -93,6 +103,7 @@ export const LOAD_PROFILES: Record<WorkoutType, LoadProfile> = {
   Push:     { type: 'Push',     recoveryHours: 60, legPoolContribution: 0, isHardSession: true,  isLowLoad: false, addonEligible: false },
   Pull:     { type: 'Pull',     recoveryHours: 60, legPoolContribution: 0, isHardSession: true,  isLowLoad: false, addonEligible: false },
   Leg:      { type: 'Leg',      recoveryHours: 72, legPoolContribution: 3, isHardSession: true,  isLowLoad: false, addonEligible: false },
+  'Full Body': { type: 'Full Body', recoveryHours: 60, legPoolContribution: 2, isHardSession: true, isLowLoad: false, addonEligible: false },
   Core:     { type: 'Core',     recoveryHours: 30, legPoolContribution: 0, isHardSession: false, isLowLoad: false, addonEligible: true  },
   Run:      { type: 'Run',      recoveryHours: 48, legPoolContribution: 2, isHardSession: true,  isLowLoad: false, addonEligible: false },
   Bike:     { type: 'Bike',     recoveryHours: 36, legPoolContribution: 1, isHardSession: true,  isLowLoad: false, addonEligible: false },

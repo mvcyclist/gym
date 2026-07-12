@@ -30,6 +30,9 @@ interface WorkoutDeckProps {
   onNext: () => void
   onBack: () => void
   onFinish: () => void
+  lastExerciseActionLabel?: string
+  hideOverview?: boolean
+  skipFinishesWorkout?: boolean
 }
 
 export function WorkoutDeck({
@@ -52,6 +55,9 @@ export function WorkoutDeck({
   onNext,
   onBack,
   onFinish,
+  lastExerciseActionLabel,
+  hideOverview,
+  skipFinishesWorkout,
 }: WorkoutDeckProps) {
   const workout = getWorkoutById(workoutId)
 
@@ -87,6 +93,9 @@ export function WorkoutDeck({
       onNext={onNext}
       onBack={onBack}
       onFinish={onFinish}
+      lastExerciseActionLabel={lastExerciseActionLabel}
+      hideOverview={hideOverview}
+      skipFinishesWorkout={skipFinishesWorkout}
     />
   )
 }

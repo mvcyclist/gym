@@ -113,7 +113,7 @@ function scoreWorkoutType(type: WorkoutType, ctx: ScoringContext): ScoredWorkout
   }
 
   // Step 2 — Leg fatigue penalty
-  if (['Run', 'Bike', 'Leg'].includes(type)) {
+  if (['Run', 'Bike', 'Leg', 'Full Body'].includes(type)) {
     const pool = ctx.legFatiguePool
     if (pool >= 4) score = Math.min(score, 1.4)
     else if (pool >= 2) score -= 1.5
@@ -158,7 +158,8 @@ function loadPenalty(hardCount: number): number {
 const MUSCLE_GROUPS: Record<string, WorkoutType[]> = {
   push:   ['Push'],
   pull:   ['Pull'],
-  legs:   ['Leg', 'Run', 'Bike'],
+  legs:   ['Leg', 'Run', 'Bike', 'Full Body'],
+  full_body: ['Full Body'],
   core:   ['Core'],
   cardio: ['Swim', 'Run', 'Bike'],
 }
@@ -250,6 +251,7 @@ function detectAddon(
   allScored: ScoredWorkout[],
 ): AddonSuggestion | null {
   if (['Rest', 'Walk', 'Mobility'].includes(primary.type)) return null
+  if (primary.type === 'Full Body') return null
 
   for (const candidate of ['Core', 'Mobility'] as const) {
     if (!ctx.palette.includes(candidate)) continue

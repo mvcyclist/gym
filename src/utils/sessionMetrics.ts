@@ -1,6 +1,12 @@
 import type { Intensity } from '../types/training'
-import type { WorkoutSession } from '../types/workout'
+import type { ExerciseLog, WorkoutSession } from '../types/workout'
 import { toDateString } from './activityHistory'
+
+export function canAdvanceFromExercise(log: ExerciseLog | undefined): boolean {
+  if (!log) return false
+  if (log.skipped) return true
+  return log.sets.length > 0 && log.sets.every((set) => set.completed)
+}
 
 export function countCompletedSets(session: WorkoutSession): number {
   return session.exercises.reduce(

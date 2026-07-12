@@ -15,6 +15,7 @@ import { WorkoutCompleteSummaryDialog } from './components/WorkoutCompleteSummar
 import { TimerBar } from './components/TimerBar'
 import { TimerOnlyView } from './components/TimerOnlyView'
 import { WorkoutDeck } from './components/WorkoutDeck'
+import { FullBodyWorkoutFlow } from './components/FullBodyWorkoutFlow'
 import { WorkoutStartView } from './components/WorkoutStartView'
 import { CardioLogScreen } from './components/CardioLogScreen'
 import { useAccurateTimer } from './hooks/useAccurateTimer'
@@ -32,12 +33,17 @@ import {
   promoteDraftToPartial,
 } from './services/workoutDraftService'
 import { toDateString } from './utils/activityHistory'
-import { countCompletedSets } from './utils/sessionMetrics'
+import { countCompletedSets, canAdvanceFromExercise } from './utils/sessionMetrics'
 import { getRecommendationNavigation } from './utils/recommendationNavigation'
 import { buildWorkoutSessionSummary } from './utils/workoutSummary'
 import { isWorkoutInProgress } from './utils/workoutTimer'
 import { findResumeExerciseIndex, findTodaysResumableSession } from './utils/workoutResume'
 import { buildDisplayExercisesForSession, sessionExerciseOrder } from './utils/sessionExercises'
+import {
+  findMainLiftResumeIndex,
+  hasWorkoutProgress,
+  isStructuredFullBodySession,
+} from './utils/fullBodySessionState'
 import { scrollToTop, scrollToTopAfterLayout } from './utils/scrollToTop'
 import type { WorkoutRecommendation, WorkoutType } from './types/training'
 import type { WorkoutCategory, WorkoutSession } from './types/workout'
@@ -99,6 +105,10 @@ function WorkoutApp() {
     discardActiveWorkout,
     clearSession,
     resumeSession,
+    setFullBodySegment,
+    updateFullBodyGuidedState,
+    completeGuidedSegment,
+    flushActiveGuidedSegment,
   } = useWorkoutLog()
 
   const {
@@ -172,9 +182,15 @@ function WorkoutApp() {
     (resumed: WorkoutSession) => {
       scrollToTop()
       setSelectedWorkoutType(resumed.workoutType)
-      setCurrentExerciseIndex(
-        findResumeExerciseIndex(resumed, sessionExerciseOrder(resumed)),
-      )
+      if (isStructuredFullBodySession(resumed) && resumed.fullBody?.currentSegment !== 'main') {
+        setCurrentExerciseIndex(0)
+      } else if (isStructuredFullBodySession(resumed)) {
+        setCurrentExerciseIndex(findMainLiftResumeIndex(resumed))
+      } else {
+        setCurrentExerciseIndex(
+          findResumeExerciseIndex(resumed, sessionExerciseOrder(resumed)),
+        )
+      }
       setScreen('workout')
       reset()
     },
@@ -413,7 +429,15 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
   )
 
   const handleEndWorkout = useCallback(() => {
-    if (completedSetsInSession > 0) {
+    const updated = flushActiveGuidedSegment()
+    const active = updated ?? session
+    const hasProgress = active
+      ? isStructuredFullBodySession(active)
+        ? hasWorkoutProgress(active)
+        : countCompletedSets(active) > 0
+      : false
+
+    if (hasProgress) {
       setLeaveWorkoutOpen(false)
       setSaveProgressOpen(true)
       return
@@ -421,16 +445,22 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
 
     discardActiveWorkout()
     navigateAfterLeave()
-  }, [completedSetsInSession, discardActiveWorkout, navigateAfterLeave])
+  }, [
+    discardActiveWorkout,
+    flushActiveGuidedSegment,
+    navigateAfterLeave,
+    session,
+  ])
 
   const handleSaveProgress = useCallback(() => {
+    flushActiveGuidedSegment()
     void savePartialWorkout()
       .then((partial) => {
         if (!partial) return
         navigateAfterPartialSave(partial)
       })
       .catch((error) => console.error('[workout] failed to save progress', error))
-  }, [navigateAfterPartialSave, savePartialWorkout])
+  }, [flushActiveGuidedSegment, navigateAfterPartialSave, savePartialWorkout])
 
   const handleDiscardProgress = useCallback(() => {
     discardActiveWorkout()
@@ -441,6 +471,19 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
   const handleCancelSaveProgress = useCallback(() => {
     setSaveProgressOpen(false)
   }, [])
+
+  const handleFinishFullBodyWorkout = useCallback(() => {
+    if (!session || !hasWorkoutProgress(session)) return
+
+    void finishWorkout()
+      .then((completed) => {
+        if (!completed) return
+        if (!showWorkoutCompleteSummary(completed)) {
+          goHome()
+        }
+      })
+      .catch((error) => console.error('[workout] failed to finish workout', error))
+  }, [finishWorkout, goHome, session, showWorkoutCompleteSummary])
 
   const handlePrevious = useCallback(() => {
     for (let index = currentExerciseIndex - 1; index >= 0; index -= 1) {
@@ -456,9 +499,7 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
     const exercise = effectiveExercises[currentExerciseIndex]
     if (!exercise) return
     const exerciseLog = getExerciseLog(exercise.id)
-    const allSetsComplete =
-      (exerciseLog?.sets.length ?? 0) > 0 && (exerciseLog?.sets.every((set) => set.completed) ?? false)
-    if (!allSetsComplete) return
+    if (!canAdvanceFromExercise(exerciseLog)) return
 
     const nextIndex = Math.min(effectiveExercises.length - 1, currentExerciseIndex + 1)
     if (nextIndex === currentExerciseIndex) return
@@ -472,9 +513,7 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
     const exercise = effectiveExercises[currentExerciseIndex]
     if (!exercise) return
     const exerciseLog = getExerciseLog(exercise.id)
-    const allSetsComplete =
-      (exerciseLog?.sets.length ?? 0) > 0 && (exerciseLog?.sets.every((set) => set.completed) ?? false)
-    if (!allSetsComplete) return
+    if (!canAdvanceFromExercise(exerciseLog)) return
 
     if (countCompletedSets(session) === 0) return
 
@@ -544,8 +583,10 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
       if (!updated) return
 
       const isLast = currentExerciseIndex >= effectiveExercises.length - 1
+      const isFullBodyMain =
+        isStructuredFullBodySession(updated) && updated.fullBody?.currentSegment === 'main'
 
-      if (isLast) {
+      if (isLast && !isFullBodyMain) {
         if (countCompletedSets(updated) === 0) {
           discardActiveWorkout()
           goHome()
@@ -563,7 +604,9 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
         return
       }
 
-      setCurrentExerciseIndex((index) => Math.min(effectiveExercises.length - 1, index + 1))
+      if (!isLast) {
+        setCurrentExerciseIndex((index) => Math.min(effectiveExercises.length - 1, index + 1))
+      }
     },
     [
       currentExerciseIndex,
@@ -673,6 +716,10 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
             planOverrides={planOverrides}
             onSignOut={() => void signOut()}
             onEditRoutine={refreshProfile}
+            onProgramChanged={() => {
+              refreshProfile()
+              refresh()
+            }}
             onUpdateDayActivities={replaceDayActivities}
             onSetPlanOverride={setPlanOverride}
             onStartRecommendation={handleStartRecommendation}
@@ -686,7 +733,33 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
 
         {screen !== 'home' && (
           <AiCoachLayout showFloatingTrigger>
-            {screen === 'workout' && selectedWorkoutType && workoutStarted && (
+            {screen === 'workout' && selectedWorkoutType && workoutStarted && session && isStructuredFullBodySession(session) && (
+              <FullBodyWorkoutFlow
+                session={session}
+                mainExercises={effectiveExercises}
+                currentMainExerciseIndex={currentExerciseIndex}
+                onMainExerciseIndexChange={setCurrentExerciseIndex}
+                getExerciseLog={getExerciseLog}
+                onUpdateSet={handleUpdateSet}
+                onPrefillSets={(exerciseId, weight, reps) => prefillExerciseSets(exerciseId, weight, reps)}
+                onCompleteSet={handleCompleteSet}
+                onAddSet={handleAddSet}
+                onDeleteSet={handleDeleteSet}
+                onSkipExercise={handleSkipExercise}
+                onRemoveExercise={handleRemoveExercise}
+                onReorderExercises={handleReorderExercises}
+                isExerciseLogged={isExerciseLogged}
+                isExerciseSkipped={isExerciseSkipped}
+                setFullBodySegment={setFullBodySegment}
+                updateFullBodyGuidedState={updateFullBodyGuidedState}
+                completeGuidedSegment={completeGuidedSegment}
+                onBack={handleBackFromWorkout}
+                onFinishWorkout={handleFinishFullBodyWorkout}
+                muted={muted}
+              />
+            )}
+
+            {screen === 'workout' && selectedWorkoutType && workoutStarted && session && !isStructuredFullBodySession(session) && (
               <WorkoutDeck
                 workoutId={selectedWorkoutType}
                 exercises={effectiveExercises}

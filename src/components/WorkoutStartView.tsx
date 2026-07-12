@@ -1,8 +1,15 @@
 import { useRef, useState } from 'react'
 import { getWorkoutById } from '../data/workouts'
+import {
+  CORE_GUIDED_SEGMENT,
+  MAIN_LIFTS_TRANSITION,
+  MOBILITY_SEGMENT,
+  WARMUP_SEGMENT,
+} from '../data/fullBodySessionPlan'
 import { useUserProfileContext } from '../contexts/UserProfileContext'
 import {
   cycleTemplateSource,
+  hasHistoryForWorkoutType,
   resolveTemplateSource,
   SOURCE_LABELS,
 } from '../services/workoutTemplateService'
@@ -88,6 +95,11 @@ export function WorkoutStartView({ workoutId, onStart, onBack }: WorkoutStartVie
     onStart(isCustomized ? exercises.map((e) => e.id) : undefined)
   }
 
+  const canCycleTemplate =
+    workoutId !== 'full_body' || hasHistoryForWorkoutType('full_body')
+
+  const isFullBodyStructured = workoutId === 'full_body'
+
   return (
     <section className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
       <button
@@ -105,18 +117,21 @@ export function WorkoutStartView({ workoutId, onStart, onBack }: WorkoutStartVie
         <h2 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{workout.title}</h2>
         <p className="mt-3 text-sm leading-relaxed text-zinc-400">{workout.description}</p>
         <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-          Est. {workout.estimatedDuration} · {exercises.length} exercise{exercises.length !== 1 ? 's' : ''}
+          Est. {workout.estimatedDuration}
+          {isFullBodyStructured ? ' · 4 segments' : ` · ${exercises.length} exercise${exercises.length !== 1 ? 's' : ''}`}
         </p>
         <p className="mt-1 text-xs text-red-400/70">{SOURCE_LABELS[templateSource]}</p>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={handleTryAnotherSet}
-            className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-semibold text-zinc-300 transition hover:border-zinc-500 hover:bg-zinc-900"
-          >
-            Try another set ↻
-          </button>
+          {canCycleTemplate && (
+            <button
+              type="button"
+              onClick={handleTryAnotherSet}
+              className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-semibold text-zinc-300 transition hover:border-zinc-500 hover:bg-zinc-900"
+            >
+              Try another set ↻
+            </button>
+          )}
           <button
             type="button"
             onClick={reloadFromProfile}
@@ -129,17 +144,58 @@ export function WorkoutStartView({ workoutId, onStart, onBack }: WorkoutStartVie
         <div className="mt-6 border-t border-zinc-800 pt-6">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">
-              Exercises
+              {isFullBodyStructured ? 'Session plan' : 'Exercises'}
             </h3>
-            <button
-              type="button"
-              onClick={() => setEditingOrder((v) => !v)}
-              className="text-xs font-semibold text-zinc-400 transition hover:text-zinc-200"
-            >
-              {editingOrder ? 'Done' : 'Edit'}
-            </button>
+            {!isFullBodyStructured && (
+              <button
+                type="button"
+                onClick={() => setEditingOrder((v) => !v)}
+                className="text-xs font-semibold text-zinc-400 transition hover:text-zinc-200"
+              >
+                {editingOrder ? 'Done' : 'Edit'}
+              </button>
+            )}
           </div>
 
+          {isFullBodyStructured ? (
+            <div className="space-y-4">
+              {[
+                {
+                  title: WARMUP_SEGMENT.title,
+                  subtitle: `${WARMUP_SEGMENT.movements.length} movements · ~${WARMUP_SEGMENT.estimatedMinutes} min`,
+                  items: WARMUP_SEGMENT.movements.map((m) => m.name),
+                },
+                {
+                  title: MAIN_LIFTS_TRANSITION.title,
+                  subtitle: MAIN_LIFTS_TRANSITION.subtitle,
+                  items: exercises.map((e) => `${e.name} (${e.sets} × ${e.reps})`),
+                },
+                {
+                  title: CORE_GUIDED_SEGMENT.title,
+                  subtitle: `${CORE_GUIDED_SEGMENT.movements.length} rounds · ~${CORE_GUIDED_SEGMENT.estimatedMinutes} min`,
+                  items: ['Weighted plank', 'Hanging leg raise'],
+                },
+                {
+                  title: MOBILITY_SEGMENT.title,
+                  subtitle: `${MOBILITY_SEGMENT.movements.length} movements · ~${MOBILITY_SEGMENT.estimatedMinutes} min`,
+                  items: MOBILITY_SEGMENT.movements.map((m) => m.name),
+                },
+              ].map((segment) => (
+                <div key={segment.title} className="rounded-xl bg-zinc-950/60 p-4">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <h4 className="text-sm font-semibold text-zinc-200">{segment.title}</h4>
+                    <span className="shrink-0 text-xs text-zinc-500">{segment.subtitle}</span>
+                  </div>
+                  <ul className="mt-2 space-y-1 text-sm text-zinc-400">
+                    {segment.items.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <>
           {exercises.length === 0 && (
             <p className="text-sm text-zinc-500">No exercises selected.</p>
           )}
@@ -180,12 +236,14 @@ export function WorkoutStartView({ workoutId, onStart, onBack }: WorkoutStartVie
               </li>
             ))}
           </ol>
+            </>
+          )}
         </div>
 
         <button
           type="button"
           onClick={handleStart}
-          disabled={exercises.length === 0}
+          disabled={!isFullBodyStructured && exercises.length === 0}
           className="mt-8 w-full rounded-xl bg-red-600 px-4 py-4 text-base font-semibold text-white transition enabled:hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-40"
         >
           Start workout

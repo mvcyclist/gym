@@ -33,6 +33,7 @@ const ALL_SESSION_TYPES: Array<{ type: ActivityType; label: string }> = [
   { type: 'Push',     label: 'Push' },
   { type: 'Pull',     label: 'Pull' },
   { type: 'Leg',      label: 'Legs' },
+  { type: 'Full Body', label: 'Full Body' },
   { type: 'Core',     label: 'Core' },
   { type: 'Swim',     label: 'Swim' },
   { type: 'Bike',     label: 'Bike' },
@@ -151,6 +152,7 @@ function primaryButtonLabel(type: WorkoutType | undefined): string {
   if (['Run','Swim','Bike','Walk','HIIT'].includes(type)) return `Log a ${type.toLowerCase()}`
   if (type === 'Mobility') return 'Start mobility'
   if (type === 'Core') return 'Start core'
+  if (type === 'Full Body') return 'Start full body'
   if (type === 'Rest') return 'Log rest day'
   return 'Start session'
 }
@@ -169,6 +171,7 @@ interface HomeScreenProps {
   planOverrides: Record<string, ActivityType[]>
   onSignOut: () => void
   onEditRoutine: () => void
+  onProgramChanged?: () => void
   onUpdateDayActivities: (date: string, types: ActivityType[]) => void
   onSetPlanOverride: (date: string, types: ActivityType[]) => void
   onStartRecommendation: () => void
@@ -194,6 +197,7 @@ export function HomeScreen(props: HomeScreenProps) {
         userEmail={props.userEmail}
         onSignOut={props.onSignOut}
         onEditRoutine={props.onEditRoutine}
+        onProgramChanged={props.onProgramChanged}
       />
       <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
         <AiCoachLayout defaultChatVisible>
@@ -208,7 +212,8 @@ function HomeScreenTopBar({
   userEmail,
   onSignOut,
   onEditRoutine,
-}: Pick<HomeScreenProps, 'userEmail' | 'onSignOut' | 'onEditRoutine'>) {
+  onProgramChanged,
+}: Pick<HomeScreenProps, 'userEmail' | 'onSignOut' | 'onEditRoutine' | 'onProgramChanged'>) {
   const [clockNow, setClockNow] = useState(new Date())
   const [colonOn, setColonOn] = useState(true)
   useEffect(() => {
@@ -273,6 +278,7 @@ function HomeScreenTopBar({
           email={userEmail}
           onSignOut={onSignOut}
           onEditRoutine={onEditRoutine}
+          onProgramChanged={onProgramChanged}
         />
       </div>
     </div>

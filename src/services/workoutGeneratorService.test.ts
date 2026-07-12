@@ -8,7 +8,7 @@ import {
   generateLegExercises,
   generateWorkoutTemplates,
 } from './workoutGeneratorService'
-import { generateDefaultWeeklyPlan } from './weeklyPlanFromProfile'
+import { generateDefaultWeeklyPlan, generateFullBodyWeeklyPlan } from './weeklyPlanFromProfile'
 import { paletteFromProfile } from './paletteFromProfile'
 
 function profile(overrides: Partial<UserProfile> = {}): UserProfile {
@@ -143,6 +143,17 @@ describe('generateDefaultWeeklyPlan', () => {
   })
 })
 
+describe('generateFullBodyWeeklyPlan', () => {
+  it('places Full Body on Mon, Wed, Fri with flex cardio days', () => {
+    const plan = generateFullBodyWeeklyPlan(profile({ cardioModalities: ['run'] }))
+    expect(plan[1].type).toBe('Full Body')
+    expect(plan[3].type).toBe('Full Body')
+    expect(plan[5].type).toBe('Full Body')
+    expect(plan[2].type).toBe('Run')
+    expect(plan[2].meta).toBe('Cardio or Rest')
+  })
+})
+
 describe('paletteFromProfile', () => {
   it('includes HIIT when user selected it during onboarding', () => {
     const palette = paletteFromProfile(
@@ -162,6 +173,16 @@ describe('paletteFromProfile', () => {
     const palette = paletteFromProfile(
       profile({ wantsMobility: false, cardioModalities: ['none'] }),
     )
+    expect(palette.types).not.toContain('Mobility')
+  })
+
+  it('uses Full Body only for full_body program', () => {
+    const palette = paletteFromProfile(
+      profile({ programType: 'full_body', cardioModalities: ['run'] }),
+    )
+    expect(palette.types).toContain('Full Body')
+    expect(palette.types).not.toContain('Push')
+    expect(palette.types).not.toContain('Core')
     expect(palette.types).not.toContain('Mobility')
   })
 })

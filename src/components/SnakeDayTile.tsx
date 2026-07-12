@@ -4,6 +4,7 @@ const TYPE_COLORS: Record<string, string> = {
   Push: 'bg-red-500',
   Pull: 'bg-orange-500',
   Leg: 'bg-blue-500',
+  'Full Body': 'bg-orange-600',
   Core: 'bg-purple-500',
   Mobility: 'bg-green-500',
   Walk: 'bg-green-400',
