@@ -99,11 +99,11 @@ export const workouts: WorkoutType[] = [
     estimatedDuration: '55–65 min',
     exercises: [
       createExercise('full_body-1', 'barbell_back_squat', 'Barbell Back Squat', ['Quads', 'Glutes'], 'Barbell, rack', '2', '6–10', 180),
-      createExercise('full_body-2', 'barbell_romanian_deadlift', 'Barbell Romanian Deadlift', ['Hamstrings', 'Glutes'], 'Barbell', '2', '6–10', 120),
-      createExercise('full_body-3', 'overhead_press', 'Overhead Press', ['Shoulders', 'Triceps'], 'Barbell', '2', '6–10', 120),
-      createExercise('full_body-4', 'pull_ups', 'Pull-ups', ['Lats', 'Biceps'], 'Pull-up bar', '2', '5–10', 180),
-      createExercise('full_body-5', 'dumbbell_flat_press', 'Dumbbell Flat Press', ['Chest', 'Triceps'], 'Dumbbells, bench', '2', '6–10', 90),
-      createExercise('full_body-6', 'barbell_rows', 'Barbell Bent-Over Row', ['Mid back', 'Lats'], 'Barbell', '2', '6–10', 120),
+      createExercise('full_body-2', 'barbell_bench_press', 'Barbell Bench Press', ['Chest', 'Triceps'], 'Barbell, bench', '2', '6–10', 120),
+      createExercise('full_body-3', 'pull_ups', 'Pull-ups', ['Lats', 'Biceps'], 'Pull-up bar', '2', '5–10', 180),
+      createExercise('full_body-4', 'barbell_romanian_deadlift', 'Barbell Romanian Deadlift', ['Hamstrings', 'Glutes'], 'Barbell', '2', '6–10', 120),
+      createExercise('full_body-5', 'overhead_press', 'Overhead Press', ['Shoulders', 'Triceps'], 'Barbell', '2', '6–10', 120),
+      createExercise('full_body-6', 'chest_supported_row', 'Chest-Supported Row', ['Mid back', 'Lats'], 'Incline bench, dumbbells', '2', '6–10', 120),
     ],
   },
 ]

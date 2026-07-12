@@ -45,6 +45,7 @@ export const exerciseCatalog: CatalogExercise[] = [
   { id: 'trx_pike', name: 'TRX Pike', coachingMode: 'bodyweight_reps', movementClass: 'isolation_upper' },
   { id: 'pull_ups', name: 'Pull-ups', coachingMode: 'bodyweight_reps', movementClass: 'compound_upper', restSeconds: 180 },
   { id: 'barbell_rows', name: 'Barbell Rows', coachingMode: 'weighted', movementClass: 'compound_upper', weightIncrementLbs: 2.5 },
+  { id: 'chest_supported_row', name: 'Chest-Supported Row', coachingMode: 'weighted', movementClass: 'compound_upper', weightIncrementLbs: 2.5 },
   { id: 'single_dumbbell_arm_rows', name: 'Single Dumbbell Arm Rows', coachingMode: 'weighted', movementClass: 'compound_upper', weightIncrementLbs: 2.5 },
   { id: 'trx_rear_delt_fly', name: 'TRX Rear Delt Fly', coachingMode: 'bodyweight_reps', movementClass: 'isolation_upper' },
   { id: 'trx_rows', name: 'TRX Rows', coachingMode: 'bodyweight_reps', movementClass: 'compound_upper' },
