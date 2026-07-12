@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { getWorkoutById } from '../data/workouts'
 import {
   CORE_GUIDED_SEGMENT,
+  formatCoreSegmentPreview,
   MAIN_LIFTS_TRANSITION,
   MOBILITY_SEGMENT,
   WARMUP_SEGMENT,
@@ -172,8 +173,7 @@ export function WorkoutStartView({ workoutId, onStart, onBack }: WorkoutStartVie
                 },
                 {
                   title: CORE_GUIDED_SEGMENT.title,
-                  subtitle: `${CORE_GUIDED_SEGMENT.movements.length} rounds · ~${CORE_GUIDED_SEGMENT.estimatedMinutes} min`,
-                  items: ['Weighted plank', 'Hanging leg raise'],
+                  ...formatCoreSegmentPreview(),
                 },
                 {
                   title: MOBILITY_SEGMENT.title,
@@ -187,8 +187,8 @@ export function WorkoutStartView({ workoutId, onStart, onBack }: WorkoutStartVie
                     <span className="shrink-0 text-xs text-zinc-500">{segment.subtitle}</span>
                   </div>
                   <ul className="mt-2 space-y-1 text-sm text-zinc-400">
-                    {segment.items.map((item) => (
-                      <li key={item}>{item}</li>
+                    {segment.items.map((item, index) => (
+                      <li key={`${segment.title}-${index}`}>{item}</li>
                     ))}
                   </ul>
                 </div>

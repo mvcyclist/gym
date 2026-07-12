@@ -138,6 +138,25 @@ export const MOBILITY_SEGMENT: GuidedSegmentDefinition = {
   ],
 }
 
+export function formatCoreSegmentPreview(): { subtitle: string; items: string[] } {
+  const { movements, estimatedMinutes } = CORE_GUIDED_SEGMENT
+  const uniqueNames = [...new Set(movements.map((m) => m.name))]
+  const rounds =
+    uniqueNames.length > 0 ? movements.length / uniqueNames.length : movements.length
+
+  const subtitle =
+    rounds > 1 && Number.isInteger(rounds)
+      ? `${uniqueNames.length} exercises · ${rounds} rounds · ~${estimatedMinutes} min`
+      : `${movements.length} movements · ~${estimatedMinutes} min`
+
+  const items = uniqueNames.map((name) => {
+    const count = movements.filter((m) => m.name === name).length
+    return count > 1 ? `${name} (×${count} rounds)` : name
+  })
+
+  return { subtitle, items }
+}
+
 export const GUIDED_SEGMENTS: GuidedSegmentDefinition[] = [
   WARMUP_SEGMENT,
   CORE_GUIDED_SEGMENT,
@@ -161,9 +180,10 @@ export const MAIN_LIFTS_TRANSITION = {
 export function segmentTransitionAfter(segmentId: FullBodySegmentId) {
   if (segmentId === 'warmup') return MAIN_LIFTS_TRANSITION
   if (segmentId === 'main') {
+    const corePreview = formatCoreSegmentPreview()
     return {
       title: 'Core',
-      subtitle: `${CORE_GUIDED_SEGMENT.movements.length} rounds · ~${CORE_GUIDED_SEGMENT.estimatedMinutes} min`,
+      subtitle: corePreview.subtitle,
       description: 'Guided timer — one log for the core block.',
     }
   }
