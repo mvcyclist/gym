@@ -11,79 +11,79 @@
       "id": "intro",
       "title": "Introduction",
       "startSeconds": 0,
-      "endSeconds": 40
+      "endSeconds": 8
     },
     {
       "id": "r1-body-saw",
       "title": "Round 1 — TRX Body Saw",
-      "startSeconds": 40,
-      "endSeconds": 125,
+      "startSeconds": 8,
+      "endSeconds": 80,
       "exerciseId": "core_segment"
     },
     {
       "id": "r1-hip-dip-left",
       "title": "Round 1 — TRX Hip Dip — left",
-      "startSeconds": 125,
-      "endSeconds": 201
+      "startSeconds": 80,
+      "endSeconds": 146
     },
     {
       "id": "r1-hip-dip-right",
       "title": "Round 1 — TRX Hip Dip — right",
-      "startSeconds": 201,
-      "endSeconds": 260
+      "startSeconds": 146,
+      "endSeconds": 205
     },
     {
       "id": "r1-knee-tuck",
       "title": "Round 1 — TRX Knee Tuck",
-      "startSeconds": 260,
-      "endSeconds": 342
+      "startSeconds": 205,
+      "endSeconds": 270
     },
     {
       "id": "r1-shoulder-tap",
       "title": "Round 1 — TRX Plank Shoulder Tap",
-      "startSeconds": 342,
-      "endSeconds": 413
+      "startSeconds": 270,
+      "endSeconds": 332
     },
     {
       "id": "round-two",
       "title": "Round 2",
-      "startSeconds": 413,
-      "endSeconds": 435
+      "startSeconds": 332,
+      "endSeconds": 339
     },
     {
       "id": "r2-body-saw",
       "title": "Round 2 — TRX Body Saw",
-      "startSeconds": 435,
-      "endSeconds": 469
+      "startSeconds": 339,
+      "endSeconds": 398
     },
     {
       "id": "r2-hip-dip-left",
       "title": "Round 2 — TRX Hip Dip — left",
-      "startSeconds": 469,
-      "endSeconds": 500
+      "startSeconds": 398,
+      "endSeconds": 452
     },
     {
       "id": "r2-hip-dip-right",
       "title": "Round 2 — TRX Hip Dip — right",
-      "startSeconds": 500,
-      "endSeconds": 531
+      "startSeconds": 452,
+      "endSeconds": 507
     },
     {
       "id": "r2-knee-tuck",
       "title": "Round 2 — TRX Knee Tuck",
-      "startSeconds": 531,
+      "startSeconds": 507,
       "endSeconds": 565
     },
     {
       "id": "r2-shoulder-tap",
       "title": "Round 2 — TRX Plank Shoulder Tap",
       "startSeconds": 565,
-      "endSeconds": 610
+      "endSeconds": 623
     },
     {
       "id": "outro",
       "title": "Outro",
-      "startSeconds": 610,
+      "startSeconds": 623,
       "endSeconds": 628
     }
   ]

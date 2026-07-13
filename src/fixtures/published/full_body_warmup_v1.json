@@ -11,37 +11,37 @@
       "id": "intro",
       "title": "Introduction",
       "startSeconds": 0,
-      "endSeconds": 31
+      "endSeconds": 7
     },
     {
       "id": "arm-circles",
       "title": "Arm circles",
-      "startSeconds": 31,
-      "endSeconds": 115,
+      "startSeconds": 7,
+      "endSeconds": 86,
       "exerciseId": "warmup_segment"
     },
     {
       "id": "leg-swings",
       "title": "Leg swings",
-      "startSeconds": 115,
-      "endSeconds": 185
+      "startSeconds": 86,
+      "endSeconds": 153
     },
     {
       "id": "squat-to-stand",
       "title": "Bodyweight squat to stand",
-      "startSeconds": 185,
-      "endSeconds": 243
+      "startSeconds": 153,
+      "endSeconds": 228
     },
     {
       "id": "glute-bridges",
       "title": "Glute bridges",
-      "startSeconds": 243,
-      "endSeconds": 296
+      "startSeconds": 228,
+      "endSeconds": 305
     },
     {
       "id": "outro",
       "title": "Outro",
-      "startSeconds": 296,
+      "startSeconds": 305,
       "endSeconds": 308
     }
   ]

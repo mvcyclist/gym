@@ -11,43 +11,43 @@
       "id": "intro",
       "title": "Introduction",
       "startSeconds": 0,
-      "endSeconds": 35
+      "endSeconds": 13
     },
     {
       "id": "deep-squat-thoracic",
       "title": "TRX Deep Squat Hold + Thoracic Reach",
-      "startSeconds": 35,
-      "endSeconds": 205,
+      "startSeconds": 13,
+      "endSeconds": 152,
       "exerciseId": "mobility_segment"
     },
     {
       "id": "chest-opener",
       "title": "TRX Chest Opener",
-      "startSeconds": 205,
-      "endSeconds": 312
+      "startSeconds": 152,
+      "endSeconds": 260
     },
     {
       "id": "lat-stretch",
       "title": "TRX Lat Stretch",
-      "startSeconds": 312,
-      "endSeconds": 420
+      "startSeconds": 260,
+      "endSeconds": 372
     },
     {
       "id": "hamstring-stretch",
       "title": "TRX Hamstring Stretch",
-      "startSeconds": 420,
-      "endSeconds": 497
+      "startSeconds": 372,
+      "endSeconds": 478
     },
     {
       "id": "hip-flexor-lunge",
       "title": "TRX Hip Flexor Lunge + Overhead Reach",
-      "startSeconds": 497,
-      "endSeconds": 567
+      "startSeconds": 478,
+      "endSeconds": 577
     },
     {
       "id": "outro",
       "title": "Outro",
-      "startSeconds": 567,
+      "startSeconds": 577,
       "endSeconds": 585
     }
   ]

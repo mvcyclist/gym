@@ -258,22 +258,49 @@ function chaptersFromWeights(chapterMeta, parsed, durationSeconds) {
   })
 }
 
-function getAudioDurationSeconds(filePath) {
+/** Build chapters from measured per-section audio durations (chunked publish). */
+function chaptersFromSectionDurations(chapterMeta, sectionDurations, durationSeconds) {
+  if (chapterMeta.length !== sectionDurations.length) {
+    console.warn(
+      `Warning: ${chapterMeta.length} chapter slots but ${sectionDurations.length} measured sections — falling back to weights.`,
+    )
+    return null
+  }
+
+  let cursor = 0
+  return chapterMeta.map((meta, index) => {
+    const startSeconds = Math.floor(cursor)
+    cursor += sectionDurations[index]
+    const endSeconds =
+      index === chapterMeta.length - 1 ? durationSeconds : Math.max(startSeconds + 1, Math.floor(cursor))
+    return {
+      id: meta.id,
+      title: meta.title,
+      startSeconds,
+      endSeconds,
+      ...(meta.exerciseId ? { exerciseId: meta.exerciseId } : {}),
+    }
+  })
+}
+
+function getAudioDurationSeconds(filePath, { ceil = true } = {}) {
   try {
     const out = execSync(
       `ffprobe -v error -show_entries format=duration -of csv=p=0 "${filePath}"`,
       { encoding: 'utf8' },
     )
     const seconds = parseFloat(out.trim())
-    if (Number.isFinite(seconds) && seconds > 0) return Math.ceil(seconds)
+    if (Number.isFinite(seconds) && seconds > 0) {
+      return ceil ? Math.ceil(seconds) : seconds
+    }
   } catch {
     // ffprobe not available
   }
 
   const bytes = readFileSync(filePath).length
-  const estimated = Math.ceil(bytes / 16000)
-  console.warn(`ffprobe unavailable — estimating duration as ~${estimated}s from file size.`)
-  return Math.max(1, estimated)
+  const estimated = bytes / 16000
+  console.warn(`ffprobe unavailable — estimating duration as ~${Math.ceil(estimated)}s from file size.`)
+  return ceil ? Math.max(1, Math.ceil(estimated)) : Math.max(0.1, estimated)
 }
 
 async function listVoices(apiKey) {
@@ -400,12 +427,17 @@ async function synthesizeRoutineAudio({ apiKey, voiceId, modelId, markdown, tmpD
     if (breaks > 12) {
       console.warn(`Warning: ${breaks} SSML breaks in one generation — may cause audio artifacts.`)
     }
-    return { speechText, audioBuffer: await synthesize({ apiKey, voiceId, modelId, text: speechText }) }
+    return {
+      speechText,
+      audioBuffer: await synthesize({ apiKey, voiceId, modelId, text: speechText }),
+      sectionDurations: null,
+    }
   }
 
   mkdirSync(tmpDir, { recursive: true })
   const partPaths = []
   const transcriptParts = []
+  const sectionDurations = []
 
   for (let index = 0; index < speechSections.length; index += 1) {
     const section = speechSections[index]
@@ -416,6 +448,7 @@ async function synthesizeRoutineAudio({ apiKey, voiceId, modelId, markdown, tmpD
     writeFileSync(partPath, buffer)
     partPaths.push(partPath)
     transcriptParts.push(section.text)
+    sectionDurations.push(getAudioDurationSeconds(partPath, { ceil: false }))
   }
 
   const outputPath = join(tmpDir, 'combined.mp3')
@@ -423,6 +456,7 @@ async function synthesizeRoutineAudio({ apiKey, voiceId, modelId, markdown, tmpD
   return {
     speechText: transcriptParts.join('\n\n'),
     audioBuffer: readFileSync(outputPath),
+    sectionDurations,
   }
 }
 
@@ -453,7 +487,7 @@ async function publishRoutine(routineId) {
 
   console.log(`Publishing ${routineId} with model ${modelId} (chunked by ## section when ffmpeg is available)...`)
 
-  const { speechText, audioBuffer } = await synthesizeRoutineAudio({
+  const { speechText, audioBuffer, sectionDurations } = await synthesizeRoutineAudio({
     apiKey,
     voiceId,
     modelId,
@@ -476,7 +510,11 @@ async function publishRoutine(routineId) {
   console.log(`Wrote ${audioPath}`)
 
   const durationSeconds = getAudioDurationSeconds(audioPath)
-  const chapters = chaptersFromWeights(meta.chapterMeta, parsed, durationSeconds)
+  const measuredChapters = sectionDurations
+    ? chaptersFromSectionDurations(meta.chapterMeta, sectionDurations, durationSeconds)
+    : null
+  const chapters =
+    measuredChapters ?? chaptersFromWeights(meta.chapterMeta, parsed, durationSeconds)
 
   const routine = {
     id: routineId,
@@ -493,7 +531,16 @@ async function publishRoutine(routineId) {
   writeFileSync(jsonPath, `${JSON.stringify(routine, null, 2)}\n`)
   console.log(`Wrote ${jsonPath}`)
   console.log(`Duration: ${durationSeconds}s (${Math.ceil(durationSeconds / 60)} min)`)
-  console.log('\nChapter timestamps are proportional estimates — adjust in the JSON after listening if needed.')
+  if (measuredChapters) {
+    console.log('Chapter timestamps measured from per-section audio durations.')
+    for (const chapter of chapters) {
+      console.log(`  ${chapter.id}: ${chapter.startSeconds}s–${chapter.endSeconds}s`)
+    }
+  } else {
+    console.log(
+      '\nChapter timestamps are proportional estimates — re-publish with ffmpeg for accurate chapter sync.',
+    )
+  }
 }
 
 async function main() {
