@@ -322,9 +322,12 @@ function concatMp3Files(partPaths, outputPath) {
   const listBody = partPaths.map((part) => `file '${part.replace(/'/g, "'\\''")}'`).join('\n')
   writeFileSync(listPath, listBody)
   try {
-    execSync(`ffmpeg -y -f concat -safe 0 -i "${listPath}" -c copy "${outputPath}"`, {
-      stdio: 'inherit',
-    })
+    // Re-encode instead of -c copy: ElevenLabs chunks have encoder-delay/DTS offsets that
+    // make stream-copy concat warn and can click at section boundaries.
+    execSync(
+      `ffmpeg -y -f concat -safe 0 -i "${listPath}" -c:a libmp3lame -q:a 4 "${outputPath}"`,
+      { stdio: 'inherit' },
+    )
   } finally {
     try {
       execSync(`rm -f "${listPath}"`)
