@@ -26,9 +26,8 @@ dist-ssr
 *.sln
 *.sw?
 
-# Generated silent placeholder audio (run npm run audio:placeholders)
+# Local silent placeholders only — published MP3s are tracked for deploys
 public/audio/guided/*.wav
-public/audio/guided/*.mp3
 
 # Publish script temp chunks
 .tmp/
