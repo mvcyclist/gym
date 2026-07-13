@@ -4,7 +4,6 @@ import type { Exercise, ExerciseLog, SetLog, WorkoutSession } from '../types/wor
 import type { FullBodySegmentId } from '../types/fullBodySession'
 import {
   canJumpToSegment,
-  getGuidedSegmentForId,
   isGuidedSegmentDone,
   isGuidedSegmentId,
   isMainSegmentComplete,
@@ -13,8 +12,10 @@ import {
 } from '../utils/fullBodySessionState'
 import { canAdvanceFromExercise } from '../utils/sessionMetrics'
 import { FullBodySessionOverview } from './FullBodySessionOverview'
-import { GuidedSegmentView } from './GuidedSegmentView'
+import { GuidedAudioPlayer } from './GuidedAudioPlayer'
 import { WorkoutDeck } from './WorkoutDeck'
+import { getDefaultRoutineForSegment } from '../services/guidedRoutineRepository'
+import { getGuidedSegmentBinding } from '../data/guidedSegmentBindings'
 
 function FullBodySessionLayout({
   main,
@@ -197,20 +198,22 @@ export function FullBodyWorkoutFlow({
       )
     }
 
-    const segmentDef = getGuidedSegmentForId(currentSegment)
+    const segmentBinding = getGuidedSegmentBinding(currentSegment)
+    const routine = getDefaultRoutineForSegment(currentSegment)
 
     return (
       <FullBodySessionLayout
         overview={overview}
         main={
-          <GuidedSegmentView
+          <GuidedAudioPlayer
             embedded
             muted={muted}
-            segment={segmentDef}
-            movementIndex={fullBody.guidedMovementIndex ?? 0}
+            routine={routine}
+            segmentTitle={segmentBinding.title}
+            playbackPositionSeconds={fullBody.playbackPositionSeconds ?? 0}
             segmentStartedAt={fullBody.guidedSegmentStartedAt}
-            onMovementIndexChange={(index) =>
-              updateFullBodyGuidedState({ guidedMovementIndex: index })
+            onPlaybackPositionChange={(seconds) =>
+              updateFullBodyGuidedState({ playbackPositionSeconds: seconds })
             }
             onSegmentActiveStart={() =>
               updateFullBodyGuidedState({

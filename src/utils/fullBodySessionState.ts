@@ -1,8 +1,5 @@
-import {
-  CORE_GUIDED_SEGMENT,
-  MOBILITY_SEGMENT,
-  WARMUP_SEGMENT,
-} from '../data/fullBodySessionPlan'
+import { getGuidedSegmentBinding } from '../data/guidedSegmentBindings'
+import { getDefaultRoutineForSegment } from '../services/guidedRoutineRepository'
 import type { FullBodySegmentId, GuidedSegmentDefinition } from '../types/fullBodySession'
 import type { ExerciseLog, WorkoutSession } from '../types/workout'
 import { FULL_BODY_SEGMENT_ORDER } from '../types/fullBodySession'
@@ -15,9 +12,16 @@ export function isStructuredFullBodySession(session: WorkoutSession | null): boo
 export function getGuidedSegmentForId(
   id: Exclude<FullBodySegmentId, 'main'>,
 ): GuidedSegmentDefinition {
-  if (id === 'warmup') return WARMUP_SEGMENT
-  if (id === 'core') return CORE_GUIDED_SEGMENT
-  return MOBILITY_SEGMENT
+  const binding = getGuidedSegmentBinding(id)
+  const routine = getDefaultRoutineForSegment(id)
+  return {
+    id,
+    title: binding.title,
+    exerciseId: binding.exerciseId,
+    catalogExerciseId: binding.catalogExerciseId,
+    estimatedMinutes: Math.max(1, Math.round(routine.durationSeconds / 60)),
+    movements: [],
+  }
 }
 
 export function isGuidedSegmentId(segmentId: FullBodySegmentId): segmentId is Exclude<FullBodySegmentId, 'main'> {

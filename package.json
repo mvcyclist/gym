@@ -11,7 +11,9 @@
     "preview:gym": "vite preview --base /gym/",
     "test": "vitest run",
     "test:watch": "vitest",
-    "inspect:workouts": "node scripts/inspect-supabase-workouts.mjs"
+    "inspect:workouts": "node scripts/inspect-supabase-workouts.mjs",
+    "audio:placeholders": "node scripts/generate-placeholder-audio.mjs",
+    "publish:guided": "node scripts/publish-guided-routine.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",

@@ -1,12 +1,8 @@
 import { useRef, useState } from 'react'
 import { getWorkoutById } from '../data/workouts'
-import {
-  CORE_GUIDED_SEGMENT,
-  formatCoreSegmentPreview,
-  MAIN_LIFTS_TRANSITION,
-  MOBILITY_SEGMENT,
-  WARMUP_SEGMENT,
-} from '../data/fullBodySessionPlan'
+import { MAIN_LIFTS_TRANSITION } from '../data/fullBodySessionPlan'
+import { getGuidedSegmentBinding } from '../data/guidedSegmentBindings'
+import { getSegmentRoutinePreview } from '../services/guidedRoutineRepository'
 import { useUserProfileContext } from '../contexts/UserProfileContext'
 import {
   cycleTemplateSource,
@@ -162,9 +158,8 @@ export function WorkoutStartView({ workoutId, onStart, onBack }: WorkoutStartVie
             <div className="space-y-4">
               {[
                 {
-                  title: WARMUP_SEGMENT.title,
-                  subtitle: `${WARMUP_SEGMENT.movements.length} movements · ~${WARMUP_SEGMENT.estimatedMinutes} min`,
-                  items: WARMUP_SEGMENT.movements.map((m) => m.name),
+                  title: getGuidedSegmentBinding('warmup').title,
+                  ...getSegmentRoutinePreview('warmup'),
                 },
                 {
                   title: MAIN_LIFTS_TRANSITION.title,
@@ -172,13 +167,12 @@ export function WorkoutStartView({ workoutId, onStart, onBack }: WorkoutStartVie
                   items: exercises.map((e) => `${e.name} (${e.sets} × ${e.reps})`),
                 },
                 {
-                  title: CORE_GUIDED_SEGMENT.title,
-                  ...formatCoreSegmentPreview(),
+                  title: getGuidedSegmentBinding('core').title,
+                  ...getSegmentRoutinePreview('core'),
                 },
                 {
-                  title: MOBILITY_SEGMENT.title,
-                  subtitle: `${MOBILITY_SEGMENT.movements.length} movements · ~${MOBILITY_SEGMENT.estimatedMinutes} min`,
-                  items: MOBILITY_SEGMENT.movements.map((m) => m.name),
+                  title: getGuidedSegmentBinding('mobility').title,
+                  ...getSegmentRoutinePreview('mobility'),
                 },
               ].map((segment) => (
                 <div key={segment.title} className="rounded-xl bg-zinc-950/60 p-4">

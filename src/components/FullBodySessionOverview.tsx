@@ -1,8 +1,4 @@
-import {
-  CORE_GUIDED_SEGMENT,
-  MOBILITY_SEGMENT,
-  WARMUP_SEGMENT,
-} from '../data/fullBodySessionPlan'
+import { getGuidedSegmentBinding } from '../data/guidedSegmentBindings'
 import type { FullBodySegmentId } from '../types/fullBodySession'
 import type { Exercise, ExerciseLog, WorkoutSession } from '../types/workout'
 import {
@@ -26,10 +22,10 @@ interface FullBodySessionOverviewProps {
 }
 
 const SEGMENT_LABELS: Record<FullBodySegmentId, string> = {
-  warmup: WARMUP_SEGMENT.title,
+  warmup: getGuidedSegmentBinding('warmup').title,
   main: 'Main lifts',
-  core: CORE_GUIDED_SEGMENT.title,
-  mobility: MOBILITY_SEGMENT.title,
+  core: getGuidedSegmentBinding('core').title,
+  mobility: getGuidedSegmentBinding('mobility').title,
 }
 
 function guidedSegmentStatus(

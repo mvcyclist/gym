@@ -26,10 +26,10 @@ export interface GuidedSegmentDefinition {
 
 export interface FullBodySessionState {
   currentSegment: FullBodySegmentId
-  /** Index within the active guided segment (0 when on preview). */
-  guidedMovementIndex?: number
   /** When the user started the active phase of the current guided segment. */
   guidedSegmentStartedAt?: string | null
+  /** Resume position within the active guided audio routine. */
+  playbackPositionSeconds?: number
   /** Segment just finished — show interstitial before entering currentSegment. */
   awaitingSegmentContinue?: FullBodySegmentId | null
 }

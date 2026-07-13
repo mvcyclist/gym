@@ -26,8 +26,8 @@ function makeSession(overrides: Partial<WorkoutSession> = {}): WorkoutSession {
     ],
     fullBody: {
       currentSegment: 'warmup',
-      guidedMovementIndex: 0,
       guidedSegmentStartedAt: null,
+      playbackPositionSeconds: 0,
     },
     ...overrides,
   }
@@ -72,7 +72,7 @@ describe('fullBodySessionState', () => {
 
   it('limits segment jumps to completed and current segments', () => {
     const session = makeSession({
-      fullBody: { currentSegment: 'main', guidedMovementIndex: 0 },
+      fullBody: { currentSegment: 'main', playbackPositionSeconds: 0 },
       exercises: [
         ...makeSession().exercises,
         {
@@ -117,7 +117,7 @@ describe('fullBodySessionState', () => {
 
   it('reconciles past completed guided segments on resume', () => {
     const session = makeSession({
-      fullBody: { currentSegment: 'core', guidedMovementIndex: 0 },
+      fullBody: { currentSegment: 'core', playbackPositionSeconds: 0 },
       exercises: [
         {
           exerciseId: 'segment-warmup',

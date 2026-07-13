@@ -25,3 +25,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Generated silent placeholder audio (run npm run audio:placeholders)
+public/audio/guided/*.wav
+public/audio/guided/*.mp3
+
+# Publish script temp chunks
+.tmp/

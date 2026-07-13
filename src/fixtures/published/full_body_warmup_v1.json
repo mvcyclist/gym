@@ -1,0 +1,48 @@
+{
+  "id": "full_body_warmup_v1",
+  "title": "Full Body Warm-up",
+  "description": "Dynamic activation before main lifts.",
+  "segmentType": "warmup",
+  "durationSeconds": 301,
+  "audioUrl": "/audio/guided/full_body_warmup_v1.mp3",
+  "transcript": "Warm-up — four dynamic movements, about five minutes. Activation only, not static stretching. Move with control and follow the counts.\n\nArm circles. Stand tall, arms out to your sides. Small controlled circles forward — core gently braced, shoulders relaxed.\n\nHere we go. Stay loose through the neck. <break time=\"3s\" />\n\nFive <break time=\"3s\" /> Ten <break time=\"3s\" /> Fifteen <break time=\"3s\" /> Twenty <break time=\"3s\" /> Twenty-five <break time=\"3s\" /> Thirty <break time=\"3s\" /> Thirty-five\n\nHalfway — reverse direction. Same size circles, the other way.\n\nKeep the rhythm smooth. <break time=\"3s\" />\n\nFive <break time=\"3s\" /> Ten <break time=\"3s\" /> Fifteen <break time=\"3s\" /> Twenty <break time=\"3s\" /> Twenty-five <break time=\"3s\" /> Thirty <break time=\"3s\" /> Thirty-five\n\nNice. Next — leg swings. Grab something stable if you need balance.\n\nHold a rack or wall if you want it. Swing one leg forward and back from the hip — controlled, not ballistic.\n\nBegin. Tall posture — let the leg swing, don't throw it. <break time=\"3s\" />\n\nFive <break time=\"3s\" /> Ten <break time=\"3s\" /> Fifteen <break time=\"3s\" /> Twenty <break time=\"3s\" /> Twenty-five <break time=\"3s\" /> Thirty\n\nSwitch sides — same control.\n\nFind your balance again. Easy tempo. <break time=\"3s\" />\n\nFive <break time=\"3s\" /> Ten <break time=\"3s\" /> Fifteen <break time=\"3s\" /> Twenty <break time=\"3s\" /> Twenty-five <break time=\"3s\" /> Thirty\n\nGood. Next — bodyweight squats.\n\nFeet about hip-width. Sit down slowly, then drive through your whole foot to stand. Smooth — no bounce at the bottom.\n\nBegin. Chest stays proud. <break time=\"3s\" />\n\nFive <break time=\"3s\" /> Ten <break time=\"3s\" /> Fifteen <break time=\"3s\" /> Twenty <break time=\"3s\" /> Twenty-five <break time=\"3s\" /> Thirty <break time=\"3s\" /> Thirty-five <break time=\"3s\" /> Forty <break time=\"3s\" /> Forty-five <break time=\"3s\" /> Fifty <break time=\"3s\" /> Fifty-five <break time=\"3s\" /> Sixty <break time=\"3s\" /> Sixty-five <break time=\"3s\" /> Seventy\n\nSteady reps, full range. <break time=\"3s\" />\n\nStrong. Last one — glute bridges.\n\nOn your back, feet flat, knees bent. Drive through your heels, squeeze at the top, lower with control.\n\nBegin. Pause one beat at the top each rep. <break time=\"3s\" />\n\nFive <break time=\"3s\" /> Ten <break time=\"3s\" /> Fifteen <break time=\"3s\" /> Twenty <break time=\"3s\" /> Twenty-five <break time=\"3s\" /> Thirty <break time=\"3s\" /> Thirty-five <break time=\"3s\" /> Forty <break time=\"3s\" /> Forty-five <break time=\"3s\" /> Fifty <break time=\"3s\" /> Fifty-five <break time=\"3s\" /> Sixty <break time=\"3s\" /> Sixty-five <break time=\"3s\" /> Seventy\n\nSqueeze hard at the top — control the way down. <break time=\"3s\" />\n\nWarm-up complete. You're ready for main lifts.",
+  "chapters": [
+    {
+      "id": "intro",
+      "title": "Introduction",
+      "startSeconds": 0,
+      "endSeconds": 31
+    },
+    {
+      "id": "arm-circles",
+      "title": "Arm circles",
+      "startSeconds": 31,
+      "endSeconds": 112,
+      "exerciseId": "warmup_segment"
+    },
+    {
+      "id": "leg-swings",
+      "title": "Leg swings",
+      "startSeconds": 112,
+      "endSeconds": 181
+    },
+    {
+      "id": "squat-to-stand",
+      "title": "Bodyweight squat to stand",
+      "startSeconds": 181,
+      "endSeconds": 238
+    },
+    {
+      "id": "glute-bridges",
+      "title": "Glute bridges",
+      "startSeconds": 238,
+      "endSeconds": 290
+    },
+    {
+      "id": "outro",
+      "title": "Outro",
+      "startSeconds": 290,
+      "endSeconds": 301
+    }
+  ]
+}

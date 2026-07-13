@@ -70,8 +70,8 @@ function createSession(workoutType: WorkoutCategory, exerciseOrder?: string[]): 
   if (workoutType === 'full_body') {
     session.fullBody = {
       currentSegment: 'warmup',
-      guidedMovementIndex: 0,
       guidedSegmentStartedAt: null,
+      playbackPositionSeconds: 0,
     }
   }
 
@@ -443,8 +443,8 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
         ...current,
         fullBody: {
           currentSegment: segment,
-          guidedMovementIndex: 0,
           guidedSegmentStartedAt: null,
+          playbackPositionSeconds: 0,
         },
       }))
     },
@@ -488,8 +488,8 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
           exercises: [...without, guidedLog],
           fullBody: {
             currentSegment: nextSegment ?? current.fullBody?.currentSegment ?? 'warmup',
-            guidedMovementIndex: 0,
             guidedSegmentStartedAt: null,
+            playbackPositionSeconds: 0,
           },
         }
       })
@@ -506,9 +506,13 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
     if (isGuidedSegmentDone(current, segment)) return current
 
     const startedAt = current.fullBody.guidedSegmentStartedAt
-    if (!startedAt) return current
+    const playbackPosition = current.fullBody.playbackPositionSeconds ?? 0
+    if (!startedAt && playbackPosition <= 0) return current
 
-    const durationSeconds = Math.max(1, (Date.now() - new Date(startedAt).getTime()) / 1000)
+    const durationSeconds =
+      playbackPosition > 0
+        ? Math.max(1, Math.round(playbackPosition))
+        : Math.max(1, (Date.now() - new Date(startedAt!).getTime()) / 1000)
     return completeGuidedSegment(segment, durationSeconds, 'partial', segment)
   }, [completeGuidedSegment])
 
