@@ -1,309 +1,230 @@
 /**
- * Pure workout template generation from onboarding equipment + preferences.
- * See onboarding spec Screen 3 exercise generation rules.
+ * Equipment-aware workout template generation via pattern / accessory pools.
  */
-import { getDefaultRestSeconds, getCatalogExerciseById } from '../data/exerciseCatalog'
 import type { Exercise } from '../types/workout'
-import type { EquipmentKey, GeneratedWorkoutTemplates, UserProfile } from '../types/userProfile'
+import type { GeneratedWorkoutTemplates, UserProfile } from '../types/userProfile'
+import {
+  canBenchPress,
+  exerciseFromCatalogId,
+  hasEquipment,
+  resolveFromPool,
+  type EquipmentProfile,
+} from './slotResolver'
 
-type PickInput = Pick<UserProfile, 'equipment' | 'canBench'>
+type PickInput = EquipmentProfile
 
-interface SlotDef {
-  catalogId: string
-  name: string
-  primaryMuscles: string[]
-  equipment: string
-  sets: string
-  reps: string
-}
-
-function hasEquipment(equipment: EquipmentKey[], key: EquipmentKey): boolean {
-  return equipment.includes(key)
-}
-
-function canBenchPress(profile: PickInput): boolean {
-  const { equipment, canBench } = profile
-  return (
-    hasEquipment(equipment, 'barbell') &&
-    hasEquipment(equipment, 'bench') &&
-    (hasEquipment(equipment, 'rack') || canBench === true)
-  )
-}
-
-function buildExercise(prefix: string, index: number, slot: SlotDef): Exercise {
-  const catalog = getCatalogExerciseById(slot.catalogId)
+function buildFromCatalogId(
+  prefix: string,
+  index: number,
+  catalogId: string,
+  sets: string,
+  reps: string,
+  primaryMuscles: string[],
+): Exercise {
   return {
+    ...exerciseFromCatalogId(prefix as 'push', index, catalogId, {
+      id: `${prefix}-${index}`,
+      slotType: 'pattern',
+      defaultCatalogExerciseId: catalogId,
+      sets,
+      reps,
+      suggestedRestSeconds: 90,
+      primaryMuscles,
+    }),
     id: `${prefix}-${index}`,
-    catalogExerciseId: slot.catalogId,
-    name: catalog?.name ?? slot.name,
-    primaryMuscles: slot.primaryMuscles,
-    equipment: slot.equipment,
-    sets: slot.sets,
-    reps: slot.reps,
-    suggestedRestSeconds: catalog ? getDefaultRestSeconds(catalog) : 90,
-    instructions: 'Instructions will go here.',
-    cues: 'Coaching cues will go here.',
-    commonMistakes: 'Common mistakes will go here.',
-  }
-}
-
-function pushHorizontalPress(profile: PickInput): SlotDef {
-  if (canBenchPress(profile)) {
-    return {
-      catalogId: 'barbell_bench_press',
-      name: 'Barbell Bench Press',
-      primaryMuscles: ['Chest', 'Triceps'],
-      equipment: 'Barbell, bench',
-      sets: '3',
-      reps: '6–10',
-    }
-  }
-  if (hasEquipment(profile.equipment, 'barbell')) {
-    return {
-      catalogId: 'barbell_floor_press',
-      name: 'Barbell Floor Press',
-      primaryMuscles: ['Chest', 'Triceps'],
-      equipment: 'Barbell',
-      sets: '3',
-      reps: '6–10',
-    }
-  }
-  return {
-    catalogId: 'atomic_push_up',
-    name: 'Atomic Push-up',
-    primaryMuscles: ['Chest', 'Core'],
-    equipment: 'Bodyweight',
-    sets: '3',
-    reps: '8–12',
-  }
-}
-
-function pushInclinePress(profile: PickInput): SlotDef | null {
-  const { equipment } = profile
-  if (hasEquipment(equipment, 'bench') && hasEquipment(equipment, 'dumbbells')) {
-    return {
-      catalogId: 'dumbbell_incline_press',
-      name: 'Dumbbell Incline Press',
-      primaryMuscles: ['Upper chest', 'Triceps'],
-      equipment: 'Dumbbells, bench',
-      sets: '3',
-      reps: '8–12',
-    }
-  }
-  if (
-    hasEquipment(equipment, 'bench') &&
-    hasEquipment(equipment, 'barbell') &&
-    hasEquipment(equipment, 'rack')
-  ) {
-    return {
-      catalogId: 'inclined_barbell_press',
-      name: 'Inclined Barbell Press',
-      primaryMuscles: ['Upper chest', 'Triceps'],
-      equipment: 'Barbell, incline bench',
-      sets: '3',
-      reps: '8–12',
-    }
-  }
-  if (hasEquipment(equipment, 'trx')) {
-    return {
-      catalogId: 'trx_pike',
-      name: 'TRX Pike',
-      primaryMuscles: ['Shoulders', 'Core'],
-      equipment: 'TRX straps',
-      sets: '3',
-      reps: '8–12',
-    }
-  }
-  if (hasEquipment(equipment, 'bodyweight') || equipment.length === 0) {
-    return {
-      catalogId: 'close_grip_push_ups',
-      name: 'Close-Grip Push-ups',
-      primaryMuscles: ['Chest', 'Triceps'],
-      equipment: 'Bodyweight',
-      sets: '3',
-      reps: '10–15',
-    }
-  }
-  return null
-}
-
-function pushOhp(profile: PickInput): SlotDef {
-  if (hasEquipment(profile.equipment, 'barbell')) {
-    return {
-      catalogId: 'overhead_press',
-      name: 'Overhead Press',
-      primaryMuscles: ['Shoulders', 'Triceps'],
-      equipment: 'Barbell',
-      sets: '3',
-      reps: '6–10',
-    }
-  }
-  if (hasEquipment(profile.equipment, 'dumbbells')) {
-    return {
-      catalogId: 'overhead_press',
-      name: 'Overhead Press',
-      primaryMuscles: ['Shoulders', 'Triceps'],
-      equipment: 'Dumbbells',
-      sets: '3',
-      reps: '8–12',
-    }
-  }
-  return {
-    catalogId: 'atomic_push_up',
-    name: 'Atomic Push-up',
-    primaryMuscles: ['Chest', 'Core'],
-    equipment: 'Bodyweight',
-    sets: '3',
-    reps: '8–12',
-  }
-}
-
-function pushTricep(profile: PickInput): SlotDef {
-  if (hasEquipment(profile.equipment, 'trx')) {
-    return {
-      catalogId: 'trx_tricep_extension',
-      name: 'TRX Tricep Extension',
-      primaryMuscles: ['Triceps'],
-      equipment: 'TRX straps',
-      sets: '3',
-      reps: '10–15',
-    }
-  }
-  if (hasEquipment(profile.equipment, 'dumbbells')) {
-    return {
-      catalogId: 'overhead_db_tricep_extension',
-      name: 'Overhead DB Tricep Extension',
-      primaryMuscles: ['Triceps'],
-      equipment: 'Dumbbell',
-      sets: '3',
-      reps: '10–15',
-    }
-  }
-  return {
-    catalogId: 'close_grip_push_ups',
-    name: 'Close-Grip Push-ups',
-    primaryMuscles: ['Chest', 'Triceps'],
-    equipment: 'Bodyweight',
-    sets: '3',
-    reps: '10–15',
+    sets,
+    reps,
+    primaryMuscles,
   }
 }
 
 export function generatePushExercises(profile: PickInput): Exercise[] {
-  const slots: SlotDef[] = [pushHorizontalPress(profile), pushOhp(profile)]
+  const horizontal = resolveFromPool({
+    slotType: 'pattern',
+    movementPattern: 'horizontal_push',
+    loadTier: 'heavy',
+    profile,
+    preferredCatalogIds: [
+      'barbell_bench_press',
+      'barbell_floor_press',
+      'dumbbell_flat_press',
+      'atomic_push_up',
+      'close_grip_push_ups',
+    ],
+    fallbackCatalogId: 'atomic_push_up',
+  })
 
-  const incline = pushInclinePress(profile)
-  if (incline) slots.push(incline)
+  const vertical = resolveFromPool({
+    slotType: 'pattern',
+    movementPattern: 'vertical_push',
+    loadTier: 'heavy',
+    profile,
+    preferredCatalogIds: [
+      'overhead_press',
+      'seated_dumbbell_shoulder_press',
+      'arnold_press',
+      'trx_pike',
+      'atomic_push_up',
+    ],
+    fallbackCatalogId: 'atomic_push_up',
+  })
+
+  const slots: Array<{ catalogId: string; sets: string; reps: string; muscles: string[] }> = [
+    { catalogId: horizontal, sets: '3', reps: '6–10', muscles: ['Chest', 'Triceps'] },
+    { catalogId: vertical, sets: '3', reps: '6–10', muscles: ['Shoulders', 'Triceps'] },
+  ]
+
+  const inclineId = resolveFromPool({
+    slotType: 'pattern',
+    movementPattern: 'horizontal_push',
+    loadTier: 'heavy',
+    profile,
+    preferredCatalogIds: [
+      'dumbbell_incline_press',
+      'inclined_barbell_press',
+      'trx_pike',
+      'close_grip_push_ups',
+    ],
+  })
+  // Only add incline/alternate when it differs from the main horizontal press and gear fits something beyond pure fallback.
+  if (
+    inclineId !== horizontal &&
+    (hasEquipment(profile.equipment, 'bench') ||
+      hasEquipment(profile.equipment, 'trx') ||
+      hasEquipment(profile.equipment, 'bodyweight') ||
+      profile.equipment.length === 0)
+  ) {
+    const hasInclineGear =
+      (hasEquipment(profile.equipment, 'bench') &&
+        (hasEquipment(profile.equipment, 'dumbbells') ||
+          (hasEquipment(profile.equipment, 'barbell') && hasEquipment(profile.equipment, 'rack')))) ||
+      hasEquipment(profile.equipment, 'trx') ||
+      hasEquipment(profile.equipment, 'bodyweight') ||
+      profile.equipment.length === 0
+    if (hasInclineGear) {
+      slots.push({
+        catalogId: inclineId,
+        sets: '3',
+        reps: '8–12',
+        muscles: ['Upper chest', 'Triceps'],
+      })
+    }
+  }
 
   if (hasEquipment(profile.equipment, 'dumbbells') && hasEquipment(profile.equipment, 'bench')) {
     slots.push({
-      catalogId: 'dumbbell_pullover',
-      name: 'Dumbbell Pullover',
-      primaryMuscles: ['Chest', 'Lats'],
-      equipment: 'Dumbbell, bench',
+      catalogId: resolveFromPool({
+        slotType: 'accessory',
+        accessoryGroup: 'lats',
+        profile,
+        preferredCatalogIds: ['dumbbell_pullover'],
+        fallbackCatalogId: 'dumbbell_pullover',
+      }),
       sets: '3',
       reps: '10–12',
+      muscles: ['Chest', 'Lats'],
     })
   }
 
   if (hasEquipment(profile.equipment, 'dumbbells')) {
     slots.push({
-      catalogId: 'lateral_raises',
-      name: 'Lateral Raises',
-      primaryMuscles: ['Side delts'],
-      equipment: 'Dumbbells',
+      catalogId: resolveFromPool({
+        slotType: 'accessory',
+        accessoryGroup: 'side_delt',
+        profile,
+        preferredCatalogIds: ['lateral_raises'],
+        fallbackCatalogId: 'lateral_raises',
+      }),
       sets: '3',
       reps: '12–15',
+      muscles: ['Side delts'],
     })
   }
 
-  slots.push(pushTricep(profile))
-
-  return slots.map((slot, i) => buildExercise('push', i + 1, slot))
-}
-
-function pullVertical(profile: PickInput): SlotDef {
-  if (hasEquipment(profile.equipment, 'pullup')) {
-    return {
-      catalogId: 'pull_ups',
-      name: 'Pull-ups',
-      primaryMuscles: ['Lats', 'Biceps'],
-      equipment: 'Pull-up bar',
-      sets: '3',
-      reps: '5–10',
-    }
-  }
-  if (hasEquipment(profile.equipment, 'trx')) {
-    return {
-      catalogId: 'trx_rows',
-      name: 'TRX Rows',
-      primaryMuscles: ['Lats', 'Mid back'],
-      equipment: 'TRX straps',
-      sets: '3',
-      reps: '8–12',
-    }
-  }
-  return {
-    catalogId: 'trx_rows',
-    name: 'TRX Rows',
-    primaryMuscles: ['Lats', 'Mid back'],
-    equipment: 'Bodyweight',
+  slots.push({
+    catalogId: resolveFromPool({
+      slotType: 'accessory',
+      accessoryGroup: 'triceps',
+      profile,
+      preferredCatalogIds: [
+        'trx_tricep_extension',
+        'overhead_db_tricep_extension',
+        'close_grip_push_ups',
+      ],
+      fallbackCatalogId: 'close_grip_push_ups',
+    }),
     sets: '3',
-    reps: '8–12',
-  }
+    reps: '10–15',
+    muscles: ['Triceps'],
+  })
+
+  return slots.map((slot, i) =>
+    buildFromCatalogId('push', i + 1, slot.catalogId, slot.sets, slot.reps, slot.muscles),
+  )
 }
 
 export function generatePullExercises(profile: PickInput): Exercise[] {
-  const slots: SlotDef[] = [pullVertical(profile)]
+  const vertical = resolveFromPool({
+    slotType: 'pattern',
+    movementPattern: 'vertical_pull',
+    loadTier: 'heavy',
+    profile,
+    preferredCatalogIds: [
+      'pull_ups',
+      'trx_assisted_pull_up',
+      'trx_kneeling_lat_pulldown',
+      'trx_rows',
+    ],
+    fallbackCatalogId: 'trx_rows',
+  })
 
-  if (hasEquipment(profile.equipment, 'barbell')) {
+  const slots: Array<{ catalogId: string; sets: string; reps: string; muscles: string[] }> = [
+    { catalogId: vertical, sets: '3', reps: '5–10', muscles: ['Lats', 'Biceps'] },
+  ]
+
+  if (hasEquipment(profile.equipment, 'barbell') || hasEquipment(profile.equipment, 'dumbbells')) {
     slots.push({
-      catalogId: 'barbell_rows',
-      name: 'Barbell Rows',
-      primaryMuscles: ['Mid back', 'Lats'],
-      equipment: 'Barbell',
+      catalogId: resolveFromPool({
+        slotType: 'pattern',
+        movementPattern: 'horizontal_pull',
+        loadTier: 'heavy',
+        profile,
+        preferredCatalogIds: ['barbell_rows', 'single_dumbbell_arm_rows', 'chest_supported_row'],
+        fallbackCatalogId: 'single_dumbbell_arm_rows',
+      }),
       sets: '3',
       reps: '8–12',
-    })
-  } else if (hasEquipment(profile.equipment, 'dumbbells')) {
-    slots.push({
-      catalogId: 'single_dumbbell_arm_rows',
-      name: 'Single Dumbbell Arm Rows',
-      primaryMuscles: ['Lats', 'Mid back'],
-      equipment: 'Dumbbell, bench',
-      sets: '3',
-      reps: '8–12 each',
+      muscles: ['Mid back', 'Lats'],
     })
   }
 
   if (hasEquipment(profile.equipment, 'trx')) {
     slots.push({
-      catalogId: 'trx_rear_delt_fly',
-      name: 'TRX Rear Delt Fly',
-      primaryMuscles: ['Rear delts'],
-      equipment: 'TRX straps',
+      catalogId: resolveFromPool({
+        slotType: 'accessory',
+        accessoryGroup: 'rear_delt',
+        profile,
+        preferredCatalogIds: ['trx_rear_delt_fly', 'trx_face_pull'],
+        fallbackCatalogId: 'trx_rear_delt_fly',
+      }),
       sets: '3',
       reps: '12–15',
+      muscles: ['Rear delts'],
     })
   }
 
-  if (hasEquipment(profile.equipment, 'barbell')) {
+  if (hasEquipment(profile.equipment, 'barbell') || hasEquipment(profile.equipment, 'dumbbells')) {
     slots.push({
-      catalogId: 'barbell_curls',
-      name: 'Barbell Curls',
-      primaryMuscles: ['Biceps'],
-      equipment: 'Barbell',
+      catalogId: resolveFromPool({
+        slotType: 'accessory',
+        accessoryGroup: 'biceps',
+        profile,
+        preferredCatalogIds: ['barbell_curls'],
+        fallbackCatalogId: 'barbell_curls',
+      }),
       sets: '3',
       reps: '8–12',
-    })
-  } else if (hasEquipment(profile.equipment, 'dumbbells')) {
-    slots.push({
-      catalogId: 'barbell_curls',
-      name: 'Barbell Curls',
-      primaryMuscles: ['Biceps'],
-      equipment: 'Dumbbells',
-      sets: '3',
-      reps: '10–12',
+      muscles: ['Biceps'],
     })
   }
 
@@ -311,172 +232,169 @@ export function generatePullExercises(profile: PickInput): Exercise[] {
     for (const id of ['trx_core_1', 'trx_core_2'] as const) {
       slots.push({
         catalogId: id,
-        name: id === 'trx_core_1' ? 'TRX Core 1' : 'TRX Core 2',
-        primaryMuscles: ['Core'],
-        equipment: 'TRX straps',
         sets: '3',
         reps: '30–45 sec',
+        muscles: ['Core'],
       })
     }
   }
 
-  return slots.map((slot, i) => buildExercise('pull', i + 1, slot))
-}
-
-function legSquat(profile: PickInput): SlotDef {
-  if (hasEquipment(profile.equipment, 'barbell') && hasEquipment(profile.equipment, 'rack')) {
-    return {
-      catalogId: 'barbell_back_squat',
-      name: 'Barbell Back Squat',
-      primaryMuscles: ['Quads', 'Glutes', 'Core'],
-      equipment: 'Barbell, rack',
-      sets: '4',
-      reps: '8–10',
-    }
-  }
-  if (hasEquipment(profile.equipment, 'dumbbells')) {
-    return {
-      catalogId: 'goblet_squat',
-      name: 'Goblet Squat',
-      primaryMuscles: ['Quads', 'Glutes'],
-      equipment: 'Dumbbell',
-      sets: '3',
-      reps: '10–12',
-    }
-  }
-  return {
-    catalogId: 'bodyweight_squat',
-    name: 'Bodyweight Squat',
-    primaryMuscles: ['Quads', 'Glutes'],
-    equipment: 'Bodyweight',
-    sets: '3',
-    reps: '12–15',
-  }
-}
-
-function legHipHinge(profile: PickInput): SlotDef {
-  if (hasEquipment(profile.equipment, 'barbell')) {
-    return {
-      catalogId: 'barbell_hip_thrust',
-      name: 'Barbell Hip Thrust',
-      primaryMuscles: ['Glutes', 'Hamstrings'],
-      equipment: 'Barbell, bench',
-      sets: '3',
-      reps: '8–10',
-    }
-  }
-  if (hasEquipment(profile.equipment, 'dumbbells')) {
-    return {
-      catalogId: 'barbell_hip_thrust',
-      name: 'Dumbbell Hip Thrust',
-      primaryMuscles: ['Glutes', 'Hamstrings'],
-      equipment: 'Dumbbell, bench',
-      sets: '3',
-      reps: '10–12',
-    }
-  }
-  return {
-    catalogId: 'bodyweight_squat',
-    name: 'Glute Bridge',
-    primaryMuscles: ['Glutes', 'Hamstrings'],
-    equipment: 'Bodyweight',
-    sets: '3',
-    reps: '12–15',
-  }
+  return slots.map((slot, i) =>
+    buildFromCatalogId('pull', i + 1, slot.catalogId, slot.sets, slot.reps, slot.muscles),
+  )
 }
 
 export function generateLegExercises(profile: PickInput): Exercise[] {
-  const slots: SlotDef[] = [
-    legSquat(profile),
-    legHipHinge(profile),
+  const squat = resolveFromPool({
+    slotType: 'pattern',
+    movementPattern: 'squat',
+    loadTier: 'heavy',
+    profile,
+    preferredCatalogIds: ['barbell_back_squat', 'goblet_squat', 'bodyweight_squat'],
+    fallbackCatalogId: 'bodyweight_squat',
+  })
+
+  const hinge = resolveFromPool({
+    slotType: 'pattern',
+    movementPattern: 'hinge',
+    loadTier: 'heavy',
+    profile,
+    preferredCatalogIds: [
+      'barbell_hip_thrust',
+      'dumbbell_romanian_deadlift',
+      'trx_hip_press',
+      'bodyweight_squat',
+    ],
+    fallbackCatalogId: 'bodyweight_squat',
+  })
+
+  const slots: Array<{ catalogId: string; sets: string; reps: string; muscles: string[] }> = [
+    { catalogId: squat, sets: squat === 'barbell_back_squat' ? '4' : '3', reps: '8–10', muscles: ['Quads', 'Glutes'] },
+    { catalogId: hinge, sets: '3', reps: '8–10', muscles: ['Glutes', 'Hamstrings'] },
   ]
 
   if (hasEquipment(profile.equipment, 'trx') && hasEquipment(profile.equipment, 'dumbbells')) {
     slots.push({
-      catalogId: 'trx_weighted_lunge',
-      name: 'TRX Weighted Lunge',
-      primaryMuscles: ['Quads', 'Glutes'],
-      equipment: 'TRX, dumbbells',
+      catalogId: resolveFromPool({
+        slotType: 'pattern',
+        movementPattern: 'squat',
+        loadTier: 'moderate',
+        profile,
+        preferredCatalogIds: ['trx_weighted_lunge', 'dumbbell_lunges'],
+        fallbackCatalogId: 'trx_weighted_lunge',
+      }),
       sets: '3',
       reps: '10 each leg',
+      muscles: ['Quads', 'Glutes'],
     })
   } else {
     slots.push({
-      catalogId: 'bodyweight_squat',
-      name: 'Walking Lunges',
-      primaryMuscles: ['Quads', 'Glutes'],
-      equipment: 'Bodyweight',
+      catalogId: resolveFromPool({
+        slotType: 'pattern',
+        movementPattern: 'squat',
+        loadTier: 'low_impact',
+        profile,
+        preferredCatalogIds: ['bodyweight_squat', 'dumbbell_lunges'],
+        fallbackCatalogId: 'bodyweight_squat',
+      }),
       sets: '3',
       reps: '10 each leg',
+      muscles: ['Quads', 'Glutes'],
     })
   }
 
   if (hasEquipment(profile.equipment, 'trx')) {
     slots.push({
-      catalogId: 'trx_hamstring_curl',
-      name: 'TRX Hamstring Curl',
-      primaryMuscles: ['Hamstrings'],
-      equipment: 'TRX',
+      catalogId: resolveFromPool({
+        slotType: 'pattern',
+        movementPattern: 'hinge',
+        loadTier: 'low_impact',
+        profile,
+        preferredCatalogIds: ['trx_hamstring_curl'],
+        fallbackCatalogId: 'trx_hamstring_curl',
+      }),
       sets: '2',
       reps: '10–12',
+      muscles: ['Hamstrings'],
     })
   }
 
   if (hasEquipment(profile.equipment, 'dumbbells')) {
     slots.push({
-      catalogId: 'standing_calf_raise',
-      name: 'Standing Calf Raise',
-      primaryMuscles: ['Calves'],
-      equipment: 'Dumbbells',
+      catalogId: resolveFromPool({
+        slotType: 'accessory',
+        accessoryGroup: 'calves',
+        profile,
+        preferredCatalogIds: ['standing_calf_raise'],
+        fallbackCatalogId: 'standing_calf_raise',
+      }),
       sets: '3',
       reps: '10–15',
+      muscles: ['Calves'],
     })
   }
 
   if (hasEquipment(profile.equipment, 'trx')) {
     slots.push({
-      catalogId: 'trx_side_tuck',
-      name: 'TRX Side Tuck',
-      primaryMuscles: ['Core', 'Obliques'],
-      equipment: 'TRX',
+      catalogId: resolveFromPool({
+        slotType: 'accessory',
+        accessoryGroup: 'core',
+        profile,
+        preferredCatalogIds: ['trx_side_tuck'],
+        fallbackCatalogId: 'trx_side_tuck',
+      }),
       sets: '3',
       reps: '10 each side',
+      muscles: ['Core', 'Obliques'],
     })
   }
 
-  return slots.map((slot, i) => buildExercise('leg', i + 1, slot))
+  return slots.map((slot, i) =>
+    buildFromCatalogId('leg', i + 1, slot.catalogId, slot.sets, slot.reps, slot.muscles),
+  )
 }
 
 export function generateCoreExercises(profile: PickInput): Exercise[] {
-  const base: SlotDef[] = [
-    { catalogId: 'plank', name: 'Plank', primaryMuscles: ['Abs'], equipment: 'Bodyweight', sets: '3', reps: '30–60 sec' },
-    { catalogId: 'side_plank', name: 'Side Plank', primaryMuscles: ['Obliques'], equipment: 'Bodyweight', sets: '3', reps: '20–40 sec each' },
-    { catalogId: 'dead_bug', name: 'Dead Bug', primaryMuscles: ['Deep core'], equipment: 'Bodyweight', sets: '3', reps: '8–12 each side' },
-    { catalogId: 'hollow_hold', name: 'Hollow Hold', primaryMuscles: ['Abs'], equipment: 'Bodyweight', sets: '3', reps: '20–40 sec' },
-    { catalogId: 'mountain_climber', name: 'Mountain Climber', primaryMuscles: ['Core'], equipment: 'Bodyweight', sets: '3', reps: '20–30 sec' },
-  ]
+  const baseIds = ['plank', 'side_plank', 'dead_bug', 'hollow_hold', 'mountain_climber'] as const
+  const slots = baseIds.map((catalogId) => ({
+    catalogId,
+    sets: '3',
+    reps: '30–60 sec',
+    muscles: ['Core'],
+  }))
 
   if (hasEquipment(profile.equipment, 'trx')) {
-    base.push({
-      catalogId: 'trx_pike',
-      name: 'TRX Pike',
-      primaryMuscles: ['Shoulders', 'Core'],
-      equipment: 'TRX straps',
+    slots.push({
+      catalogId: resolveFromPool({
+        slotType: 'pattern',
+        movementPattern: 'vertical_push',
+        loadTier: 'low_impact',
+        profile,
+        preferredCatalogIds: ['trx_pike'],
+        fallbackCatalogId: 'trx_pike',
+      }),
       sets: '3',
       reps: '8–12',
+      muscles: ['Shoulders', 'Core'],
     })
   } else {
-    base.push({
-      catalogId: 'pallof_press',
-      name: 'Pallof Press',
-      primaryMuscles: ['Anti-rotation'],
-      equipment: 'Bodyweight',
+    slots.push({
+      catalogId: resolveFromPool({
+        slotType: 'accessory',
+        accessoryGroup: 'core',
+        profile,
+        preferredCatalogIds: ['pallof_press'],
+        fallbackCatalogId: 'pallof_press',
+      }),
       sets: '3',
       reps: '10–12 each side',
+      muscles: ['Anti-rotation'],
     })
   }
 
-  return base.map((slot, i) => buildExercise('core', i + 1, slot))
+  return slots.map((slot, i) =>
+    buildFromCatalogId('core', i + 1, slot.catalogId, slot.sets, slot.reps, slot.muscles),
+  )
 }
 
 export function generateWorkoutTemplates(profile: PickInput): GeneratedWorkoutTemplates {

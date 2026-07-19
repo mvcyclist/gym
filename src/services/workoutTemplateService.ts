@@ -2,14 +2,19 @@
  * Resolves workout templates from history, defaults, generated profile, or random mixes.
  */
 import { getDefaultRestSeconds, getCatalogExerciseById } from '../data/exerciseCatalog'
-import { workouts } from '../data/workouts'
+import { GUIDED_SEGMENT_BINDINGS } from '../data/guidedSegmentBindings'
 import type { Exercise, WorkoutCategory } from '../types/workout'
 import type { StrengthTemplateKey, TemplateSource, UserProfile } from '../types/userProfile'
 import { getProgramType } from '../types/userProfile'
 import { getLastCompletedSessionByWorkoutType } from './exerciseHistoryService'
 import { resolveExerciseLogCatalogId } from './exerciseIdentity'
+import { resolveDefaultExercises } from './slotResolver'
 import { generateWorkoutTemplates } from './workoutGeneratorService'
 import { getUserProfile, saveUserProfile } from './userProfileRepository'
+
+const GUIDED_SEGMENT_CATALOG_IDS = new Set(
+  Object.values(GUIDED_SEGMENT_BINDINGS).map((binding) => binding.catalogExerciseId),
+)
 
 export interface TemplateVariant {
   source: TemplateSource
@@ -25,7 +30,7 @@ function strengthCategoriesForProfile(profile: UserProfile): StrengthTemplateKey
   return getProgramType(profile) === 'full_body' ? ['full_body'] : PPL_STRENGTH_CATEGORIES
 }
 
-function cycleOrderForCategory(category: StrengthTemplateKey): TemplateSource[] {
+export function cycleOrderForCategory(category: StrengthTemplateKey): TemplateSource[] {
   return category === 'full_body' ? FULL_BODY_CYCLE_ORDER : CYCLE_ORDER
 }
 
@@ -39,7 +44,7 @@ const SOURCE_LABELS: Record<TemplateSource, string> = {
 const CYCLE_ORDER: TemplateSource[] = ['history', 'default', 'generated', 'random']
 
 function staticExercises(category: WorkoutCategory): Exercise[] {
-  return workouts.find((workout) => workout.id === category)?.exercises ?? []
+  return resolveDefaultExercises(category)
 }
 
 function exerciseFromCatalog(
@@ -96,15 +101,17 @@ export function buildExercisesFromHistory(category: WorkoutCategory): Exercise[]
 
   const exercises: Exercise[] = []
 
-  orderedIds.forEach((exerciseId, index) => {
+  orderedIds.forEach((exerciseId) => {
     const log = session.exercises.find((item) => item.exerciseId === exerciseId)
     if (!log || log.skipped) return
 
     const catalogId = resolveExerciseLogCatalogId(log)
-    if (!catalogId) return
+    // Full Body ledgers also store warm-up / core / mobility segment placeholders.
+    // Those belong to guided segments, not the main-lifts template list.
+    if (!catalogId || GUIDED_SEGMENT_CATALOG_IDS.has(catalogId)) return
 
     exercises.push(
-      exerciseFromCatalog(category, index, catalogId, staticBySlot.get(exerciseId)),
+      exerciseFromCatalog(category, exercises.length, catalogId, staticBySlot.get(exerciseId)),
     )
   })
 

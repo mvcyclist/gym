@@ -13,9 +13,11 @@ export type EquipmentKey =
 
 export type CardioModalityKey = 'swim' | 'bike' | 'run' | 'walk' | 'hiit' | 'none'
 
-export type OnboardingStep = 1 | 2 | 3 | 4
+export type OnboardingStep = 1 | 2 | 3 | 4 | 5
 
 export type ProgramType = 'ppl' | 'full_body'
+
+export type ProgramChoicePhase = 'choose' | 'confirm'
 
 export type StrengthTemplateKey = Extract<
   WorkoutCategory,
@@ -57,6 +59,8 @@ export interface UserProfile {
     cardioModalities?: CardioModalityKey[]
     wantsMobility?: boolean
     wantsCore?: boolean
+    programType?: ProgramType
+    programChoicePhase?: ProgramChoicePhase
   }
   generatedTemplates?: GeneratedWorkoutTemplates
   defaultWeeklyPlan?: WeeklyPlanSlot[]

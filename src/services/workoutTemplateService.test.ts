@@ -51,6 +51,66 @@ describe('buildExercisesFromHistory', () => {
       'overhead_press',
     ])
   })
+
+  it('excludes guided Full Body segment placeholders from main lifts', () => {
+    mockSession.mockReturnValue({
+      id: 's-fb',
+      workoutType: 'full_body',
+      status: 'completed',
+      startedAt: '2026-01-01T10:00:00Z',
+      updatedAt: '2026-01-01T11:00:00Z',
+      completedAt: '2026-01-01T11:00:00Z',
+      exerciseOrder: [
+        'segment-warmup',
+        'full_body-1',
+        'full_body-2',
+        'segment-core',
+        'segment-mobility',
+      ],
+      exercises: [
+        {
+          exerciseId: 'segment-warmup',
+          catalogExerciseId: 'warmup_segment',
+          exerciseName: 'Warm-up',
+          sets: [],
+        },
+        {
+          exerciseId: 'full_body-1',
+          catalogExerciseId: 'barbell_back_squat',
+          exerciseName: 'Barbell Back Squat',
+          sets: [],
+        },
+        {
+          exerciseId: 'full_body-2',
+          catalogExerciseId: 'barbell_bench_press',
+          exerciseName: 'Barbell Bench Press',
+          sets: [],
+        },
+        {
+          exerciseId: 'segment-core',
+          catalogExerciseId: 'core_segment',
+          exerciseName: 'Core',
+          sets: [],
+        },
+        {
+          exerciseId: 'segment-mobility',
+          catalogExerciseId: 'mobility_segment',
+          exerciseName: 'Mobility',
+          sets: [],
+        },
+      ],
+    })
+
+    const exercises = buildExercisesFromHistory('full_body')
+    expect(exercises).not.toBeNull()
+    expect(exercises!.map((e) => e.catalogExerciseId)).toEqual([
+      'barbell_back_squat',
+      'barbell_bench_press',
+    ])
+    expect(exercises!.map((e) => e.name)).not.toContain('Warm-up')
+    expect(exercises!.map((e) => e.name)).not.toContain('Core')
+    expect(exercises!.map((e) => e.name)).not.toContain('Mobility')
+  })
 })
 
 describe('resolveTemplateSource', () => {

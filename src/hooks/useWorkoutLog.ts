@@ -9,7 +9,7 @@ import {
   removeSession,
 } from '../services/trainingLedgerService'
 import { getWorkoutElapsedMs } from '../utils/workoutTimer'
-import type { ExerciseLog, SetLog, WorkoutCategory, WorkoutSession } from '../types/workout'
+import type { Exercise, ExerciseLog, SetLog, WorkoutCategory, WorkoutSession } from '../types/workout'
 import type { FullBodySegmentId, GuidedSegmentStatus } from '../types/fullBodySession'
 
 const DEFAULT_SET_COUNT = 3
@@ -36,7 +36,20 @@ function renumberSets(sets: SetLog[]): SetLog[] {
   }))
 }
 
-function createExerciseLogs(workoutType: WorkoutCategory, exerciseOrder?: string[]): ExerciseLog[] {
+function createExerciseLogs(
+  workoutType: WorkoutCategory,
+  exerciseOrder?: string[],
+  exercisesOverride?: Exercise[],
+): ExerciseLog[] {
+  if (exercisesOverride && exercisesOverride.length > 0) {
+    return exercisesOverride.map((exercise) => ({
+      exerciseId: exercise.id,
+      catalogExerciseId: exercise.catalogExerciseId,
+      exerciseName: exercise.name,
+      sets: createDefaultSets(parseTemplateSetCount(exercise.sets)),
+    }))
+  }
+
   const workout = getWorkoutById(workoutType)
   if (!workout) return []
 
@@ -52,8 +65,15 @@ function createExerciseLogs(workoutType: WorkoutCategory, exerciseOrder?: string
   }))
 }
 
-function createSession(workoutType: WorkoutCategory, exerciseOrder?: string[]): WorkoutSession {
+function createSession(
+  workoutType: WorkoutCategory,
+  exerciseOrder?: string[],
+  exercisesOverride?: Exercise[],
+): WorkoutSession {
   const now = new Date().toISOString()
+  const resolvedOrder =
+    exerciseOrder ??
+    (exercisesOverride ? exercisesOverride.map((exercise) => exercise.id) : undefined)
   const session: WorkoutSession = {
     id: `${workoutType}-${Date.now()}`,
     workoutType,
@@ -63,8 +83,8 @@ function createSession(workoutType: WorkoutCategory, exerciseOrder?: string[]): 
     completedAt: null,
     workoutElapsedMs: 0,
     workoutTimerStartedAt: now,
-    exercises: createExerciseLogs(workoutType, exerciseOrder),
-    exerciseOrder,
+    exercises: createExerciseLogs(workoutType, exerciseOrder, exercisesOverride),
+    exerciseOrder: resolvedOrder,
   }
 
   if (workoutType === 'full_body') {
@@ -80,7 +100,11 @@ function createSession(workoutType: WorkoutCategory, exerciseOrder?: string[]): 
 
 interface UseWorkoutLogReturn {
   session: WorkoutSession | null
-  startSession: (workoutType: WorkoutCategory, exerciseOrder?: string[]) => WorkoutSession
+  startSession: (
+    workoutType: WorkoutCategory,
+    exerciseOrder?: string[],
+    exercisesOverride?: Exercise[],
+  ) => WorkoutSession
   resumeSession: (sessionId: string, options?: { activate?: boolean }) => WorkoutSession | null
   updateSet: (
     exerciseId: string,
@@ -144,8 +168,8 @@ export function useWorkoutLog(): UseWorkoutLogReturn {
   )
 
   const startSession = useCallback(
-    (workoutType: WorkoutCategory, exerciseOrder?: string[]) => {
-      const nextSession = createSession(workoutType, exerciseOrder)
+    (workoutType: WorkoutCategory, exerciseOrder?: string[], exercisesOverride?: Exercise[]) => {
+      const nextSession = createSession(workoutType, exerciseOrder, exercisesOverride)
       sessionRef.current = nextSession
       saveDraft(nextSession)
       setSession(nextSession)

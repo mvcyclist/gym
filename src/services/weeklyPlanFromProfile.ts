@@ -1,5 +1,6 @@
 import type { ActivityType } from '../types/training'
 import { getProgramType, type CardioModalityKey, type UserProfile, type WeeklyPlanSlot } from '../types/userProfile'
+import { toDateString } from '../utils/activityHistory'
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
 
@@ -98,4 +99,64 @@ export function weeklyPlanWithDayLabels(plan: WeeklyPlanSlot[]): Array<WeeklyPla
 /** Cardio types in rotation order for recommendations / palette. */
 export function cardioTypesFromProfile(profile: UserProfile): ActivityType[] {
   return activeCardio(profile)
+}
+
+/**
+ * Slot for a calendar date from the profile's default week (Sun=0 … Sat=6).
+ */
+export function scheduledSlotForDate(
+  profile: UserProfile,
+  date: Date,
+): WeeklyPlanSlot {
+  const plan = profile.defaultWeeklyPlan ?? generateWeeklyPlan(profile)
+  return plan[date.getDay()] ?? { type: 'Rest', label: 'Rest' }
+}
+
+export interface ScheduledDay {
+  date: string
+  dayLabel: string
+  type: ActivityType
+  meta?: string
+  source: 'override' | 'default'
+}
+
+/**
+ * Rolling forward week from today, preferring plan overrides then defaultWeeklyPlan.
+ * Used so Home shows the onboarding program immediately (no history required).
+ */
+export function getScheduledForwardDays(
+  profile: UserProfile,
+  overrides: Record<string, ActivityType[]>,
+  dayCount = 7,
+  reference = new Date(),
+): ScheduledDay[] {
+  const days: ScheduledDay[] = []
+  const anchor = new Date(reference)
+  anchor.setHours(12, 0, 0, 0)
+
+  for (let offset = 0; offset < dayCount; offset += 1) {
+    const date = new Date(anchor)
+    date.setDate(anchor.getDate() + offset)
+    const dateStr = toDateString(date)
+    const override = overrides[dateStr]
+    if (override && override.length > 0) {
+      days.push({
+        date: dateStr,
+        dayLabel: DAY_LABELS[date.getDay()],
+        type: override[0],
+        source: 'override',
+      })
+      continue
+    }
+    const slot = scheduledSlotForDate(profile, date)
+    days.push({
+      date: dateStr,
+      dayLabel: DAY_LABELS[date.getDay()],
+      type: slot.type,
+      meta: slot.meta,
+      source: 'default',
+    })
+  }
+
+  return days
 }

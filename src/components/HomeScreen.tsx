@@ -11,9 +11,13 @@ import type {
 import type { TodaySummary } from '../utils/workoutSummary'
 import type { WeeklyPlanDay } from '../services/recommendationService'
 import { ChooseAnotherModal } from './ChooseAnotherModal'
+import { RecommendedWorkoutFlow } from './RecommendedWorkoutFlow'
 import { AiCoachLayout, useAiCoachChat } from './AiCoachLayout'
 import { UserMenu } from './UserMenu'
 import { SESSION_DOT_COLORS, SESSION_DISPLAY_LABELS } from '../constants/sessionColors'
+import { resolveRecommendedCategory } from '../services/recommendedWorkoutService'
+import { getUserProfile } from '../services/userProfileRepository'
+import type { Exercise } from '../types/workout'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -42,6 +46,14 @@ const ALL_SESSION_TYPES: Array<{ type: ActivityType; label: string }> = [
   { type: 'HIIT',     label: 'HIIT' },
   { type: 'Mobility', label: 'Mobility' },
   { type: 'Rest',     label: 'Rest' },
+]
+
+/** Always-visible strength shortcuts (good for testing PPL + Full Body). */
+const STRENGTH_QUICK_START: Array<{ id: WorkoutCategory; label: string }> = [
+  { id: 'push', label: 'Push' },
+  { id: 'pull', label: 'Pull' },
+  { id: 'leg', label: 'Leg' },
+  { id: 'full_body', label: 'Full Body' },
 ]
 
 const SEG_MAP: Record<string, string[]> = {
@@ -164,6 +176,8 @@ interface HomeScreenProps {
   activityHistory: DayActivity[]
   recommendationReady: boolean
   recommendation: RecommendationResult | null
+  /** Today's slot from the user's program when recommendations aren't ready yet. */
+  scheduledTodayType?: ActivityType | null
   todayLogged: boolean
   todaySummary: TodaySummary | null
   tomorrowRecommendation: WorkoutRecommendation | null
@@ -175,7 +189,9 @@ interface HomeScreenProps {
   onUpdateDayActivities: (date: string, types: ActivityType[]) => void
   onSetPlanOverride: (date: string, types: ActivityType[]) => void
   onStartRecommendation: () => void
+  onStartScheduledType: (type: ActivityType) => void
   onSelectWorkout: (workoutId: WorkoutCategory) => void
+  onStartRecommendedWorkout: (workoutId: WorkoutCategory, exercises: Exercise[]) => void
   onSelectCardio: (type: WorkoutType) => void
   onSelectTimer: () => void
   onSelectCore: () => void
@@ -289,6 +305,7 @@ function HomeScreenBody({
   activityHistory,
   recommendation,
   recommendationReady,
+  scheduledTodayType,
   todayLogged,
   tomorrowRecommendation,
   weeklyPlan,
@@ -296,7 +313,9 @@ function HomeScreenBody({
   onUpdateDayActivities,
   onSetPlanOverride,
   onStartRecommendation,
+  onStartScheduledType,
   onSelectWorkout,
+  onStartRecommendedWorkout,
   onSelectCardio,
   onSelectTimer,
   onSelectCore,
@@ -308,6 +327,7 @@ function HomeScreenBody({
   const [editingFuture, setEditingFuture] = useState<WeeklyPlanDay | null>(null)
   const [futureTypes, setFutureTypes] = useState<ActivityType[]>([])
   const [chooseOpen, setChooseOpen] = useState(false)
+  const [recommendedOpen, setRecommendedOpen] = useState(false)
   const [saveToast, setSaveToast] = useState<string | null>(null)
 
   useEffect(() => {
@@ -323,6 +343,10 @@ function HomeScreenBody({
   const handleStartToday = () => {
     if (recommendation?.primary) {
       onStartRecommendation()
+      return
+    }
+    if (scheduledTodayType && scheduledTodayType !== 'Rest' && scheduledTodayType !== 'Other') {
+      onStartScheduledType(scheduledTodayType)
       return
     }
     openWorkoutPicker()
@@ -377,7 +401,20 @@ function HomeScreenBody({
   const last7 = buildLast7(activityHistory)  // today is last7[6]
   const futureDays = weeklyPlan.slice(1, 8)   // excludes today
   const primary = recommendation?.primary
+  const todayFocusType = primary?.type ?? scheduledTodayType ?? null
   const todayActivities = activityHistory.at(-1)?.activities ?? []
+  const recommendedCategory = resolveRecommendedCategory(
+    getUserProfile(),
+    todayFocusType === 'Push'
+      ? 'push'
+      : todayFocusType === 'Pull'
+        ? 'pull'
+        : todayFocusType === 'Leg'
+          ? 'leg'
+          : todayFocusType === 'Full Body'
+            ? 'full_body'
+            : null,
+  )
 
   // ── Render helpers ──
   const renderDayCard = (day: DayActivity, isToday: boolean) => {
@@ -639,7 +676,9 @@ function HomeScreenBody({
               <>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1rem' }}>
                   <div style={{ fontSize: 32, fontWeight: 700, color: '#fff' }}>
-                    {primary ? (SESSION_LABELS[primary.type] ?? primary.type) : (recommendationReady ? 'Rest' : '—')}
+                    {todayFocusType
+                      ? (SESSION_LABELS[todayFocusType] ?? todayFocusType)
+                      : (recommendationReady ? 'Rest' : '—')}
                   </div>
                   {primary?.bucket === 'Best' && (
                     <div style={{
@@ -648,6 +687,15 @@ function HomeScreenBody({
                       border: '0.5px solid rgba(16,185,129,0.2)',
                     }}>
                       Best today
+                    </div>
+                  )}
+                  {!primary && scheduledTodayType && (
+                    <div style={{
+                      fontSize: 11, fontWeight: 600, padding: '4px 12px', borderRadius: 20,
+                      background: 'rgba(239,68,68,0.1)', color: '#f87171',
+                      border: '0.5px solid rgba(239,68,68,0.25)',
+                    }}>
+                      Your plan
                     </div>
                   )}
                 </div>
@@ -659,6 +707,17 @@ function HomeScreenBody({
                   }}>
                     <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.85)', lineHeight: 1.55 }}>
                       {primary.reason}
+                    </div>
+                  </div>
+                )}
+
+                {!primary && scheduledTodayType && (
+                  <div style={{
+                    background: '#0d0d0d', border: '0.5px solid rgba(255,255,255,0.06)',
+                    borderRadius: 8, padding: '11px 14px', marginBottom: 9,
+                  }}>
+                    <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.85)', lineHeight: 1.55 }}>
+                      From your program schedule. Log a few sessions and we&apos;ll start adapting recommendations.
                     </div>
                   </div>
                 )}
@@ -685,11 +744,11 @@ function HomeScreenBody({
                       padding: '10px 22px', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer',
                     }}
                   >
-                    {primary
-                      ? primaryButtonLabel(primary.type as WorkoutType)
+                    {todayFocusType
+                      ? primaryButtonLabel(todayFocusType as WorkoutType)
                       : 'Start a workout'}
                   </button>
-                  {primary && (
+                  {todayFocusType && (
                     <button
                       type="button"
                       onClick={openWorkoutPicker}
@@ -706,6 +765,75 @@ function HomeScreenBody({
                 </div>
               </>
             )}
+          </div>
+
+          {/* Persistent strength shortcuts — always available for PPL / Full Body testing */}
+          <div>
+            <div style={{
+              fontSize: 11,
+              color: 'rgba(255,255,255,0.25)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+              marginBottom: 8,
+            }}>
+              Strength
+            </div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+              gap: 6,
+            }}>
+              {STRENGTH_QUICK_START.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => onSelectWorkout(item.id)}
+                  style={{
+                    background: '#161616',
+                    border: '0.5px solid rgba(255,255,255,0.12)',
+                    borderRadius: 8,
+                    padding: '12px 8px',
+                    color: '#fff',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'border-color 0.12s, background 0.12s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'rgba(239,68,68,0.55)'
+                    e.currentTarget.style.background = '#1a1a1a'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'
+                    e.currentTarget.style.background = '#161616'
+                  }}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setRecommendedOpen(true)}
+              style={{
+                marginTop: 8,
+                width: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 4,
+                background: 'rgba(80, 16, 20, 0.35)',
+                border: '0.5px solid rgba(185, 48, 55, 0.65)',
+                borderRadius: 10,
+                padding: '14px 12px',
+                cursor: 'pointer',
+              }}
+            >
+              <span style={{ fontSize: 14, color: 'rgba(255,200,200,0.85)', lineHeight: 1 }}>✦</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Recommended</span>
+              <span style={{ fontSize: 12, color: 'rgba(248,113,113,0.85)' }}>Based on how you feel</span>
+            </button>
           </div>
 
           {/* Next 7 days */}
@@ -931,6 +1059,16 @@ function HomeScreenBody({
         onSelectCore={onSelectCore}
         onSelectMobility={onSelectMobility}
         onSelectTimer={onSelectTimer}
+      />
+
+      <RecommendedWorkoutFlow
+        open={recommendedOpen}
+        category={recommendedCategory}
+        onClose={() => setRecommendedOpen(false)}
+        onStart={(workoutId, exercises) => {
+          setRecommendedOpen(false)
+          onStartRecommendedWorkout(workoutId, exercises)
+        }}
       />
 
       {saveToast && (

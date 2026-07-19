@@ -7,7 +7,6 @@ import { paletteFromProfile } from './paletteFromProfile'
 import { saveUserPalette } from './preferencesRepository'
 import { updatePlanOverride } from './trainingLedgerService'
 import { saveLocalLedger } from '../adapters/localLedgerStorage'
-import { getPlanOverrides } from './trainingLedgerService'
 import { defaultTemplateSources } from './workoutTemplateService'
 
 function stripForEditSnapshot(profile: UserProfile): UserProfile {
@@ -25,37 +24,33 @@ export function isEditingRoutine(profile: UserProfile): boolean {
   return Boolean(profile.editRoutineSnapshot)
 }
 
-function datesForCurrentWeek(reference = new Date()): string[] {
+function datesForForwardWindow(dayCount = 14, reference = new Date()): string[] {
   const anchor = new Date(reference)
   anchor.setHours(12, 0, 0, 0)
-  const sunday = new Date(anchor)
-  sunday.setDate(anchor.getDate() - anchor.getDay())
-  return Array.from({ length: 7 }, (_, index) => {
-    const day = new Date(sunday)
-    day.setDate(sunday.getDate() + index)
+  return Array.from({ length: dayCount }, (_, index) => {
+    const day = new Date(anchor)
+    day.setDate(anchor.getDate() + index)
     return toDateString(day)
   })
 }
 
 export function reseedPlanOverridesFromProfile(profile: UserProfile): void {
   const plan = profile.defaultWeeklyPlan ?? generateWeeklyPlan(profile)
-  const dates = datesForCurrentWeek()
-  dates.forEach((date, index) => {
-    const slot = plan[index]
+  // Seed today + next 13 days so Home's rolling week always has the chosen program.
+  datesForForwardWindow(14).forEach((date) => {
+    const weekday = new Date(`${date}T12:00:00`).getDay()
+    const slot = plan[weekday]
     if (slot) updatePlanOverride(date, [slot.type])
   })
 }
 
 export function seedPlanOverridesFromProfile(profile: UserProfile): void {
-  const existing = getPlanOverrides()
-  if (Object.keys(existing).length > 0) return
-
   reseedPlanOverridesFromProfile(profile)
 }
 
 export function completeOnboarding(
   profile: UserProfile,
-  options?: { templateSources?: UserProfile['templateSources'] },
+  options?: { templateSources?: UserProfile['templateSources']; reseedPlan?: boolean },
 ): UserProfile {
   const templates = generateWorkoutTemplates(profile)
   const weeklyPlan = generateWeeklyPlan(profile)
@@ -76,7 +71,11 @@ export function completeOnboarding(
   }
   saveUserProfile(completed)
   saveUserPalette(paletteFromProfile(completed))
-  seedPlanOverridesFromProfile(completed)
+  if (options?.reseedPlan) {
+    reseedPlanOverridesFromProfile(completed)
+  } else {
+    seedPlanOverridesFromProfile(completed)
+  }
   return completed
 }
 

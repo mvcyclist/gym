@@ -2,8 +2,10 @@
 
 Covers the path from first visit through the main app.
 
-**New users** (after sign-in): Landing → Education → Onboarding (4 steps) → Home  
+**New users** (after sign-in): Landing → Education → Onboarding (5 steps) → Home  
 **Returning users** (after sign-in): Landing → Home — skip Education and Onboarding
+
+Program choice (Push / Pull / Leg Split vs Full Body) is Step 2 — see [18-onboarding-program-choice.md](./18-onboarding-program-choice.md).
 
 Reference prototypes:
 - flow-overview.html (all three screens in context)

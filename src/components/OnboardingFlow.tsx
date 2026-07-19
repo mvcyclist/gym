@@ -8,6 +8,8 @@ import {
   type CardioModalityKey,
   type EquipmentKey,
   type OnboardingStep,
+  type ProgramChoicePhase,
+  type ProgramType,
   type UserProfile,
 } from '../types/userProfile'
 import {
@@ -21,6 +23,7 @@ import {
   SOURCE_LABELS,
   CYCLE_ORDER,
   isSourceAvailable,
+  cycleOrderForCategory,
 } from '../services/workoutTemplateService'
 import type { StrengthTemplateKey, TemplateSource } from '../types/userProfile'
 import {
@@ -30,6 +33,7 @@ import {
 import { completeOnboarding, saveOnboardingDraft, cancelEditRoutine, isEditingRoutine } from '../services/onboardingService'
 
 const RED = '#ef4444'
+const TOTAL_STEPS = 5
 
 interface OnboardingFlowProps {
   initialProfile: UserProfile
@@ -48,9 +52,21 @@ function cardioKeyToActivity(key: Exclude<CardioModalityKey, 'none'>): ActivityT
   return map[key]
 }
 
+function initialProgramType(profile: UserProfile, isEditMode: boolean): ProgramType | null {
+  if (profile.onboardingDraft?.programType) return profile.onboardingDraft.programType
+  if (isEditMode) return profile.programType ?? 'ppl'
+  return null
+}
+
 export function OnboardingFlow({ initialProfile, onComplete, onCancel }: OnboardingFlowProps) {
   const isEditMode = isEditingRoutine(initialProfile)
   const [step, setStep] = useState<OnboardingStep>(initialProfile.onboardingStep ?? 1)
+  const [programChoicePhase, setProgramChoicePhase] = useState<ProgramChoicePhase>(
+    () => initialProfile.onboardingDraft?.programChoicePhase ?? 'choose',
+  )
+  const [programType, setProgramType] = useState<ProgramType | null>(() =>
+    initialProgramType(initialProfile, isEditMode),
+  )
   const [equipment, setEquipment] = useState<EquipmentKey[]>(
     initialProfile.onboardingDraft?.equipment ?? initialProfile.equipment,
   )
@@ -71,6 +87,7 @@ export function OnboardingFlow({ initialProfile, onComplete, onCancel }: Onboard
   )
 
   const showBenchClarifier = needsBenchClarifier(equipment)
+  const isFullBody = programType === 'full_body'
 
   const draftProfile = useMemo(
     (): UserProfile => ({
@@ -78,11 +95,22 @@ export function OnboardingFlow({ initialProfile, onComplete, onCancel }: Onboard
       canBench: showBenchClarifier ? canBench : null,
       cardioModalities,
       wantsMobility,
-      wantsCore,
+      wantsCore: isFullBody ? false : wantsCore,
+      programType: programType ?? undefined,
       onboardingComplete: false,
       onboardingStep: step,
     }),
-    [canBench, cardioModalities, equipment, showBenchClarifier, step, wantsCore, wantsMobility],
+    [
+      canBench,
+      cardioModalities,
+      equipment,
+      isFullBody,
+      programType,
+      showBenchClarifier,
+      step,
+      wantsCore,
+      wantsMobility,
+    ],
   )
 
   const templates = useMemo(() => generateWorkoutTemplates(draftProfile), [draftProfile])
@@ -105,15 +133,25 @@ export function OnboardingFlow({ initialProfile, onComplete, onCancel }: Onboard
       }),
     [previewProfile, templateSources],
   )
+
+  const fullBodyPreview = useMemo(() => {
+    const source = templateSources.full_body ?? defaultTemplateSources(previewProfile).full_body ?? 'default'
+    const exercises = getExercisesForSource('full_body', source, previewProfile)
+    return { source, exercises }
+  }, [previewProfile, templateSources])
+
   const weeklyPlan = useMemo(
     () =>
       weeklyPlanWithDayLabels(
-        generateWeeklyPlan({ ...draftProfile, programType: initialProfile.programType }),
+        generateWeeklyPlan({
+          ...draftProfile,
+          programType: programType ?? 'ppl',
+        }),
       ),
-    [draftProfile, initialProfile.programType],
+    [draftProfile, programType],
   )
 
-  const persistStep = (nextStep: OnboardingStep) => {
+  const persistDraft = (nextStep: OnboardingStep, phase: ProgramChoicePhase = programChoicePhase) => {
     if (!isEditMode) {
       saveOnboardingDraft({
         ...initialProfile,
@@ -124,11 +162,18 @@ export function OnboardingFlow({ initialProfile, onComplete, onCancel }: Onboard
           canBench: showBenchClarifier ? canBench : null,
           cardioModalities,
           wantsMobility,
-          wantsCore,
+          wantsCore: isFullBody ? false : wantsCore,
+          programType: programType ?? undefined,
+          programChoicePhase: phase,
         },
       })
     }
     setStep(nextStep)
+    setProgramChoicePhase(phase)
+  }
+
+  const persistStep = (nextStep: OnboardingStep) => {
+    persistDraft(nextStep, nextStep === 2 ? programChoicePhase : 'choose')
   }
 
   const handleCancel = () => {
@@ -164,23 +209,34 @@ export function OnboardingFlow({ initialProfile, onComplete, onCancel }: Onboard
       ...defaultTemplateSources({ ...draftProfile, generatedTemplates: templates }),
       ...templateSources,
     }
+    if (isFullBody) {
+      resolvedSources.full_body = resolvedSources.full_body ?? 'default'
+    }
+
     completeOnboarding(
       {
         ...initialProfile,
         ...draftProfile,
+        programType: programType ?? 'ppl',
         canBench: showBenchClarifier ? canBench : null,
+        wantsCore: isFullBody ? false : wantsCore,
         templateSources: resolvedSources,
       },
-      { templateSources: resolvedSources },
+      {
+        templateSources: resolvedSources,
+        reseedPlan: isEditMode,
+      },
     )
     onComplete()
   }
 
   const cycleStrengthSource = (category: StrengthTemplateKey) => {
-    const current = templateSources[category] ?? defaultTemplateSources(previewProfile)[category] ?? 'generated'
-    const currentIndex = CYCLE_ORDER.indexOf(current)
-    for (let offset = 1; offset <= CYCLE_ORDER.length; offset += 1) {
-      const candidate = CYCLE_ORDER[(currentIndex + offset) % CYCLE_ORDER.length]
+    const order = cycleOrderForCategory(category)
+    const current =
+      templateSources[category] ?? defaultTemplateSources(previewProfile)[category] ?? order[0]
+    const currentIndex = order.indexOf(current)
+    for (let offset = 1; offset <= order.length; offset += 1) {
+      const candidate = order[(currentIndex + offset) % order.length]
       if (isSourceAvailable(category, candidate, previewProfile)) {
         setTemplateSources((prev) => ({ ...prev, [category]: candidate }))
         return
@@ -191,6 +247,14 @@ export function OnboardingFlow({ initialProfile, onComplete, onCancel }: Onboard
   const selectedCardio = cardioModalities.filter(
     (key): key is Exclude<CardioModalityKey, 'none'> => key !== 'none',
   )
+
+  const goToProgramConfirm = () => {
+    if (!programType) return
+    persistDraft(2, 'confirm')
+  }
+
+  const programLabel =
+    programType === 'full_body' ? 'Full Body' : programType === 'ppl' ? 'Push / Pull / Leg Split' : null
 
   return (
     <div style={{
@@ -204,7 +268,7 @@ export function OnboardingFlow({ initialProfile, onComplete, onCancel }: Onboard
       fontFamily: 'system-ui, -apple-system, sans-serif',
     }}>
       <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 3, background: 'rgba(255,255,255,0.06)', zIndex: 100 }}>
-        <div style={{ height: '100%', width: `${step * 25}%`, background: RED, transition: 'width 0.4s ease' }} />
+        <div style={{ height: '100%', width: `${(step / TOTAL_STEPS) * 100}%`, background: RED, transition: 'width 0.4s ease' }} />
       </div>
 
       <nav style={{
@@ -217,11 +281,11 @@ export function OnboardingFlow({ initialProfile, onComplete, onCancel }: Onboard
         marginTop: 3,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <img src="/bd-gym-logo.png" alt="" width={36} height={36} style={{ mixBlendMode: 'screen' }} />
+          <img src={`${import.meta.env.BASE_URL}bd-gym-logo.png`} alt="" width={36} height={36} style={{ mixBlendMode: 'screen' }} />
           <span style={{ fontSize: 15, fontWeight: 700 }}>BusyDad Gym</span>
         </div>
         <span style={{ marginLeft: 'auto', fontSize: 12, color: 'rgba(255,255,255,0.25)' }}>
-          Step {step} of 4
+          Step {step} of {TOTAL_STEPS}
         </span>
         {isEditMode && (
           <button
@@ -255,10 +319,10 @@ export function OnboardingFlow({ initialProfile, onComplete, onCancel }: Onboard
           {step === 1 && (
             <>
               <ScreenHeader
-                label={isEditMode ? 'Edit routine — Equipment' : 'Step 1 of 4 — Equipment'}
+                label={isEditMode ? 'Edit routine — Equipment' : `Step 1 of ${TOTAL_STEPS} — Equipment`}
                 heading={<>What do you have to <em style={{ color: RED, fontStyle: 'normal' }}>work with?</em></>}
                 sub={isEditMode
-                  ? "Update what's available. Changes apply only if you finish all four steps."
+                  ? `Update what's available. Changes apply only if you finish all ${TOTAL_STEPS} steps.`
                   : "Select everything available to you. We'll build your routine around what you have — nothing else."}
               />
               <OptionGrid>
@@ -287,7 +351,7 @@ export function OnboardingFlow({ initialProfile, onComplete, onCancel }: Onboard
                   </div>
                   <div style={{ display: 'flex', gap: 10 }}>
                     <ClarifierButton selected={canBench === true} onClick={() => setCanBench(true)}>
-                      Yes, I'm set up to bench
+                      Yes, I&apos;m set up to bench
                     </ClarifierButton>
                     <ClarifierButton selected={canBench === false} onClick={() => setCanBench(false)}>
                       No — floor press only
@@ -296,19 +360,102 @@ export function OnboardingFlow({ initialProfile, onComplete, onCancel }: Onboard
                 </div>
               )}
               <ButtonRow>
-                <PrimaryButton disabled={!step1Valid} onClick={() => persistStep(2)}>
-                  Next — Cardio →
+                <PrimaryButton disabled={!step1Valid} onClick={() => persistDraft(2, 'choose')}>
+                  Next — Program →
                 </PrimaryButton>
               </ButtonRow>
             </>
           )}
 
-          {step === 2 && (
+          {step === 2 && programChoicePhase === 'choose' && (
             <>
               <ScreenHeader
-                label="Step 2 of 4 — Cardio"
+                label={`Step 2 of ${TOTAL_STEPS} — Program`}
+                heading={<>How do you want to <em style={{ color: RED, fontStyle: 'normal' }}>train?</em></>}
+                sub="Pick a weekly structure. You can switch later in settings."
+              />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: '1rem' }}>
+                <ProgramPickCard
+                  selected={programType === 'ppl'}
+                  onClick={() => setProgramType('ppl')}
+                  title="Push / Pull / Leg Split"
+                  headline="Split your week by movement"
+                  oneLiner="Classic three-day strength split. More volume per muscle group."
+                  bestIf="You can train across the week and like session variety"
+                  weekGlance="Push · Pull · Legs + cardio / rest"
+                  feel="Focused days — press one day, pull another, legs another"
+                />
+                <ProgramPickCard
+                  selected={programType === 'full_body'}
+                  onClick={() => setProgramType('full_body')}
+                  title="Full Body"
+                  headline="Train the whole body each session"
+                  oneLiner="Three full sessions per week. Same lifts, guided warm-up / core / mobility."
+                  bestIf="You want fewer decisions and ~60–80 min sessions"
+                  weekGlance="Mon / Wed / Fri Full Body + flex cardio / rest"
+                  feel="One start → warm-up audio → lifts → core audio → mobility audio"
+                />
+              </div>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.28)', marginBottom: '2rem' }}>
+                You can switch later in settings.
+              </p>
+              <ButtonRow>
+                <BackButton onClick={() => persistStep(1)}>← Back</BackButton>
+                <PrimaryButton disabled={!programType} onClick={goToProgramConfirm}>
+                  {programLabel ? `Continue with ${programLabel} →` : 'Continue →'}
+                </PrimaryButton>
+              </ButtonRow>
+            </>
+          )}
+
+          {step === 2 && programChoicePhase === 'confirm' && programType && (
+            <>
+              <ScreenHeader
+                label={`Step 2 of ${TOTAL_STEPS} — Confirm program`}
+                heading={
+                  programType === 'full_body'
+                    ? <>Full Body, <em style={{ color: RED, fontStyle: 'normal' }}>locked in?</em></>
+                    : <>Push / Pull / Leg Split, <em style={{ color: RED, fontStyle: 'normal' }}>locked in?</em></>
+                }
+                sub={
+                  programType === 'full_body'
+                    ? 'Three strength days. Guided warm-up, core, and mobility built into every session.'
+                    : 'Four strength templates tailored to your equipment, plus cardio on the side days.'
+                }
+              />
+              <WeekStrip days={weeklyPlan} />
+              {programType === 'ppl' ? (
+                <ConfirmNotes
+                  bullets={[
+                    'You’ll get four templates: Push, Pull, Leg, and Core — tailored to your equipment.',
+                    'Core can also show up as a nudge after strength days.',
+                  ]}
+                />
+              ) : (
+                <ConfirmNotes
+                  bullets={[
+                    'Each strength day: guided warm-up → main lifts → guided core → guided mobility.',
+                    'Floating rest — take it when life or fatigue says so; recommendations adapt to what you log.',
+                  ]}
+                />
+              )}
+              <ButtonRow>
+                <BackButton onClick={() => persistDraft(2, 'choose')}>← Compare again</BackButton>
+                <PrimaryButton onClick={() => persistStep(3)}>This is my program →</PrimaryButton>
+              </ButtonRow>
+            </>
+          )}
+
+          {step === 3 && (
+            <>
+              <ScreenHeader
+                label={`Step 3 of ${TOTAL_STEPS} — Cardio`}
                 heading={<>What cardio do you <em style={{ color: RED, fontStyle: 'normal' }}>actually do?</em></>}
-                sub="Pick what you do regularly. We'll slot it into your weekly plan alongside your strength sessions."
+                sub={
+                  isFullBody
+                    ? "We'll use these on days between Full Body sessions."
+                    : "We'll slot these between Push / Pull / Leg days."
+                }
               />
               <OptionGrid>
                 {CARDIO_OPTIONS.map((option) => (
@@ -324,21 +471,25 @@ export function OnboardingFlow({ initialProfile, onComplete, onCancel }: Onboard
                 ))}
               </OptionGrid>
               <ButtonRow>
-                <BackButton onClick={() => persistStep(1)}>← Back</BackButton>
-                <PrimaryButton onClick={() => persistStep(3)}>Generate my routine →</PrimaryButton>
-                <SkipButton onClick={() => { setCardioModalities([]); persistStep(3) }}>Skip</SkipButton>
+                <BackButton onClick={() => persistDraft(2, 'confirm')}>← Back</BackButton>
+                <PrimaryButton onClick={() => persistStep(4)}>Generate my routine →</PrimaryButton>
+                <SkipButton onClick={() => { setCardioModalities([]); persistStep(4) }}>Skip</SkipButton>
               </ButtonRow>
             </>
           )}
 
-          {step === 3 && (
+          {step === 4 && (
             <>
               <ScreenHeader
-                label="Step 3 of 4 — Your routine"
+                label={`Step 4 of ${TOTAL_STEPS} — Your routine`}
                 heading={<>Built around <em style={{ color: RED, fontStyle: 'normal' }}>what you have.</em></>}
-                sub="Four strength sessions plus your cardio. We’ll use your logged workouts when available — tap shuffle to try other sets."
+                sub={
+                  isFullBody
+                    ? 'One Full Body strength session plus your cardio. Tap shuffle if you want another exercise set.'
+                    : "Four strength sessions plus your cardio. We'll use your logged workouts when available — tap shuffle to try other sets."
+                }
               />
-              {hasAnyStrengthHistory() && (
+              {!isFullBody && hasAnyStrengthHistory() && (
                 <div style={{
                   background: 'rgba(239,68,68,0.06)',
                   border: '0.5px solid rgba(239,68,68,0.2)',
@@ -353,16 +504,26 @@ export function OnboardingFlow({ initialProfile, onComplete, onCancel }: Onboard
                 </div>
               )}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: '2.5rem' }}>
-                {strengthCards.map(({ category, source, exercises }) => (
+                {isFullBody ? (
                   <StrengthRoutineCard
-                    key={category}
-                    category={category}
-                    source={source}
-                    exercises={formatExerciseList(exercises)}
-                    count={`${exercises.length} exercises`}
-                    onShuffle={() => cycleStrengthSource(category)}
+                    category="full_body"
+                    source={fullBodyPreview.source}
+                    exercises={formatExerciseList(fullBodyPreview.exercises)}
+                    count={`${fullBodyPreview.exercises.length} main lifts · warm-up, core & mobility guided`}
+                    onShuffle={() => cycleStrengthSource('full_body')}
                   />
-                ))}
+                ) : (
+                  strengthCards.map(({ category, source, exercises }) => (
+                    <StrengthRoutineCard
+                      key={category}
+                      category={category}
+                      source={source}
+                      exercises={formatExerciseList(exercises)}
+                      count={`${exercises.length} exercises`}
+                      onShuffle={() => cycleStrengthSource(category)}
+                    />
+                  ))
+                )}
                 {selectedCardio.map((key) => (
                   <RoutineCard
                     key={key}
@@ -374,44 +535,44 @@ export function OnboardingFlow({ initialProfile, onComplete, onCancel }: Onboard
                 ))}
               </div>
               <ButtonRow>
-                <BackButton onClick={() => persistStep(2)}>← Back</BackButton>
-                <PrimaryButton onClick={() => persistStep(4)}>Looks good →</PrimaryButton>
+                <BackButton onClick={() => persistStep(3)}>← Back</BackButton>
+                <PrimaryButton onClick={() => persistStep(5)}>Looks good →</PrimaryButton>
               </ButtonRow>
             </>
           )}
 
-          {step === 4 && (
+          {step === 5 && (
             <>
               <ScreenHeader
-                label="Step 4 of 4 — Your week"
+                label={`Step 5 of ${TOTAL_STEPS} — Your week`}
                 heading={<>Your week, <em style={{ color: RED, fontStyle: 'normal' }}>sorted.</em></>}
                 sub="Strength, cardio, and recovery already balanced."
               />
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 8, marginBottom: '2rem' }}>
-                {weeklyPlan.map((day) => (
-                  <div key={day.dayLabel} style={{
-                    background: '#111',
-                    border: '0.5px solid rgba(255,255,255,0.07)',
-                    borderRadius: 10,
-                    padding: '12px 10px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: 7,
-                  }}>
-                    <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase' }}>{day.dayLabel}</span>
-                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: SESSION_DOT_COLORS[day.type] }} />
-                    <span style={{ fontSize: 13, fontWeight: 600, textAlign: 'center' }}>{SESSION_DISPLAY_LABELS[day.type]}</span>
-                    {day.meta && <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', textAlign: 'center' }}>{day.meta}</span>}
-                  </div>
-                ))}
-              </div>
+              <WeekStrip days={weeklyPlan} />
               <AddonDivider />
-              <AddonCard icon="🧘" name="Mobility sessions" description="10–15 min on cardio or rest days." selected={wantsMobility} onToggle={() => setWantsMobility((v) => !v)} />
-              <AddonCard icon="⚡" name="Core reminders" description="Nudge to add core after Push or Pull." selected={wantsCore} onToggle={() => setWantsCore((v) => !v)} />
+              <AddonCard
+                icon="🧘"
+                name="Mobility sessions"
+                description={
+                  isFullBody
+                    ? 'Extra mobility on off days (already included in Full Body sessions).'
+                    : '10–15 min on cardio or rest days.'
+                }
+                selected={wantsMobility}
+                onToggle={() => setWantsMobility((v) => !v)}
+              />
+              {!isFullBody && (
+                <AddonCard
+                  icon="⚡"
+                  name="Core reminders"
+                  description="Nudge to add core after Push or Pull."
+                  selected={wantsCore}
+                  onToggle={() => setWantsCore((v) => !v)}
+                />
+              )}
               <div style={{ marginTop: '2rem' }}>
                 <ButtonRow>
-                  <BackButton onClick={() => persistStep(3)}>← Back</BackButton>
+                  <BackButton onClick={() => persistStep(4)}>← Back</BackButton>
                   <PrimaryButton onClick={handleFinish}>Start training →</PrimaryButton>
                 </ButtonRow>
               </div>
@@ -457,6 +618,129 @@ function SelectCard({ selected, onClick, icon, name, description, compact }: {
   )
 }
 
+function ProgramPickCard({
+  selected,
+  onClick,
+  title,
+  headline,
+  oneLiner,
+  bestIf,
+  weekGlance,
+  feel,
+}: {
+  selected: boolean
+  onClick: () => void
+  title: string
+  headline: string
+  oneLiner: string
+  bestIf: string
+  weekGlance: string
+  feel: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        background: selected ? 'rgba(239,68,68,0.06)' : '#111',
+        border: `0.5px solid ${selected ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.08)'}`,
+        borderRadius: 12,
+        padding: '1.5rem 1.375rem',
+        cursor: 'pointer',
+        textAlign: 'left',
+        color: '#fff',
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+        minHeight: 280,
+      }}
+    >
+      <span style={{
+        position: 'absolute', top: 14, right: 14, width: 20, height: 20, borderRadius: '50%',
+        border: `1.5px solid ${selected ? RED : 'rgba(255,255,255,0.15)'}`,
+        background: selected ? RED : 'transparent',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#fff',
+      }}>
+        {selected ? '✓' : ''}
+      </span>
+      <div style={{ fontSize: 11, color: 'rgba(239,68,68,0.75)', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 600 }}>
+        {title}
+      </div>
+      <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.25, paddingRight: 24 }}>{headline}</div>
+      <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 1.5 }}>{oneLiner}</div>
+      <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 8 }}>
+        <MetaRow label="Best if" value={bestIf} />
+        <MetaRow label="Week" value={weekGlance} />
+        <MetaRow label="Feel" value={feel} />
+      </div>
+    </button>
+  )
+}
+
+function MetaRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ fontSize: 12, lineHeight: 1.45 }}>
+      <span style={{ color: 'rgba(255,255,255,0.28)' }}>{label}: </span>
+      <span style={{ color: 'rgba(255,255,255,0.55)' }}>{value}</span>
+    </div>
+  )
+}
+
+function WeekStrip({ days }: { days: Array<{ dayLabel: string; type: ActivityType; meta?: string }> }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 8, marginBottom: '1.5rem' }}>
+      {days.map((day) => (
+        <div key={day.dayLabel} style={{
+          background: '#111',
+          border: '0.5px solid rgba(255,255,255,0.07)',
+          borderRadius: 10,
+          padding: '12px 10px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 7,
+        }}>
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase' }}>{day.dayLabel}</span>
+          <div style={{ width: 7, height: 7, borderRadius: '50%', background: SESSION_DOT_COLORS[day.type] }} />
+          <span style={{ fontSize: 13, fontWeight: 600, textAlign: 'center' }}>{SESSION_DISPLAY_LABELS[day.type]}</span>
+          {day.meta && <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', textAlign: 'center' }}>{day.meta}</span>}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function ConfirmNotes({ bullets }: { bullets: string[] }) {
+  return (
+    <ul style={{
+      listStyle: 'none',
+      padding: 0,
+      margin: '0 0 2rem',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 10,
+    }}>
+      {bullets.map((bullet) => (
+        <li
+          key={bullet}
+          style={{
+            background: '#111',
+            border: '0.5px solid rgba(255,255,255,0.08)',
+            borderRadius: 10,
+            padding: '1rem 1.25rem',
+            fontSize: 14,
+            color: 'rgba(255,255,255,0.55)',
+            lineHeight: 1.5,
+          }}
+        >
+          {bullet}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 function StrengthRoutineCard({
   category,
   source,
@@ -470,13 +754,19 @@ function StrengthRoutineCard({
   count: string
   onShuffle: () => void
 }) {
-  const activityType = category === 'leg' ? 'Leg' : (category.charAt(0).toUpperCase() + category.slice(1)) as 'Push' | 'Pull' | 'Core'
+  const activityType: ActivityType =
+    category === 'full_body'
+      ? 'Full Body'
+      : category === 'leg'
+        ? 'Leg'
+        : (category.charAt(0).toUpperCase() + category.slice(1)) as 'Push' | 'Pull' | 'Core'
   return (
     <div style={{
       background: '#111',
       border: '0.5px solid rgba(255,255,255,0.08)',
       borderRadius: 10,
       padding: '1.25rem 1.375rem',
+      gridColumn: category === 'full_body' ? '1 / -1' : undefined,
     }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
         <div style={{ width: 8, height: 8, borderRadius: '50%', marginTop: 3, background: SESSION_DOT_COLORS[activityType] }} />

@@ -3,6 +3,7 @@ import {
   getTomorrowWorkoutRecommendation,
   getTodayRecommendation,
   getWeeklyPlan,
+  type WeeklyPlanDay,
 } from '../services/recommendationService'
 import { countDaysWithActivity } from '../services/recommendationReadiness'
 import {
@@ -26,6 +27,36 @@ import {
   buildWorkoutSessionSummary,
   type TodaySummary,
 } from '../utils/workoutSummary'
+import { getUserProfile } from '../services/userProfileRepository'
+import {
+  getScheduledForwardDays,
+  type ScheduledDay,
+} from '../services/weeklyPlanFromProfile'
+import { reseedPlanOverridesFromProfile } from '../services/onboardingService'
+
+function scheduledToWeeklyPlanDay(day: ScheduledDay): WeeklyPlanDay {
+  const workoutType: WorkoutRecommendation['workoutType'] =
+    day.type === 'Swim' ||
+    day.type === 'Bike' ||
+    day.type === 'Run' ||
+    day.type === 'Walk' ||
+    day.type === 'HIIT'
+      ? 'Mobility'
+      : day.type === 'Other'
+        ? 'Rest'
+        : (day.type as WorkoutRecommendation['workoutType'])
+
+  return {
+    date: day.date,
+    dayLabel: day.dayLabel,
+    displayType: day.type,
+    recommendation: {
+      workoutType,
+      title: day.type === 'Rest' ? 'Rest day' : `${day.type} day`,
+      reason: day.source === 'override' ? 'From your weekly plan.' : 'From your program schedule.',
+    },
+  }
+}
 
 export function useActivityHistory() {
   const { ledgerVersion } = useAuth()
@@ -46,6 +77,18 @@ export function useActivityHistory() {
       document.removeEventListener('visibilitychange', refreshIfVisible)
     }
   }, [refresh])
+
+  // Ensure onboarding program lands on Home even if overrides were never seeded.
+  useEffect(() => {
+    const profile = getUserProfile()
+    if (!profile.onboardingComplete) return
+    const overrides = getPlanOverrides()
+    const today = toDateString(new Date())
+    if (!overrides[today]?.length) {
+      reseedPlanOverridesFromProfile(profile)
+      refresh()
+    }
+  }, [ledgerVersion, refresh])
 
   const activityHistory = useMemo((): DayActivity[] => {
     void revision
@@ -91,15 +134,29 @@ export function useActivityHistory() {
     return getTomorrowWorkoutRecommendation(activityHistory)
   }, [activityHistory, todayLogged])
 
-  const weeklyPlan = useMemo(() => {
-    if (!recommendationReady) return []
-    return getWeeklyPlan(activityHistory)
-  }, [activityHistory, recommendationReady])
-
   const planOverrides = useMemo((): Record<string, ActivityType[]> => {
     void revision
     void ledgerVersion
     return getPlanOverrides()
+  }, [ledgerVersion, revision])
+
+  const weeklyPlan = useMemo((): WeeklyPlanDay[] => {
+    void revision
+    void ledgerVersion
+    const profile = getUserProfile()
+    if (profile.onboardingComplete) {
+      return getScheduledForwardDays(profile, getPlanOverrides(), 7).map(scheduledToWeeklyPlanDay)
+    }
+    if (!recommendationReady) return []
+    return getWeeklyPlan(activityHistory)
+  }, [activityHistory, ledgerVersion, recommendationReady, revision])
+
+  const scheduledToday = useMemo((): ScheduledDay | null => {
+    void revision
+    void ledgerVersion
+    const profile = getUserProfile()
+    if (!profile.onboardingComplete) return null
+    return getScheduledForwardDays(profile, getPlanOverrides(), 1)[0] ?? null
   }, [ledgerVersion, revision])
 
   const replaceDayActivities = useCallback(
@@ -159,6 +216,7 @@ export function useActivityHistory() {
     activeDaysCount,
     recommendationReady,
     recommendation,
+    scheduledToday,
     todayLogged,
     todaySummary,
     tomorrowRecommendation,

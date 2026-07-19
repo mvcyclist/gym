@@ -6,12 +6,11 @@ interface CoreViewProps {
   onLog: (durationMinutes: number) => void
 }
 
-const coreExercises = getWorkoutById('core')?.exercises ?? []
-
 export function CoreView({ onBack, onLog }: CoreViewProps) {
   const mountedAt = useRef(Date.now())
   const [showPrompt, setShowPrompt] = useState(false)
   const [duration, setDuration] = useState(25)
+  const coreExercises = getWorkoutById('core')?.exercises ?? []
 
   const handleBack = () => {
     const elapsed = (Date.now() - mountedAt.current) / 1000

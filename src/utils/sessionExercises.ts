@@ -32,7 +32,7 @@ function exerciseFromLog(
     name: log.exerciseName || template?.name || catalog?.name || catalogId,
     primaryMuscles: template?.primaryMuscles ?? ['General'],
     equipment: template?.equipment ?? '—',
-    sets: template?.sets ?? '3',
+    sets: log.sets.length > 0 ? String(log.sets.length) : (template?.sets ?? '3'),
     reps: template?.reps ?? '8–12',
     suggestedRestSeconds: catalog
       ? getDefaultRestSeconds(catalog)

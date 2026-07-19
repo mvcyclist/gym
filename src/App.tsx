@@ -45,8 +45,8 @@ import {
   isStructuredFullBodySession,
 } from './utils/fullBodySessionState'
 import { scrollToTop, scrollToTopAfterLayout } from './utils/scrollToTop'
-import type { WorkoutRecommendation, WorkoutType } from './types/training'
-import type { WorkoutCategory, WorkoutSession } from './types/workout'
+import type { ActivityType, WorkoutRecommendation, WorkoutType } from './types/training'
+import type { Exercise, WorkoutCategory, WorkoutSession } from './types/workout'
 import type { TodaySummary } from './utils/workoutSummary'
 
 type AppScreen = 'home' | 'workout' | 'timer-only' | 'mobility' | 'core-view' | 'cardio-log'
@@ -65,6 +65,7 @@ function WorkoutApp() {
   const [priorDayDraftOpen, setPriorDayDraftOpen] = useState(false)
   const [priorDayDraftSession, setPriorDayDraftSession] = useState<WorkoutSession | null>(null)
   const [pendingWorkoutId, setPendingWorkoutId] = useState<WorkoutCategory | null>(null)
+  const [pendingRecommendedExercises, setPendingRecommendedExercises] = useState<Exercise[] | null>(null)
   const [workoutCompleteOpen, setWorkoutCompleteOpen] = useState(false)
   const [workoutCompleteData, setWorkoutCompleteData] = useState<{
     todaySummary: TodaySummary
@@ -75,6 +76,7 @@ function WorkoutApp() {
     activityHistory,
     recommendationReady,
     recommendation,
+    scheduledToday,
     todayLogged,
     todaySummary,
     tomorrowRecommendation,
@@ -161,6 +163,7 @@ function WorkoutApp() {
     setPriorDayDraftOpen(false)
     setPriorDayDraftSession(null)
     setPendingWorkoutId(null)
+    setPendingRecommendedExercises(null)
     clearSession()
     reset()
     refresh()
@@ -265,6 +268,7 @@ function WorkoutApp() {
       if (existing && existing.workoutType !== workoutId) {
         resumeSession(existing.id, { activate: false })
         setPendingWorkoutId(workoutId)
+        setPendingRecommendedExercises(null)
         setLeaveWorkoutOpen(true)
         return
       }
@@ -286,6 +290,37 @@ function WorkoutApp() {
     reset()
     scrollToTopAfterLayout()
   }, [reset, selectedWorkoutType, startSession])
+
+  const beginRecommendedSession = useCallback(
+    (workoutId: WorkoutCategory, exercises: Exercise[]) => {
+      scrollToTop()
+      clearSession()
+      setSelectedWorkoutType(workoutId)
+      setCurrentExerciseIndex(0)
+      startSession(workoutId, exercises.map((exercise) => exercise.id), exercises)
+      setPendingRecommendedExercises(null)
+      setScreen('workout')
+      reset()
+      scrollToTopAfterLayout()
+    },
+    [clearSession, reset, startSession],
+  )
+
+  const handleStartRecommendedWorkout = useCallback(
+    (workoutId: WorkoutCategory, exercises: Exercise[]) => {
+      const existing = findTodaysResumableSession()
+      if (existing) {
+        resumeSession(existing.id, { activate: false })
+        setPendingWorkoutId(workoutId)
+        setPendingRecommendedExercises(exercises)
+        setLeaveWorkoutOpen(true)
+        return
+      }
+
+      beginRecommendedSession(workoutId, exercises)
+    },
+    [beginRecommendedSession, resumeSession],
+  )
 
   const handleSelectTimer = useCallback(() => {
     scrollToTop()
@@ -336,6 +371,13 @@ function WorkoutApp() {
     startFromRecommendation(recommendation.primary.type)
   }, [recommendation, startFromRecommendation])
 
+  const handleStartScheduledType = useCallback(
+    (type: ActivityType) => {
+      startFromRecommendation(type as WorkoutType)
+    },
+    [startFromRecommendation],
+  )
+
 const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
     refresh()
     const tomorrow = getTomorrowWorkoutRecommendation(getLastSevenDays())
@@ -357,10 +399,17 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
 
   const navigateAfterLeave = useCallback(() => {
     const nextWorkout = pendingWorkoutId
+    const nextRecommended = pendingRecommendedExercises
     setPendingWorkoutId(null)
+    setPendingRecommendedExercises(null)
     setLeaveWorkoutOpen(false)
     clearSession()
     reset()
+
+    if (nextWorkout && nextRecommended && nextRecommended.length > 0) {
+      beginRecommendedSession(nextWorkout, nextRecommended)
+      return
+    }
 
     if (nextWorkout) {
       openWorkoutPreview(nextWorkout)
@@ -371,7 +420,15 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
     setSelectedWorkoutType(null)
     setCurrentExerciseIndex(0)
     refresh()
-  }, [clearSession, openWorkoutPreview, pendingWorkoutId, refresh, reset])
+  }, [
+    beginRecommendedSession,
+    clearSession,
+    openWorkoutPreview,
+    pendingRecommendedExercises,
+    pendingWorkoutId,
+    refresh,
+    reset,
+  ])
 
   const handleBackFromWorkoutPreview = useCallback(() => {
     goHome()
@@ -390,6 +447,7 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
     pauseWorkout()
     setLeaveWorkoutOpen(false)
     setPendingWorkoutId(null)
+    setPendingRecommendedExercises(null)
     clearSession()
     setScreen('home')
     setSelectedWorkoutType(null)
@@ -400,11 +458,18 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
   const navigateAfterPartialSave = useCallback(
     (partial: WorkoutSession) => {
       const nextWorkout = pendingWorkoutId
+      const nextRecommended = pendingRecommendedExercises
       setPendingWorkoutId(null)
+      setPendingRecommendedExercises(null)
       setLeaveWorkoutOpen(false)
       setSaveProgressOpen(false)
       clearSession()
       reset()
+
+      if (nextWorkout && nextRecommended && nextRecommended.length > 0) {
+        beginRecommendedSession(nextWorkout, nextRecommended)
+        return
+      }
 
       if (nextWorkout) {
         openWorkoutPreview(nextWorkout)
@@ -419,8 +484,10 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
       }
     },
     [
+      beginRecommendedSession,
       clearSession,
       openWorkoutPreview,
+      pendingRecommendedExercises,
       pendingWorkoutId,
       refresh,
       reset,
@@ -709,6 +776,7 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
             activityHistory={activityHistory}
             recommendationReady={recommendationReady}
             recommendation={recommendation}
+            scheduledTodayType={scheduledToday?.type ?? null}
             todayLogged={todayLogged}
             todaySummary={todaySummary}
             tomorrowRecommendation={tomorrowRecommendation}
@@ -723,7 +791,9 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
             onUpdateDayActivities={replaceDayActivities}
             onSetPlanOverride={setPlanOverride}
             onStartRecommendation={handleStartRecommendation}
+            onStartScheduledType={handleStartScheduledType}
             onSelectWorkout={handleSelectWorkout}
+            onStartRecommendedWorkout={handleStartRecommendedWorkout}
             onSelectCardio={handleSelectCardio}
             onSelectCore={handleSelectCore}
             onSelectTimer={handleSelectTimer}
