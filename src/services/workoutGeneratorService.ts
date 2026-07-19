@@ -2,7 +2,7 @@
  * Equipment-aware workout template generation via pattern / accessory pools.
  */
 import type { Exercise } from '../types/workout'
-import type { GeneratedWorkoutTemplates, UserProfile } from '../types/userProfile'
+import type { GeneratedWorkoutTemplates } from '../types/userProfile'
 import {
   canBenchPress,
   exerciseFromCatalogId,
@@ -356,7 +356,12 @@ export function generateLegExercises(profile: PickInput): Exercise[] {
 
 export function generateCoreExercises(profile: PickInput): Exercise[] {
   const baseIds = ['plank', 'side_plank', 'dead_bug', 'hollow_hold', 'mountain_climber'] as const
-  const slots = baseIds.map((catalogId) => ({
+  const slots: Array<{
+    catalogId: string
+    sets: string
+    reps: string
+    muscles: string[]
+  }> = baseIds.map((catalogId) => ({
     catalogId,
     sets: '3',
     reps: '30–60 sec',

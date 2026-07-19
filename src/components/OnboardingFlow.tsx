@@ -21,7 +21,6 @@ import {
   getExercisesForSource,
   hasAnyStrengthHistory,
   SOURCE_LABELS,
-  CYCLE_ORDER,
   isSourceAvailable,
   cycleOrderForCategory,
 } from '../services/workoutTemplateService'

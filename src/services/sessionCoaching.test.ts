@@ -8,6 +8,7 @@ const weightedCatalog: CatalogExercise = {
   name: 'Bench Press',
   coachingMode: 'weighted',
   movementClass: 'compound_upper',
+  movementPattern: 'horizontal_push',
   weightIncrementLbs: 5,
 }
 
