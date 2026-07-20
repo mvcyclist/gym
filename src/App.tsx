@@ -5,11 +5,6 @@ import { HomeScreen } from './components/HomeScreen'
 import { useAuth } from './hooks/useAuth'
 import { useUserProfileContext } from './contexts/UserProfileContext'
 import { getWorkoutById } from './data/workouts'
-import {
-  getFullBodyPoolPreset,
-  getFullBodyPoolPresetExercises,
-  type FullBodyPoolPresetId,
-} from './data/fullBodyPoolPresets'
 import { getCatalogExerciseById, getDefaultRestSeconds } from './data/exerciseCatalog'
 import { MobilityView } from './components/MobilityView'
 import { CoreView } from './components/CoreView'
@@ -50,7 +45,7 @@ import {
   isStructuredFullBodySession,
 } from './utils/fullBodySessionState'
 import { scrollToTop, scrollToTopAfterLayout } from './utils/scrollToTop'
-import type { ActivityType, WorkoutRecommendation, WorkoutType } from './types/training'
+import type { WorkoutRecommendation, WorkoutType } from './types/training'
 import type { Exercise, WorkoutCategory, WorkoutSession } from './types/workout'
 import type { TodaySummary } from './utils/workoutSummary'
 
@@ -82,16 +77,6 @@ function WorkoutApp() {
 
   const {
     activityHistory,
-    recommendationReady,
-    recommendation,
-    scheduledToday,
-    todayLogged,
-    todaySummary,
-    tomorrowRecommendation,
-    weeklyPlan,
-    planOverrides,
-    replaceDayActivities,
-    setPlanOverride,
     refresh,
   } = useActivityHistory()
 
@@ -190,22 +175,6 @@ function WorkoutApp() {
       setPreviewTitle(null)
       setPreviewDescription(null)
       setSelectedWorkoutType(workoutId)
-      setCurrentExerciseIndex(0)
-      setScreen('workout')
-      reset()
-    },
-    [clearSession, reset],
-  )
-
-  const openPoolPresetPreview = useCallback(
-    (id: FullBodyPoolPresetId) => {
-      const preset = getFullBodyPoolPreset(id)
-      scrollToTop()
-      clearSession()
-      setSelectedWorkoutType('full_body')
-      setPreviewExercises(getFullBodyPoolPresetExercises(id))
-      setPreviewTitle(`Full Body · ${preset.label}`)
-      setPreviewDescription(preset.description)
       setCurrentExerciseIndex(0)
       setScreen('workout')
       reset()
@@ -361,12 +330,6 @@ function WorkoutApp() {
     [beginRecommendedSession, resumeSession],
   )
 
-  const handleSelectTimer = useCallback(() => {
-    scrollToTop()
-    setScreen('timer-only')
-    reset()
-  }, [reset])
-
   const handleSelectMobility = useCallback(() => {
     scrollToTop()
     setScreen('mobility')
@@ -405,19 +368,7 @@ function WorkoutApp() {
     [handleSelectCardio, handleSelectCore, handleSelectMobility, handleSelectWorkout],
   )
 
-  const handleStartRecommendation = useCallback(() => {
-    if (!recommendation) return
-    startFromRecommendation(recommendation.primary.type)
-  }, [recommendation, startFromRecommendation])
-
-  const handleStartScheduledType = useCallback(
-    (type: ActivityType) => {
-      startFromRecommendation(type as WorkoutType)
-    },
-    [startFromRecommendation],
-  )
-
-const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
+  const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
     refresh()
     const tomorrow = getTomorrowWorkoutRecommendation(getLastSevenDays())
     if (!tomorrow) return false
@@ -812,32 +763,13 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
         {screen === 'home' && (
           <HomeScreen
             userEmail={user?.email}
-            activityHistory={activityHistory}
-            recommendationReady={recommendationReady}
-            recommendation={recommendation}
-            scheduledTodayType={scheduledToday?.type ?? null}
-            todayLogged={todayLogged}
-            todaySummary={todaySummary}
-            tomorrowRecommendation={tomorrowRecommendation}
-            weeklyPlan={weeklyPlan}
-            planOverrides={planOverrides}
             onSignOut={() => void signOut()}
             onEditRoutine={refreshProfile}
             onProgramChanged={() => {
               refreshProfile()
               refresh()
             }}
-            onUpdateDayActivities={replaceDayActivities}
-            onSetPlanOverride={setPlanOverride}
-            onStartRecommendation={handleStartRecommendation}
-            onStartScheduledType={handleStartScheduledType}
-            onSelectWorkout={handleSelectWorkout}
-            onSelectPoolPreset={openPoolPresetPreview}
-            onStartRecommendedWorkout={handleStartRecommendedWorkout}
-            onSelectCardio={handleSelectCardio}
-            onSelectCore={handleSelectCore}
-            onSelectTimer={handleSelectTimer}
-            onSelectMobility={handleSelectMobility}
+            onStartBuilderWorkout={handleStartRecommendedWorkout}
           />
         )}
 

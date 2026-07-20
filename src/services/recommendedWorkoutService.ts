@@ -85,15 +85,14 @@ export function buildSlotOptions(
     return { groups: [], selected: undefined }
   }
 
-  const flat = groups.flatMap((group) => group.exercises)
+  // Prefer default only when it still sits in the effective resolved tier (groups[0]).
+  // Softer preferred IDs must not pull a "heavy" resolve down to moderate.
   if (preferredId) {
-    const preferred = flat.find((item) => item.id === preferredId)
-    if (preferred) return { groups, selected: preferred }
+    const inResolvedTier = groups[0].exercises.find((item) => item.id === preferredId)
+    if (inResolvedTier) return { groups, selected: inResolvedTier }
   }
 
-  // First entry in the (possibly softened) resolved tier group, else first softer group.
-  const selected = groups[0].exercises[0]
-  return { groups, selected }
+  return { groups, selected: groups[0].exercises[0] }
 }
 
 function resolvePatternSlot(
