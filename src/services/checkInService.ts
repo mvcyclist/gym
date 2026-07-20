@@ -1,15 +1,9 @@
 /**
- * Check-in → load tier (pain) and volume tier (fatigue).
- * See movement-pattern-refactor-spec.md Phase 3.
+ * Binary check-in → load tier + set count.
+ * See docs/21-checkin-binary-model.md.
  */
 import type { LoadTier, MovementPattern } from '../data/exerciseCatalog'
-import type {
-  BodyRegion,
-  CheckIn,
-  GlobalFeeling,
-  RegionStatus,
-  VolumeTier,
-} from '../types/checkIn'
+import type { BodyRegion, CheckIn, RegionStatus } from '../types/checkIn'
 
 export const REGION_TO_PATTERNS: Record<BodyRegion, MovementPattern[]> = {
   knees: ['squat'],
@@ -20,24 +14,8 @@ export const REGION_TO_PATTERNS: Record<BodyRegion, MovementPattern[]> = {
   elbows_wrists: ['horizontal_push', 'horizontal_pull'],
 }
 
-const GLOBAL_VOLUME_TIER: Record<Exclude<GlobalFeeling, 'skip'>, VolumeTier> = {
-  good: 'full',
-  meh: 'reduced',
-  beat_up: 'minimal',
-}
-
-const VOLUME_ORDER: VolumeTier[] = ['full', 'reduced', 'minimal']
-
-export const VOLUME_SET_COUNT: Record<VolumeTier, (templateSets: number) => number> = {
-  full: (s) => s,
-  reduced: (s) => Math.max(1, s - 1),
-  minimal: () => 1,
-}
-
-export const VOLUME_LOAD_FACTOR: Record<VolumeTier, number> = {
-  full: 1.0,
-  reduced: 0.9,
-  minimal: 0.75,
+function anyRegionBothering(regions: Record<BodyRegion, RegionStatus>): boolean {
+  return Object.values(regions).some((status) => status === 'bothering')
 }
 
 function gatingRegionsForPattern(pattern: MovementPattern): BodyRegion[] {
@@ -46,47 +24,68 @@ function gatingRegionsForPattern(pattern: MovementPattern): BodyRegion[] {
     .map(([region]) => region)
 }
 
-/** Pain axis only — sore does not downgrade load tier. */
-export function resolveLoadTier(
-  pattern: MovementPattern,
-  regions: Record<BodyRegion, RegionStatus>,
-): LoadTier {
-  if (pattern === 'accessory') return 'heavy'
-
-  let tier: LoadTier = 'heavy'
-  for (const region of gatingRegionsForPattern(pattern)) {
-    const status = regions[region]
-    if (status === 'achy') tier = 'low_impact'
-    else if (status === 'stiff' && tier !== 'low_impact') tier = 'moderate'
-  }
-  return tier
+/** Vague = not_100 with every region fine. Specific = at least one bothering. */
+export function isVagueNot100(checkIn: CheckIn): boolean {
+  return checkIn.global === 'not_100' && !anyRegionBothering(checkIn.regions)
 }
 
-/** Fatigue axis — global feeling + localized sore. */
-export function resolveVolumeTier(
-  pattern: MovementPattern,
-  global: Exclude<GlobalFeeling, 'skip'>,
-  regions: Record<BodyRegion, RegionStatus>,
-): VolumeTier {
-  let tier = GLOBAL_VOLUME_TIER[global]
-  if (pattern === 'accessory') return tier
+export function isSpecificNot100(checkIn: CheckIn): boolean {
+  return checkIn.global === 'not_100' && anyRegionBothering(checkIn.regions)
+}
 
-  for (const region of gatingRegionsForPattern(pattern)) {
-    if (regions[region] === 'sore') {
-      tier = VOLUME_ORDER[Math.min(VOLUME_ORDER.indexOf(tier) + 1, 2)]
-    }
-  }
-  return tier
+/**
+ * Pattern load tier from the binary model.
+ * Accessories must not call this — use the accessory branch in recommendedWorkoutService.
+ */
+export function resolveLoadTier(
+  pattern: Exclude<MovementPattern, 'accessory'>,
+  checkIn: CheckIn,
+): LoadTier {
+  if (checkIn.global === '100') return 'heavy'
+  if (checkIn.global === 'skip') return 'heavy'
+
+  if (!anyRegionBothering(checkIn.regions)) return 'moderate'
+
+  const patternBothered = gatingRegionsForPattern(pattern).some(
+    (region) => checkIn.regions[region] === 'bothering',
+  )
+  return patternBothered ? 'low_impact' : 'heavy'
+}
+
+/**
+ * Set count for a slot. Reads template default — never hardcodes 2.
+ * Same three-way split for pattern and accessory slots (vague → 1; else template).
+ */
+export function resolveSets(checkIn: CheckIn, templateSets: number): number {
+  const base = Number.isFinite(templateSets) && templateSets >= 1 ? Math.floor(templateSets) : 1
+  if (checkIn.global === '100') return base
+  if (checkIn.global === 'skip') return base
+
+  if (!anyRegionBothering(checkIn.regions)) return 1
+  return base
+}
+
+export function parseTemplateSets(sets: string): number {
+  const parsed = parseInt(sets, 10)
+  return Number.isNaN(parsed) || parsed < 1 ? 3 : parsed
 }
 
 export function sessionVolumeSummary(checkIn: CheckIn): string {
   if (checkIn.global === 'skip') return 'Take a rest day'
-  const volume = GLOBAL_VOLUME_TIER[checkIn.global]
-  if (volume === 'full') return 'Good to go — full volume'
-  if (volume === 'reduced') return 'Dialed back — reduced volume'
-  return 'Easy day — minimal volume'
+  if (checkIn.global === '100') return '100% — full weight, full volume'
+  if (isVagueNot100(checkIn)) {
+    return 'Not 100%, nothing specific — dialed back everywhere'
+  }
+  return 'Not 100%, but you named it — full volume, adjusted only where it hurts'
 }
 
 export function isSkipCheckIn(checkIn: CheckIn): boolean {
   return checkIn.global === 'skip'
+}
+
+/** Tiers at or more conservative than the resolved tier (never less conservative). */
+export function allowedOverrideTiers(resolvedTier: LoadTier): LoadTier[] {
+  const order: LoadTier[] = ['heavy', 'moderate', 'low_impact']
+  const start = order.indexOf(resolvedTier)
+  return start < 0 ? [resolvedTier] : order.slice(start)
 }

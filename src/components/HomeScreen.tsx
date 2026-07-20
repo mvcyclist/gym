@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react'
 import type { WorkoutCategory } from '../types/workout'
+import {
+  FULL_BODY_POOL_PRESETS,
+  type FullBodyPoolPresetId,
+} from '../data/fullBodyPoolPresets'
 import type {
   ActivityEntry,
   ActivityType,
@@ -191,6 +195,7 @@ interface HomeScreenProps {
   onStartRecommendation: () => void
   onStartScheduledType: (type: ActivityType) => void
   onSelectWorkout: (workoutId: WorkoutCategory) => void
+  onSelectPoolPreset: (id: FullBodyPoolPresetId) => void
   onStartRecommendedWorkout: (workoutId: WorkoutCategory, exercises: Exercise[]) => void
   onSelectCardio: (type: WorkoutType) => void
   onSelectTimer: () => void
@@ -315,6 +320,7 @@ function HomeScreenBody({
   onStartRecommendation,
   onStartScheduledType,
   onSelectWorkout,
+  onSelectPoolPreset,
   onStartRecommendedWorkout,
   onSelectCardio,
   onSelectTimer,
@@ -812,6 +818,53 @@ function HomeScreenBody({
                 </button>
               ))}
             </div>
+
+            <div style={{
+              fontSize: 11,
+              color: 'rgba(255,255,255,0.25)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+              marginTop: 14,
+              marginBottom: 8,
+            }}>
+              Pool presets
+            </div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+              gap: 6,
+            }}>
+              {FULL_BODY_POOL_PRESETS.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => onSelectPoolPreset(preset.id)}
+                  title={preset.description}
+                  style={{
+                    background: '#161616',
+                    border: '0.5px solid rgba(255,255,255,0.12)',
+                    borderRadius: 8,
+                    padding: '12px 8px',
+                    color: '#fff',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'border-color 0.12s, background 0.12s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'rgba(239,68,68,0.55)'
+                    e.currentTarget.style.background = '#1a1a1a'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'
+                    e.currentTarget.style.background = '#161616'
+                  }}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+
             <button
               type="button"
               onClick={() => setRecommendedOpen(true)}

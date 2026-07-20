@@ -5,6 +5,11 @@ import { HomeScreen } from './components/HomeScreen'
 import { useAuth } from './hooks/useAuth'
 import { useUserProfileContext } from './contexts/UserProfileContext'
 import { getWorkoutById } from './data/workouts'
+import {
+  getFullBodyPoolPreset,
+  getFullBodyPoolPresetExercises,
+  type FullBodyPoolPresetId,
+} from './data/fullBodyPoolPresets'
 import { getCatalogExerciseById, getDefaultRestSeconds } from './data/exerciseCatalog'
 import { MobilityView } from './components/MobilityView'
 import { CoreView } from './components/CoreView'
@@ -66,6 +71,9 @@ function WorkoutApp() {
   const [priorDayDraftSession, setPriorDayDraftSession] = useState<WorkoutSession | null>(null)
   const [pendingWorkoutId, setPendingWorkoutId] = useState<WorkoutCategory | null>(null)
   const [pendingRecommendedExercises, setPendingRecommendedExercises] = useState<Exercise[] | null>(null)
+  const [previewExercises, setPreviewExercises] = useState<Exercise[] | null>(null)
+  const [previewTitle, setPreviewTitle] = useState<string | null>(null)
+  const [previewDescription, setPreviewDescription] = useState<string | null>(null)
   const [workoutCompleteOpen, setWorkoutCompleteOpen] = useState(false)
   const [workoutCompleteData, setWorkoutCompleteData] = useState<{
     todaySummary: TodaySummary
@@ -139,10 +147,12 @@ function WorkoutApp() {
       return buildDisplayExercisesForSession(session)
     }
 
+    if (previewExercises) return previewExercises
+
     const workout = getWorkoutById(selectedWorkoutType)
     if (!workout) return []
     return workout.exercises
-  }, [selectedWorkoutType, session])
+  }, [selectedWorkoutType, session, previewExercises])
 
   useEffect(() => {
     scrollToTopAfterLayout()
@@ -164,6 +174,9 @@ function WorkoutApp() {
     setPriorDayDraftSession(null)
     setPendingWorkoutId(null)
     setPendingRecommendedExercises(null)
+    setPreviewExercises(null)
+    setPreviewTitle(null)
+    setPreviewDescription(null)
     clearSession()
     reset()
     refresh()
@@ -173,7 +186,26 @@ function WorkoutApp() {
     (workoutId: WorkoutCategory) => {
       scrollToTop()
       clearSession()
+      setPreviewExercises(null)
+      setPreviewTitle(null)
+      setPreviewDescription(null)
       setSelectedWorkoutType(workoutId)
+      setCurrentExerciseIndex(0)
+      setScreen('workout')
+      reset()
+    },
+    [clearSession, reset],
+  )
+
+  const openPoolPresetPreview = useCallback(
+    (id: FullBodyPoolPresetId) => {
+      const preset = getFullBodyPoolPreset(id)
+      scrollToTop()
+      clearSession()
+      setSelectedWorkoutType('full_body')
+      setPreviewExercises(getFullBodyPoolPresetExercises(id))
+      setPreviewTitle(`Full Body · ${preset.label}`)
+      setPreviewDescription(preset.description)
       setCurrentExerciseIndex(0)
       setScreen('workout')
       reset()
@@ -284,9 +316,16 @@ function WorkoutApp() {
     [openWorkoutPreview, resumeSession, resumeWorkoutScreen],
   )
 
-  const handleStartWorkout = useCallback((customOrder?: string[]) => {
+  const handleStartWorkout = useCallback((customOrder?: string[], exercises?: Exercise[]) => {
     if (!selectedWorkoutType) return
-    startSession(selectedWorkoutType, customOrder)
+    if (exercises) {
+      startSession(selectedWorkoutType, customOrder ?? exercises.map((e) => e.id), exercises)
+    } else {
+      startSession(selectedWorkoutType, customOrder)
+    }
+    setPreviewExercises(null)
+    setPreviewTitle(null)
+    setPreviewDescription(null)
     reset()
     scrollToTopAfterLayout()
   }, [reset, selectedWorkoutType, startSession])
@@ -793,6 +832,7 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
             onStartRecommendation={handleStartRecommendation}
             onStartScheduledType={handleStartScheduledType}
             onSelectWorkout={handleSelectWorkout}
+            onSelectPoolPreset={openPoolPresetPreview}
             onStartRecommendedWorkout={handleStartRecommendedWorkout}
             onSelectCardio={handleSelectCardio}
             onSelectCore={handleSelectCore}
@@ -858,6 +898,10 @@ const showWorkoutCompleteSummary = useCallback((completed: WorkoutSession) => {
                 workoutId={selectedWorkoutType}
                 onStart={handleStartWorkout}
                 onBack={handleBackFromWorkoutPreview}
+                initialExercises={previewExercises ?? undefined}
+                titleOverride={previewTitle ?? undefined}
+                descriptionOverride={previewDescription ?? undefined}
+                lockTemplateSource={Boolean(previewExercises)}
               />
             )}
 

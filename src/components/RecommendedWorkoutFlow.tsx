@@ -8,7 +8,11 @@ import {
   emptyCheckInRegions,
 } from '../types/checkIn'
 import type { Exercise, WorkoutCategory } from '../types/workout'
-import { buildRecommendedWorkout, type RecommendedWorkout } from '../services/recommendedWorkoutService'
+import {
+  buildRecommendedWorkout,
+  getCatalogTier,
+  type RecommendedWorkout,
+} from '../services/recommendedWorkoutService'
 import { getUserProfile } from '../services/userProfileRepository'
 import type { LoadTier } from '../data/exerciseCatalog'
 
@@ -21,16 +25,28 @@ interface RecommendedWorkoutFlowProps {
   onStart: (category: WorkoutCategory, exercises: Exercise[]) => void
 }
 
-const FEELING_OPTIONS: Array<{ id: Exclude<GlobalFeeling, 'skip'>; label: string; hint: string }> = [
-  { id: 'good', label: 'Good to go', hint: 'Full volume' },
-  { id: 'meh', label: 'A bit meh', hint: 'Reduced volume' },
-  { id: 'beat_up', label: 'Beat up', hint: 'Minimal volume' },
-]
-
 const LOAD_TIER_LABEL: Record<LoadTier, string> = {
   heavy: 'Heavy',
   moderate: 'Moderate',
-  low_impact: 'Low impact',
+  low_impact: 'TRX',
+}
+
+const TIER_BADGE_STYLE: Record<LoadTier, { color: string; border: string; background: string }> = {
+  heavy: {
+    color: '#f87171',
+    border: '0.5px solid rgba(239,68,68,0.45)',
+    background: 'rgba(239,68,68,0.12)',
+  },
+  moderate: {
+    color: '#f0a83c',
+    border: '0.5px solid rgba(240,168,60,0.45)',
+    background: 'rgba(240,168,60,0.12)',
+  },
+  low_impact: {
+    color: '#4ade80',
+    border: '0.5px solid rgba(74,222,128,0.45)',
+    background: 'rgba(74,222,128,0.12)',
+  },
 }
 
 export function RecommendedWorkoutFlow({
@@ -73,8 +89,15 @@ export function RecommendedWorkoutFlow({
     setStep(built ? 'preview' : 'skip')
   }
 
-  const handleFeeling = (feeling: Exclude<GlobalFeeling, 'skip'>) => {
-    setGlobal(feeling)
+  const handleFeeling100 = () => {
+    const next: CheckIn = { global: '100', regions: emptyCheckInRegions() }
+    setGlobal('100')
+    setRegions(emptyCheckInRegions())
+    buildPreview(next)
+  }
+
+  const handleFeelingNot100 = () => {
+    setGlobal('not_100')
     setStep('regions')
   }
 
@@ -85,6 +108,40 @@ export function RecommendedWorkoutFlow({
 
   const setRegionStatus = (region: keyof typeof regions, status: RegionStatus) => {
     setRegions((prev) => ({ ...prev, [region]: status }))
+  }
+
+  const handleSwapExercise = (exerciseId: string, catalogId: string) => {
+    setRecommendation((prev) => {
+      if (!prev) return prev
+      const current = prev.exercises.find((e) => e.id === exerciseId)
+      if (!current) return prev
+      const meta = prev.metaByExerciseId[exerciseId]
+      const option = meta?.options
+        ?.flatMap((group) => group.exercises)
+        .find((item) => item.id === catalogId)
+      if (!option) return prev
+
+      const nextExercise: Exercise = {
+        ...current,
+        catalogExerciseId: option.id,
+        name: option.name,
+        equipment: option.equipmentLabel
+          ?? (option.equipmentKeys?.length ? option.equipmentKeys.join(', ') : current.equipment),
+      }
+      const nextTier = getCatalogTier(option.id) ?? meta.loadTier
+
+      return {
+        ...prev,
+        exercises: prev.exercises.map((e) => (e.id === exerciseId ? nextExercise : e)),
+        metaByExerciseId: {
+          ...prev.metaByExerciseId,
+          [exerciseId]: {
+            ...meta,
+            loadTier: nextTier,
+          },
+        },
+      }
+    })
   }
 
   return createPortal(
@@ -107,7 +164,7 @@ export function RecommendedWorkoutFlow({
         onClick={(e) => e.stopPropagation()}
         style={{
           width: '100%',
-          maxWidth: 440,
+          maxWidth: 480,
           maxHeight: '92vh',
           overflowY: 'auto',
           background: '#111',
@@ -144,48 +201,65 @@ export function RecommendedWorkoutFlow({
               CHECK-IN
             </p>
             <h2 style={{ fontSize: 24, fontWeight: 700, color: '#fff', margin: 0 }}>
-              How are you feeling overall?
+              How are you feeling today?
             </h2>
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', marginTop: 8, marginBottom: 20 }}>
-              This sets today&apos;s volume. Pain comes next — per body area.
+              If you&apos;re good, we go heavy — no need to probe further. If not, we&apos;ll ask what&apos;s off.
             </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {FEELING_OPTIONS.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => handleFeeling(option.id)}
-                  style={{
-                    textAlign: 'left',
-                    background: '#1a1a1a',
-                    border: '0.5px solid rgba(255,255,255,0.12)',
-                    borderRadius: 10,
-                    padding: '14px 16px',
-                    cursor: 'pointer',
-                    color: '#fff',
-                  }}
-                >
-                  <div style={{ fontSize: 15, fontWeight: 600 }}>{option.label}</div>
-                  <div style={{ fontSize: 12, color: 'rgba(239,68,68,0.75)', marginTop: 2 }}>{option.hint}</div>
-                </button>
-              ))}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <button
                 type="button"
-                onClick={handleSkipDay}
+                onClick={handleFeeling100}
                 style={{
                   textAlign: 'left',
-                  background: 'transparent',
-                  border: '0.5px solid rgba(255,255,255,0.1)',
-                  borderRadius: 10,
-                  padding: '14px 16px',
+                  background: 'rgba(239,68,68,0.1)',
+                  border: '1px solid rgba(239,68,68,0.45)',
+                  borderRadius: 12,
+                  padding: '16px 14px',
                   cursor: 'pointer',
-                  color: 'rgba(255,255,255,0.45)',
-                  fontSize: 14,
+                  color: '#fff',
                 }}
               >
-                Skip today — sick or sharp pain
+                <div style={{ fontSize: 18, fontWeight: 700 }}>100%</div>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', marginTop: 4 }}>
+                  Full weight, full volume
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={handleFeelingNot100}
+                style={{
+                  textAlign: 'left',
+                  background: '#1a1a1a',
+                  border: '0.5px solid rgba(255,255,255,0.12)',
+                  borderRadius: 12,
+                  padding: '16px 14px',
+                  cursor: 'pointer',
+                  color: '#fff',
+                }}
+              >
+                <div style={{ fontSize: 18, fontWeight: 700 }}>Not quite</div>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', marginTop: 4 }}>
+                  Let&apos;s figure out what&apos;s off
+                </div>
               </button>
             </div>
+            <button
+              type="button"
+              onClick={handleSkipDay}
+              style={{
+                marginTop: 16,
+                background: 'transparent',
+                border: 'none',
+                color: 'rgba(255,255,255,0.4)',
+                fontSize: 13,
+                cursor: 'pointer',
+                textDecoration: 'underline',
+                textUnderlineOffset: 3,
+              }}
+            >
+              Sick or sharp pain — skip today
+            </button>
           </>
         )}
 
@@ -195,27 +269,26 @@ export function RecommendedWorkoutFlow({
               CHECK-IN
             </p>
             <h2 style={{ fontSize: 24, fontWeight: 700, color: '#fff', margin: 0 }}>
-              How&apos;s each area feeling?
+              What&apos;s off?
             </h2>
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', marginTop: 8, marginBottom: 20 }}>
-              Answer body parts, not exercises — we&apos;ll match the right variant per pattern.
+              Answer body parts, not exercises
             </p>
-            <p style={{
-              fontSize: 11,
-              color: 'rgba(255,255,255,0.3)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.1em',
-              marginBottom: 12,
-            }}>
-              Regions
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 20 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
               {BODY_REGIONS.map((region) => (
-                <div key={region.id}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: '#fff', marginBottom: 8 }}>
+                <div
+                  key={region.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                  }}
+                >
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>
                     {region.label}
                   </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  <div style={{ display: 'flex', gap: 6 }}>
                     {REGION_STATUSES.map((status) => {
                       const selected = regions[region.id] === status
                       return (
@@ -266,31 +339,41 @@ export function RecommendedWorkoutFlow({
 
         {step === 'skip' && (
           <>
-            <p style={{ fontSize: 11, fontWeight: 700, color: '#ef4444', letterSpacing: '0.1em', marginBottom: 8 }}>
+            <p style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: '#ef4444',
+              letterSpacing: '0.1em',
+              marginBottom: 8,
+              textAlign: 'center',
+            }}>
               CHECK-IN
             </p>
-            <h2 style={{ fontSize: 24, fontWeight: 700, color: '#fff', margin: 0 }}>
-              Rest is the move
-            </h2>
-            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.55)', marginTop: 10, marginBottom: 24 }}>
-              No strength session today. Come back when you feel ready.
+            <p style={{
+              fontSize: 16,
+              color: 'rgba(255,255,255,0.75)',
+              textAlign: 'center',
+              margin: '24px 0',
+              lineHeight: 1.5,
+            }}>
+              No workout today. Rest, hydrate, check back tomorrow.
             </p>
             <button
               type="button"
-              onClick={handleClose}
+              onClick={reset}
               style={{
                 width: '100%',
-                background: '#ef4444',
-                border: 'none',
+                background: 'transparent',
+                border: '0.5px solid rgba(255,255,255,0.2)',
                 borderRadius: 10,
                 padding: '14px 16px',
                 color: '#fff',
-                fontSize: 15,
-                fontWeight: 700,
+                fontSize: 14,
+                fontWeight: 600,
                 cursor: 'pointer',
               }}
             >
-              Back to home
+              Start over
             </button>
           </>
         )}
@@ -313,12 +396,15 @@ export function RecommendedWorkoutFlow({
               letterSpacing: '0.1em',
               marginBottom: 10,
             }}>
-              Exercises
+              Exercises — tap to swap
             </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
               {recommendation.exercises.map((exercise, index) => {
                 const meta = recommendation.metaByExerciseId[exercise.id]
-                const tierLabel = meta?.loadTier ? LOAD_TIER_LABEL[meta.loadTier] : null
+                const tier = meta?.loadTier
+                const badge = tier ? TIER_BADGE_STYLE[tier] : null
+                const hasOptions = Boolean(meta?.options?.length)
+
                 return (
                   <div
                     key={exercise.id}
@@ -336,30 +422,68 @@ export function RecommendedWorkoutFlow({
                       {index + 1}
                     </span>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>{exercise.name}</div>
-                      <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
+                      {hasOptions ? (
+                        <select
+                          value={exercise.catalogExerciseId ?? ''}
+                          onChange={(e) => handleSwapExercise(exercise.id, e.target.value)}
+                          style={{
+                            width: '100%',
+                            background: '#111',
+                            color: '#fff',
+                            border: '0.5px solid rgba(255,255,255,0.15)',
+                            borderRadius: 8,
+                            padding: '8px 10px',
+                            fontSize: 14,
+                            fontWeight: 600,
+                          }}
+                        >
+                          {meta!.options!.map((group) => (
+                            <optgroup key={group.tier} label={LOAD_TIER_LABEL[group.tier]}>
+                              {group.exercises.map((option) => (
+                                <option key={option.id} value={option.id}>
+                                  {option.name}
+                                </option>
+                              ))}
+                            </optgroup>
+                          ))}
+                        </select>
+                      ) : (
+                        <div style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>
+                          {exercise.name}
+                        </div>
+                      )}
+                      <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>
                         {exercise.sets} × {exercise.reps}
                       </div>
                     </div>
-                    {tierLabel && (
+                    {tier && badge && (
                       <span style={{
                         fontSize: 10,
                         fontWeight: 700,
                         letterSpacing: '0.06em',
                         textTransform: 'uppercase',
-                        color: '#f87171',
-                        border: '0.5px solid rgba(239,68,68,0.45)',
+                        color: badge.color,
+                        border: badge.border,
+                        background: badge.background,
                         borderRadius: 6,
                         padding: '4px 8px',
                         flexShrink: 0,
                       }}>
-                        {tierLabel}
+                        {LOAD_TIER_LABEL[tier]}
                       </span>
                     )}
                   </div>
                 )
               })}
             </div>
+            <p style={{
+              fontSize: 11,
+              color: 'rgba(255,255,255,0.35)',
+              marginBottom: 18,
+              lineHeight: 1.4,
+            }}>
+              Dropdowns only offer this variant or lighter — today&apos;s check-in sets the ceiling.
+            </p>
             <div style={{ display: 'flex', gap: 8 }}>
               <button
                 type="button"

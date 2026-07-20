@@ -1,8 +1,10 @@
 # Recommended workout — e2e selection guide
 
+> **Superseded for check-in logic & UI:** §§4–7 (volume / load / worked examples) and the multi-level feeling UI in §1 describe the v1 model. Current source of truth is [21-checkin-binary-model.md](./21-checkin-binary-model.md) and [22-checkin-ui-spec.md](./22-checkin-ui-spec.md). This doc remains useful for category resolution (§3), accessories, and historical context.
+
 **Purpose:** Explain how **Recommended** turns a check-in into a concrete exercise list, so you can walk the product and iterate on the experience.
 
-**Related:** [movement-pattern-refactor-spec.md](./movement-pattern-refactor-spec.md) (Phases 3–4) · [19-phase1-2-pattern-pool-ui-compat.md](./19-phase1-2-pattern-pool-ui-compat.md)
+**Related:** [21-checkin-binary-model.md](./21-checkin-binary-model.md) · [22-checkin-ui-spec.md](./22-checkin-ui-spec.md) · [movement-pattern-refactor-spec.md](./movement-pattern-refactor-spec.md) (Phases 3–4) · [19-phase1-2-pattern-pool-ui-compat.md](./19-phase1-2-pattern-pool-ui-compat.md)
 
 **Code entry points**
 

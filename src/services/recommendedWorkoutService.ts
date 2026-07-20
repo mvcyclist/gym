@@ -1,5 +1,6 @@
 /**
  * Build a one-off recommended Exercise[] from check-in + template slots.
+ * See docs/21-checkin-binary-model.md.
  */
 import {
   getCatalogExerciseById,
@@ -9,16 +10,17 @@ import {
   type MovementPattern,
 } from '../data/exerciseCatalog'
 import { getTemplateSlots } from '../data/workoutTemplateSlots'
-import type { CheckIn, VolumeTier } from '../types/checkIn'
+import type { CheckIn } from '../types/checkIn'
 import type { TemplateSlot } from '../types/templateSlot'
 import type { Exercise, WorkoutCategory } from '../types/workout'
 import { getProgramType, type UserProfile } from '../types/userProfile'
 import {
+  allowedOverrideTiers,
   isSkipCheckIn,
+  parseTemplateSets,
   resolveLoadTier,
-  resolveVolumeTier,
+  resolveSets,
   sessionVolumeSummary,
-  VOLUME_SET_COUNT,
 } from './checkInService'
 import {
   exerciseFromCatalogId,
@@ -27,11 +29,15 @@ import {
 } from './slotResolver'
 import { getUserProfile } from './userProfileRepository'
 
-const LOAD_TIER_SOFTEN: LoadTier[] = ['heavy', 'moderate', 'low_impact']
+export interface TierOptionGroup {
+  tier: LoadTier
+  exercises: CatalogExercise[]
+}
 
 export interface RecommendedExerciseMeta {
   loadTier: LoadTier | null
-  volumeTier: VolumeTier
+  /** Pattern slots only — tier-grouped options for the override dropdown. */
+  options?: TierOptionGroup[]
 }
 
 export interface RecommendedWorkout {
@@ -42,49 +48,52 @@ export interface RecommendedWorkout {
   metaByExerciseId: Record<string, RecommendedExerciseMeta>
 }
 
-function pickFromTierPool(
+function poolForTier(
   pattern: Exclude<MovementPattern, 'accessory'>,
-  loadTier: LoadTier,
+  tier: LoadTier,
   profile: EquipmentProfile,
-  preferredId?: string,
-): CatalogExercise | undefined {
-  const tryTier = (tier: LoadTier): CatalogExercise | undefined => {
-    const pool = getExercisesByPattern(pattern, tier).filter((item) =>
-      matchesEquipment(item, profile),
-    )
-    if (preferredId) {
-      const preferred = pool.find((item) => item.id === preferredId)
-      if (preferred) return preferred
-    }
-    return pool[0]
-  }
-
-  const exact = tryTier(loadTier)
-  if (exact) return exact
-
-  const start = LOAD_TIER_SOFTEN.indexOf(loadTier)
-  for (let i = start + 1; i < LOAD_TIER_SOFTEN.length; i += 1) {
-    const fallback = tryTier(LOAD_TIER_SOFTEN[i])
-    if (fallback) return fallback
-  }
-  for (let i = start - 1; i >= 0; i -= 1) {
-    const fallback = tryTier(LOAD_TIER_SOFTEN[i])
-    if (fallback) return fallback
-  }
-
-  // Last resort: ignore equipment
-  const any = getExercisesByPattern(pattern, loadTier)
-  if (preferredId) {
-    const preferred = any.find((item) => item.id === preferredId)
-    if (preferred) return preferred
-  }
-  return any[0] ?? getCatalogExerciseById(preferredId ?? '')
+): CatalogExercise[] {
+  return getExercisesByPattern(pattern, tier).filter((item) => matchesEquipment(item, profile))
 }
 
-function applyVolumeSets(templateSets: string, volumeTier: VolumeTier): string {
-  const parsed = parseInt(templateSets, 10)
-  const base = Number.isNaN(parsed) || parsed < 1 ? 3 : parsed
-  return String(VOLUME_SET_COUNT[volumeTier](base))
+/**
+ * Build dropdown groups for a resolved tier: that tier and more conservative only.
+ * Empty tiers after equipment filter are omitted; if the resolved tier is empty,
+ * soften downward so options start at the next non-empty conservative tier.
+ * Never includes a less-conservative tier than resolved.
+ */
+export function buildSlotOptions(
+  pattern: Exclude<MovementPattern, 'accessory'>,
+  resolvedTier: LoadTier,
+  profile: EquipmentProfile,
+  preferredId?: string,
+): { groups: TierOptionGroup[]; selected: CatalogExercise | undefined } {
+  const allowed = allowedOverrideTiers(resolvedTier)
+  const pools = allowed.map((tier) => ({
+    tier,
+    exercises: poolForTier(pattern, tier, profile),
+  }))
+
+  // Soften-down: drop leading empty tiers so the dropdown starts at first non-empty allowed tier.
+  let start = 0
+  while (start < pools.length && pools[start].exercises.length === 0) {
+    start += 1
+  }
+  const groups = pools.slice(start).filter((group) => group.exercises.length > 0)
+
+  if (groups.length === 0) {
+    return { groups: [], selected: undefined }
+  }
+
+  const flat = groups.flatMap((group) => group.exercises)
+  if (preferredId) {
+    const preferred = flat.find((item) => item.id === preferredId)
+    if (preferred) return { groups, selected: preferred }
+  }
+
+  // First entry in the (possibly softened) resolved tier group, else first softer group.
+  const selected = groups[0].exercises[0]
+  return { groups, selected }
 }
 
 function resolvePatternSlot(
@@ -99,46 +108,52 @@ function resolvePatternSlot(
   }
   if (checkIn.global === 'skip') return null
 
-  const loadTier = resolveLoadTier(slot.movementPattern, checkIn.regions)
-  const volumeTier = resolveVolumeTier(slot.movementPattern, checkIn.global, checkIn.regions)
-  const picked = pickFromTierPool(
+  const loadTier = resolveLoadTier(slot.movementPattern, checkIn)
+  const { groups, selected } = buildSlotOptions(
     slot.movementPattern,
     loadTier,
     profile,
     slot.defaultCatalogExerciseId,
   )
-  if (!picked) return null
+  if (!selected) return null
 
-  const exercise = exerciseFromCatalogId(category, index, picked.id, {
+  const sets = String(resolveSets(checkIn, parseTemplateSets(slot.sets)))
+  const exercise = exerciseFromCatalogId(category, index, selected.id, {
     ...slot,
-    sets: applyVolumeSets(slot.sets, volumeTier),
+    sets,
   })
+
+  // Effective badge tier = selected exercise's catalog tier (may be softer than resolved).
+  const selectedTier = selected.loadTier ?? loadTier
 
   return {
     exercise,
-    meta: { loadTier, volumeTier },
+    meta: {
+      loadTier: selectedTier,
+      options: groups,
+    },
   }
 }
 
+/**
+ * Accessories: set-count only. Never call resolveLoadTier.
+ * Always use defaultCatalogExerciseId — no tier swap, no dropdown.
+ */
 function resolveAccessorySlot(
   slot: TemplateSlot,
   checkIn: CheckIn,
   category: WorkoutCategory,
   index: number,
 ): { exercise: Exercise; meta: RecommendedExerciseMeta } {
-  const volumeTier =
-    checkIn.global === 'skip'
-      ? 'minimal'
-      : resolveVolumeTier('accessory', checkIn.global, checkIn.regions)
-
+  const sets = String(resolveSets(checkIn, parseTemplateSets(slot.sets)))
   const exercise = exerciseFromCatalogId(category, index, slot.defaultCatalogExerciseId, {
     ...slot,
-    sets: applyVolumeSets(slot.sets, volumeTier),
+    sets,
   })
 
   return {
     exercise,
-    meta: { loadTier: null, volumeTier },
+    meta: { loadTier: null },
   }
 }
 
@@ -178,6 +193,7 @@ export function buildRecommendedWorkout(
       return
     }
 
+    // Explicit accessory branch — never reaches resolveLoadTier.
     // Full Body recommended = main lifts only (guided segments stay separate).
     if (category === 'full_body') return
 
@@ -203,4 +219,8 @@ export function buildRecommendedWorkout(
     exercises,
     metaByExerciseId,
   }
+}
+
+export function getCatalogTier(catalogId: string): LoadTier | null {
+  return getCatalogExerciseById(catalogId)?.loadTier ?? null
 }

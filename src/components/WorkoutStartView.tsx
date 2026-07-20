@@ -15,8 +15,14 @@ import type { Exercise, WorkoutCategory } from '../types/workout'
 
 interface WorkoutStartViewProps {
   workoutId: WorkoutCategory
-  onStart: (customOrder?: string[]) => void
+  onStart: (customOrder?: string[], exercises?: Exercise[]) => void
   onBack: () => void
+  /** When set, seed the preview list from these exercises instead of the saved template. */
+  initialExercises?: Exercise[]
+  titleOverride?: string
+  descriptionOverride?: string
+  /** Hide template shuffle / reset when previewing a fixed pool preset. */
+  lockTemplateSource?: boolean
 }
 
 function DragHandle() {
@@ -29,10 +35,20 @@ function DragHandle() {
   )
 }
 
-export function WorkoutStartView({ workoutId, onStart, onBack }: WorkoutStartViewProps) {
+export function WorkoutStartView({
+  workoutId,
+  onStart,
+  onBack,
+  initialExercises,
+  titleOverride,
+  descriptionOverride,
+  lockTemplateSource = false,
+}: WorkoutStartViewProps) {
   const { profile, refresh } = useUserProfileContext()
   const workout = getWorkoutById(workoutId)
-  const [exercises, setExercises] = useState<Exercise[]>(() => workout?.exercises ?? [])
+  const [exercises, setExercises] = useState<Exercise[]>(
+    () => initialExercises ?? workout?.exercises ?? [],
+  )
   const [templateSource, setTemplateSource] = useState(() => resolveTemplateSource(workoutId, profile))
   const [editingOrder, setEditingOrder] = useState(false)
   const dragIndex = useRef<number | null>(null)
@@ -84,18 +100,27 @@ export function WorkoutStartView({ workoutId, onStart, onBack }: WorkoutStartVie
     dragIndex.current = null
   }
 
+  const baselineExercises = initialExercises ?? workout.exercises
   const isCustomized =
-    exercises.length !== workout.exercises.length ||
-    exercises.some((e, i) => e.id !== workout.exercises[i]?.id)
+    exercises.length !== baselineExercises.length ||
+    exercises.some((e, i) => e.id !== baselineExercises[i]?.id) ||
+    (lockTemplateSource &&
+      exercises.some((e, i) => e.catalogExerciseId !== baselineExercises[i]?.catalogExerciseId))
 
   const handleStart = () => {
-    onStart(isCustomized ? exercises.map((e) => e.id) : undefined)
+    if (lockTemplateSource || isCustomized) {
+      onStart(exercises.map((e) => e.id), exercises)
+      return
+    }
+    onStart(undefined)
   }
 
   const canCycleTemplate =
-    workoutId !== 'full_body' || hasHistoryForWorkoutType('full_body')
+    !lockTemplateSource && (workoutId !== 'full_body' || hasHistoryForWorkoutType('full_body'))
 
   const isFullBodyStructured = workoutId === 'full_body'
+  const displayTitle = titleOverride ?? workout.title
+  const displayDescription = descriptionOverride ?? workout.description
 
   return (
     <section className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
@@ -109,34 +134,38 @@ export function WorkoutStartView({ workoutId, onStart, onBack }: WorkoutStartVie
 
       <div className="rounded-2xl border border-zinc-800 bg-zinc-900/90 p-6 sm:p-8">
         <p className="text-sm font-semibold uppercase tracking-wider text-red-500">
-          {workout.title} Day
+          {displayTitle} Day
         </p>
-        <h2 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{workout.title}</h2>
-        <p className="mt-3 text-sm leading-relaxed text-zinc-400">{workout.description}</p>
+        <h2 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{displayTitle}</h2>
+        <p className="mt-3 text-sm leading-relaxed text-zinc-400">{displayDescription}</p>
         <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
           Est. {workout.estimatedDuration}
           {isFullBodyStructured ? ' · 4 segments' : ` · ${exercises.length} exercise${exercises.length !== 1 ? 's' : ''}`}
         </p>
-        <p className="mt-1 text-xs text-red-400/70">{SOURCE_LABELS[templateSource]}</p>
+        <p className="mt-1 text-xs text-red-400/70">
+          {lockTemplateSource ? 'Pool preset' : SOURCE_LABELS[templateSource]}
+        </p>
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          {canCycleTemplate && (
+        {!lockTemplateSource && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {canCycleTemplate && (
+              <button
+                type="button"
+                onClick={handleTryAnotherSet}
+                className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-semibold text-zinc-300 transition hover:border-zinc-500 hover:bg-zinc-900"
+              >
+                Try another set ↻
+              </button>
+            )}
             <button
               type="button"
-              onClick={handleTryAnotherSet}
-              className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-semibold text-zinc-300 transition hover:border-zinc-500 hover:bg-zinc-900"
+              onClick={reloadFromProfile}
+              className="rounded-lg border border-zinc-800 px-3 py-1.5 text-xs font-semibold text-zinc-500 transition hover:border-zinc-600 hover:text-zinc-300"
             >
-              Try another set ↻
+              Reset to saved
             </button>
-          )}
-          <button
-            type="button"
-            onClick={reloadFromProfile}
-            className="rounded-lg border border-zinc-800 px-3 py-1.5 text-xs font-semibold text-zinc-500 transition hover:border-zinc-600 hover:text-zinc-300"
-          >
-            Reset to saved
-          </button>
-        </div>
+          </div>
+        )}
 
         <div className="mt-6 border-t border-zinc-800 pt-6">
           <div className="mb-3 flex items-center justify-between">

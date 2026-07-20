@@ -131,13 +131,13 @@ export const exerciseCatalog: CatalogExercise[] = [
     difficulty: 'intermediate',
     equipmentKeys: ['barbell'],
   }),
-  primary('dumbbell_incline_press', 'Dumbbell Incline Press', 'weighted', 'horizontal_push', 'heavy', {
+  primary('dumbbell_incline_press', 'Dumbbell Incline Press', 'weighted', 'horizontal_push', 'moderate', {
     movementClass: 'compound_upper',
     weightIncrementLbs: 2.5,
     difficulty: 'beginner',
     equipmentKeys: ['dumbbells', 'bench'],
   }),
-  primary('dumbbell_flat_press', 'Dumbbell Flat Press', 'weighted', 'horizontal_push', 'heavy', {
+  primary('dumbbell_flat_press', 'Dumbbell Flat Press', 'weighted', 'horizontal_push', 'moderate', {
     movementClass: 'compound_upper',
     weightIncrementLbs: 2.5,
     difficulty: 'beginner',
@@ -184,13 +184,13 @@ export const exerciseCatalog: CatalogExercise[] = [
     difficulty: 'intermediate',
     equipmentKeys: ['barbell'],
   }),
-  primary('chest_supported_row', 'Chest-Supported Row', 'weighted', 'horizontal_pull', 'heavy', {
+  primary('chest_supported_row', 'Chest-Supported Row', 'weighted', 'horizontal_pull', 'moderate', {
     movementClass: 'compound_upper',
     weightIncrementLbs: 2.5,
     difficulty: 'beginner',
     equipmentKeys: ['dumbbells', 'bench'],
   }),
-  primary('single_dumbbell_arm_rows', 'Single Dumbbell Arm Rows', 'weighted', 'horizontal_pull', 'heavy', {
+  primary('single_dumbbell_arm_rows', 'Single Dumbbell Arm Rows', 'weighted', 'horizontal_pull', 'moderate', {
     movementClass: 'compound_upper',
     weightIncrementLbs: 2.5,
     difficulty: 'intermediate',
@@ -221,7 +221,7 @@ export const exerciseCatalog: CatalogExercise[] = [
     difficulty: 'beginner',
     equipmentKeys: ['barbell', 'bench'],
   }),
-  primary('goblet_squat', 'Goblet Squat', 'weighted', 'squat', 'heavy', {
+  primary('goblet_squat', 'Goblet Squat', 'weighted', 'squat', 'moderate', {
     movementClass: 'compound_lower',
     weightIncrementLbs: 5,
     difficulty: 'beginner',
@@ -508,19 +508,19 @@ export const exerciseCatalog: CatalogExercise[] = [
   }),
 
   // --- Matrix: dumbbell additions ---
-  primary('dumbbell_bulgarian_split_squat', 'Dumbbell Bulgarian Split Squat', 'weighted', 'squat', 'heavy', {
+  primary('dumbbell_bulgarian_split_squat', 'Dumbbell Bulgarian Split Squat', 'weighted', 'squat', 'moderate', {
     movementClass: 'compound_lower',
     weightIncrementLbs: 5,
     difficulty: 'advanced',
     equipmentKeys: ['dumbbells'],
   }),
-  primary('dumbbell_lunges', 'Dumbbell Lunges', 'weighted', 'squat', 'heavy', {
+  primary('dumbbell_lunges', 'Dumbbell Lunges', 'weighted', 'squat', 'moderate', {
     movementClass: 'compound_lower',
     weightIncrementLbs: 5,
     difficulty: 'intermediate',
     equipmentKeys: ['dumbbells'],
   }),
-  primary('dumbbell_romanian_deadlift', 'Dumbbell Romanian Deadlift', 'weighted', 'hinge', 'heavy', {
+  primary('dumbbell_romanian_deadlift', 'Dumbbell Romanian Deadlift', 'weighted', 'hinge', 'moderate', {
     movementClass: 'compound_lower',
     weightIncrementLbs: 5,
     difficulty: 'intermediate',
@@ -538,7 +538,7 @@ export const exerciseCatalog: CatalogExercise[] = [
     difficulty: 'intermediate',
     equipmentKeys: ['dumbbells'],
   }),
-  primary('dumbbell_floor_press', 'Dumbbell Floor Press', 'weighted', 'horizontal_push', 'heavy', {
+  primary('dumbbell_floor_press', 'Dumbbell Floor Press', 'weighted', 'horizontal_push', 'moderate', {
     movementClass: 'compound_upper',
     weightIncrementLbs: 2.5,
     difficulty: 'beginner',
@@ -550,7 +550,7 @@ export const exerciseCatalog: CatalogExercise[] = [
     difficulty: 'advanced',
     equipmentKeys: ['dumbbells'],
   }),
-  primary('seated_dumbbell_shoulder_press', 'Seated Dumbbell Shoulder Press', 'weighted', 'vertical_push', 'heavy', {
+  primary('seated_dumbbell_shoulder_press', 'Seated Dumbbell Shoulder Press', 'weighted', 'vertical_push', 'moderate', {
     movementClass: 'compound_upper',
     weightIncrementLbs: 2.5,
     difficulty: 'beginner',

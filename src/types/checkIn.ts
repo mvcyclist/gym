@@ -1,6 +1,6 @@
-export type GlobalFeeling = 'good' | 'meh' | 'beat_up' | 'skip'
+export type GlobalFeeling = '100' | 'not_100' | 'skip'
 
-export type RegionStatus = 'fine' | 'sore' | 'stiff' | 'achy'
+export type RegionStatus = 'fine' | 'bothering'
 
 export type BodyRegion =
   | 'knees'
@@ -10,10 +10,9 @@ export type BodyRegion =
   | 'upper_back'
   | 'elbows_wrists'
 
-export type VolumeTier = 'full' | 'reduced' | 'minimal'
-
 export interface CheckIn {
   global: GlobalFeeling
+  /** Only meaningful when global === 'not_100'; defaults fine otherwise. */
   regions: Record<BodyRegion, RegionStatus>
 }
 
@@ -26,13 +25,11 @@ export const BODY_REGIONS: Array<{ id: BodyRegion; label: string }> = [
   { id: 'elbows_wrists', label: 'Elbows / wrists' },
 ]
 
-export const REGION_STATUSES: RegionStatus[] = ['fine', 'sore', 'stiff', 'achy']
+export const REGION_STATUSES: RegionStatus[] = ['fine', 'bothering']
 
 export const REGION_STATUS_LABELS: Record<RegionStatus, string> = {
   fine: 'Fine',
-  sore: 'Sore',
-  stiff: 'Stiff',
-  achy: 'Achy',
+  bothering: 'Bothering me',
 }
 
 export function emptyCheckInRegions(): Record<BodyRegion, RegionStatus> {
