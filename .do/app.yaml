@@ -1,0 +1,18 @@
+name: busydad-gym-web
+static_sites:
+  - name: busydad-gym
+    build_command: npm run build
+    output_dir: dist
+    environment_slug: javascript
+    git:
+      repo_clone_url: https://github.com/mvcyclist/gym.git
+      branch: do-app-platform-migration
+    routes:
+      - path: /
+    catchall_document: index.html
+    envs:
+      - key: VITE_SUPABASE_URL
+        scope: RUN_AND_BUILD_TIME
+      - key: VITE_SUPABASE_ANON_KEY
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
